@@ -17,7 +17,7 @@ type GuildRole = { id: string; name: string };
 
 function fail(request: Request, message: string) {
   return Response.redirect(
-    new URL(`/auth?erro=${encodeURIComponent(message)}`, request.url),
+    new URL(`/?erro=${encodeURIComponent(message)}`, request.url),
     302,
   );
 }
@@ -52,7 +52,11 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
           }),
         });
         if (!tokenRes.ok) {
-          return fail(request, "Não foi possível validar o login com o Discord.");
+          const detalhe = (await tokenRes.text()).slice(0, 300);
+          return fail(
+            request,
+            `Não foi possível validar o login com o Discord (${tokenRes.status}). Verifique se a URL de redirecionamento ${redirectUri} está cadastrada no portal do Discord e se DISCORD_CLIENT_ID/SECRET estão corretos. Detalhe: ${detalhe}`,
+          );
         }
         const token = (await tokenRes.json()) as { access_token: string };
 
