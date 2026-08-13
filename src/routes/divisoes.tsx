@@ -156,48 +156,62 @@ function Divisoes() {
               <GoldRule className="my-4" />
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">Capitão</p>
-                  <p className="text-sm">{d.lider_nome ?? d.lider_discord ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
-                    Vice-Capitão
-                  </p>
-                  <p className="text-sm">{d.vice_nome ?? d.vice_discord ?? "—"}</p>
-                </div>
+                <LiderancaLinha
+                  rotulo="Capitão"
+                  id={d.lider_id}
+                  nome={d.lider_nome ?? d.lider_discord}
+                  avatarHash={d.lider_avatar}
+                />
+                <LiderancaLinha
+                  rotulo="Vice-Capitão"
+                  id={d.vice_lider_id}
+                  nome={d.vice_nome ?? d.vice_discord}
+                  avatarHash={d.vice_avatar}
+                />
               </div>
 
-              {d.membros.length > 0 ? (
-                <ul className="mt-4 flex flex-wrap gap-2">
-                  {d.membros.map((m) => (
-                    <li
-                      key={m.discord_id}
-                      className="flex items-center gap-2 rounded-full border border-border bg-muted/50 py-1 pr-2 pl-1"
-                    >
-                      <MemberAvatar
-                        discordId={m.discord_id}
-                        avatarHash={m.avatar_hash}
-                        size={24}
-                        alt=""
-                      />
-                      <span className="text-xs">
-                        {m.nome_rp || m.discord_username || m.discord_id}
-                      </span>
-                      {podeGerenciar ? (
-                        <button
-                          type="button"
-                          aria-label={`Remover ${m.discord_username ?? ""} da divisão`}
-                          className="text-muted-foreground transition-colors hover:text-foreground"
-                          onClick={() => removerMembroAcao.mutate({ membroId: m.discord_id })}
+              {(() => {
+                const comuns = d.membros.filter(
+                  (m) => m.discord_id !== d.lider_id && m.discord_id !== d.vice_lider_id,
+                );
+                if (comuns.length === 0) return null;
+                return (
+                  <div className="mt-4">
+                    <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+                      Membros
+                    </p>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {comuns.map((m) => (
+                        <li
+                          key={m.discord_id}
+                          className="flex items-center gap-2 rounded-full border border-border bg-muted/50 py-1 pr-2 pl-1"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+                          <MemberAvatar
+                            discordId={m.discord_id}
+                            avatarHash={m.avatar_hash}
+                            size={24}
+                            alt=""
+                          />
+                          <span className="text-xs">
+                            {m.nome_rp || m.discord_username || m.discord_id}
+                          </span>
+                          {podeGerenciar ? (
+                            <button
+                              type="button"
+                              aria-label={`Remover ${m.discord_username ?? ""} da divisão`}
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                              onClick={() => removerMembroAcao.mutate({ membroId: m.discord_id })}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
 
               {podeGerenciar || podeCriar ? (
                 <div className="mt-4 flex flex-wrap gap-2">
