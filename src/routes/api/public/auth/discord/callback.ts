@@ -100,6 +100,22 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
             .eq("discord_id", discordUser.id)
             .maybeSingle();
           nomeRp = (data as { nome_rp: string | null } | null)?.nome_rp ?? null;
+
+          // Novo integrante entra sempre como "Em Analise".
+          if (!data) {
+            await db.from("membros").insert({
+              discord_id: discordUser.id,
+              discord_username: discordUser.username,
+              nome_rp: discordUser.global_name ?? discordUser.username,
+              cargo: "Em Analise",
+              status: "Em Analise",
+              avatar_hash: discordUser.avatar,
+              data_entrada: new Date().toISOString(),
+            });
+            const { ajustarCargoDiscord } = await import("@/lib/discord.server");
+            await ajustarCargoDiscord(discordUser.id, "Em Analise", "add");
+            roleNames.push("Em Analise");
+          }
         } catch {
           nomeRp = null;
         }
