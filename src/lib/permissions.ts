@@ -158,3 +158,8 @@ export function cargoPrincipal(user: SessionUserView | null): string | null {
   if (!user) return null;
   return CARGOS_PERMITIDOS.find((c) => temCargo(user, c)) ?? null;
 }
+
+/** Cargo de maior hierarquia da lista (usado no campo curto do banco). */
+export function cargoPrimario(cargos: string[]): string {
+  return CARGOS_PERMITIDOS.find((c) => cargos.includes(c)) ?? cargos[0] ?? "Em Analise";
+}
