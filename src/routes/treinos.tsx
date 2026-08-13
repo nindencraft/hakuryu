@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, MemberAvatar, PageTitle } from "@/components/hakuryu/ui-bits";
