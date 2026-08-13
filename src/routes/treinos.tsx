@@ -239,7 +239,13 @@ function TreinoCard({
           <Badge variant="outline" className="border-primary/40">
             {treino.tipo}
           </Badge>
+          {treino.aliado ? (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              vs {treino.aliado}
+            </Badge>
+          ) : null}
           {treino.status ? <Badge variant="secondary">{treino.status}</Badge> : null}
+
           {treino.adiamento ? (
             <Badge variant="outline" className="border-primary/40 text-primary">
               Adiado{treino.adiamento.antes ? ` (era ${formatarData(treino.adiamento.antes.slice(0, 10))})` : ""}
