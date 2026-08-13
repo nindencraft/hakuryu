@@ -914,11 +914,23 @@ export async function removerMembroDivisao(
     await podeGerirDivisao(user, await carregarLideranca(divisaoId)),
     "Você não gerencia esta divisão.",
   );
+  const lideranca = await carregarLideranca(divisaoId);
+  const novoLider = lideranca.lider_id === input.membroId ? null : lideranca.lider_id;
+  const novoVice = lideranca.vice_lider_id === input.membroId ? null : lideranca.vice_lider_id;
+  if (novoLider !== lideranca.lider_id || novoVice !== lideranca.vice_lider_id) {
+    await db
+      .from("divisoes")
+      .update({ lider_id: novoLider, vice_lider_id: novoVice })
+      .eq("id", divisaoId);
+    await sincronizarCargosLideranca(db, lideranca, novoLider, novoVice);
+  }
+
   const { error } = await db
     .from("membros")
     .update({ divisao_id: null })
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
+  await trocarCargoDivisaoDiscord(input.membroId, divisaoId, null);
   return { ok: true };
 }
 
@@ -928,11 +940,22 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   // Liderança perde o cargo de capitão junto com a divisão.
   const lideranca = await carregarLideranca(input.divisaoId);
   await sincronizarCargosLideranca(db, lideranca, null, null);
+
+  // Todos os integrantes perdem o cargo do Discord da divisão.
+  const { data: integrantes } = await db
+    .from("membros")
+    .select("discord_id")
+    .eq("divisao_id", input.divisaoId);
+  for (const m of (integrantes ?? []) as { discord_id: string }[]) {
+    await trocarCargoDivisaoDiscord(m.discord_id, input.divisaoId, null);
+  }
+
   await db.from("membros").update({ divisao_id: null }).eq("divisao_id", input.divisaoId);
   const { error } = await db.from("divisoes").delete().eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 /* ========== Escrita: alianças ========== */
 
