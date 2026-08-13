@@ -810,22 +810,49 @@ export async function atualizarDivisao(
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
 
-  const entrando = [
-    ...(liderId ? [liderId] : []),
-    ...(viceLiderId ? [viceLiderId] : []),
-    ...input.novosMembros,
-  ];
+  const entrando = Array.from(
+    new Set([
+      ...(liderId ? [liderId] : []),
+      ...(viceLiderId ? [viceLiderId] : []),
+      ...input.novosMembros,
+    ]),
+  );
   if (entrando.length > 0) {
+    // Guarda a divisão anterior de cada um para trocar o cargo no Discord.
+    const { data: antesData } = await db
+      .from("membros")
+      .select("discord_id, divisao_id")
+      .in("discord_id", entrando);
+    const anteriores = new Map(
+      ((antesData ?? []) as { discord_id: string; divisao_id: number | null }[]).map((m) => [
+        m.discord_id,
+        m.divisao_id,
+      ]),
+    );
+
     const { error: err2 } = await db
       .from("membros")
       .update({ divisao_id: input.divisaoId })
-      .in("discord_id", Array.from(new Set(entrando)));
+      .in("discord_id", entrando);
     if (err2) throw new Error(err2.message);
+
+    for (const id of entrando) {
+      await trocarCargoDivisaoDiscord(id, anteriores.get(id) ?? null, input.divisaoId);
+    }
+  }
+
+  // Quem deixou a liderança e não faz mais parte da divisão perde o cargo dela.
+  for (const antigo of [divisao.lider_id, divisao.vice_lider_id]) {
+    if (!antigo || entrando.includes(antigo)) continue;
+    if ((await divisaoDoUsuario(antigo)) !== input.divisaoId) {
+      await trocarCargoDivisaoDiscord(antigo, input.divisaoId, null);
+    }
   }
 
   await sincronizarCargosLideranca(db, divisao, liderId, viceLiderId);
   return { ok: true };
 }
+
 
 /** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
 async function sincronizarCargosLideranca(
