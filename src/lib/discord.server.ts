@@ -56,18 +56,18 @@ function normalizar(v: string): string {
     .trim();
 }
 
-/** Adiciona ou remove um cargo do Discord. Falhas são silenciosas (best-effort). */
-export async function ajustarCargoDiscord(
+/** Adiciona ou remove um cargo pelo ID. Falhas são silenciosas (best-effort). */
+export async function ajustarCargoPorId(
   discordId: string,
-  nomeCargo: string,
+  roleId: string,
   acao: "add" | "remove",
 ): Promise<void> {
   try {
     const config = getConfig();
-    const roleId = await buscarRoleId(nomeCargo);
-    if (!roleId) return;
+    const id = roleId.trim().replace(/\D/g, "");
+    if (!id) return;
     await fetch(
-      `https://discord.com/api/v10/guilds/${config.discordGuildId}/members/${discordId}/roles/${roleId}`,
+      `https://discord.com/api/v10/guilds/${config.discordGuildId}/members/${discordId}/roles/${id}`,
       {
         method: acao === "add" ? "PUT" : "DELETE",
         headers: { Authorization: `Bot ${config.discordBotToken}` },
@@ -77,6 +77,59 @@ export async function ajustarCargoDiscord(
     /* best-effort */
   }
 }
+
+/**
+ * Adiciona ou remove um cargo do Discord pelo nome.
+ * Usa o ID cadastrado nas Configurações quando existir; senão procura pelo nome.
+ */
+export async function ajustarCargoDiscord(
+  discordId: string,
+  nomeCargo: string,
+  acao: "add" | "remove",
+): Promise<void> {
+  try {
+    const { lerConfig, chaveCargo } = await import("./settings.server");
+    const configurado = await lerConfig(chaveCargo(nomeCargo));
+    const roleId = configurado ?? (await buscarRoleId(nomeCargo));
+    if (!roleId) return;
+    await ajustarCargoPorId(discordId, roleId, acao);
+  } catch {
+    /* best-effort */
+  }
+}
+
+export type EmbedDiscord = {
+  title: string;
+  description?: string;
+  color?: number;
+  fields?: { name: string; value: string; inline?: boolean }[];
+  thumbnail?: { url: string };
+  timestamp?: string;
+};
+
+/** Publica um embed em um canal do servidor. Best-effort. */
+export async function enviarMensagemCanal(
+  chaveCanal: string,
+  embed: EmbedDiscord,
+): Promise<void> {
+  try {
+    const { lerConfig } = await import("./settings.server");
+    const canalId = (await lerConfig(chaveCanal))?.replace(/\D/g, "");
+    if (!canalId) return;
+    const config = getConfig();
+    await fetch(`https://discord.com/api/v10/channels/${canalId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${config.discordBotToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ embeds: [{ color: 0xd4af37, ...embed }] }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 
 /**
  * Cargos de todos os membros do servidor (1 chamada), para usar o Discord
