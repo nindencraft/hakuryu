@@ -327,16 +327,15 @@ export async function trocarCargo(
   );
 
   const db = getDb();
-  const { data: atual } = await db
-    .from("membros")
-    .select("cargo")
-    .eq("discord_id", input.membroId)
-    .maybeSingle();
+  const { fetchCargosAtuais } = await import("./discord.server");
+  const doDiscord = await fetchCargosAtuais(input.membroId);
 
-  const antigos = ((atual as { cargo: string | null } | null)?.cargo ?? "")
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  const norm = (v: string) =>
+    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const antigos = doDiscord
+    ? CARGOS_PERMITIDOS.filter((c) => doDiscord.some((r) => norm(r) === norm(c)))
+    : [];
+
 
   // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
