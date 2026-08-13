@@ -79,25 +79,33 @@ export function podeCriarDivisao(user: SessionUserView | null): boolean {
   return podeGerenciarMembros(user);
 }
 
-type DivisaoLideranca = { lider_id: string | null; vice_lider_id: string | null };
+type DivisaoLideranca = { id?: number; lider_id: string | null; vice_lider_id: string | null };
 
 /** Líder e vice-líder administram a própria divisão. */
 export function podeGerenciarDivisao(
   user: SessionUserView | null,
   divisao: DivisaoLideranca,
+  minhaDivisaoId?: number | null,
 ): boolean {
   if (!user) return false;
   if (podeCriarDivisao(user)) return true;
-  return user.id === divisao.lider_id || user.id === divisao.vice_lider_id;
+  if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
+  const lideraDivisao =
+    temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lideraDivisao && minhaDivisaoId != null && minhaDivisaoId === divisao.id;
 }
 
 /** Só o líder da divisão (ou a cúpula) escolhe o vice-líder. */
 export function podeDefinirLiderancaDivisao(
   user: SessionUserView | null,
   divisao: DivisaoLideranca,
+  minhaDivisaoId?: number | null,
 ): boolean {
   if (!user) return false;
-  return podeCriarDivisao(user) || user.id === divisao.lider_id;
+  if (podeCriarDivisao(user) || user.id === divisao.lider_id) return true;
+  return (
+    temCargo(user, "Líder de Divisão") && minhaDivisaoId != null && minhaDivisaoId === divisao.id
+  );
 }
 
 export function podeGerenciarDivisoes(user: SessionUserView | null): boolean {

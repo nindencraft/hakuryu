@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
@@ -81,6 +81,9 @@ function Divisoes() {
   const user = useSessionUser();
   const podeCriar = podeCriarDivisao(user);
   const { data, isPending, error } = useQuery(divisoesQuery);
+  const membros = useQuery(membrosQuery);
+  const minhaDivisaoId =
+    (membros.data ?? []).find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
   const [criando, setCriando] = useState(false);
   const [gerenciando, setGerenciando] = useState<Divisao | null>(null);
   const [deletando, setDeletando] = useState<Divisao | null>(null);
@@ -121,7 +124,7 @@ function Divisoes() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {(data ?? []).map((d) => {
-            const podeGerenciar = podeGerenciarDivisao(user, d);
+            const podeGerenciar = podeGerenciarDivisao(user, d, minhaDivisaoId);
             return (
             <article key={d.id} className="card-gold p-5">
               <div className="flex items-center gap-4">
@@ -322,11 +325,23 @@ function GerenciarDivisaoDialog({
 }) {
   const user = useSessionUser();
   const podeTrocarLider = podeCriarDivisao(user);
-  const podeTrocarVice = divisao ? podeDefinirLiderancaDivisao(user, divisao) : false;
   const membros = useQuery(membrosQuery);
+  const minhaDivisaoId =
+    (membros.data ?? []).find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
+  const podeTrocarVice = divisao
+    ? podeDefinirLiderancaDivisao(user, divisao, minhaDivisaoId)
+    : false;
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
   const [novos, setNovos] = useState<string[]>([]);
+
+  // Preenche os campos com a liderança atual sempre que abrir outra divisão.
+  useEffect(() => {
+    if (!divisao) return;
+    setLider(divisao.lider_id ?? NENHUM);
+    setVice(divisao.vice_lider_id ?? NENHUM);
+    setNovos([]);
+  }, [divisao]);
 
   const acao = useAcao<{
     divisaoId: number;
