@@ -566,8 +566,28 @@ export async function criarTreino(
     criado_por: user.id,
   });
   if (error) throw new Error(error.message);
+
+  const { enviarMensagemCanal } = await import("./discord.server");
+  await enviarMensagemCanal("canal_treinos", {
+    title: `🐉 Novo treino: ${input.titulo}`,
+    description: input.descricao?.trim() || undefined,
+    fields: [
+      { name: "Data", value: input.data_treino, inline: true },
+      { name: "Horário", value: input.horario || "A definir", inline: true },
+      { name: "Tipo", value: input.tipo, inline: true },
+      { name: "Local", value: input.local || "A definir", inline: true },
+      { name: "Divisão", value: input.divisao_responsavel || "Geral", inline: true },
+      ...(aliado ? [{ name: "Gang aliada", value: aliado, inline: true }] : []),
+      {
+        name: "Criado por",
+        value: user.nomeRp || user.globalName || user.username,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  });
   return { ok: true };
 }
+
 
 
 /** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
