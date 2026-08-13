@@ -145,9 +145,11 @@ export const criarTreino = createServerFn({ method: "POST" })
       tipo: string;
       local: string;
       divisao_responsavel: string;
+      aliado: string;
     }) => data,
   )
   .handler(async ({ data }) => svc.criarTreino(await svc.requireUser(getRequest()), data));
+
 
 export const deletarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
