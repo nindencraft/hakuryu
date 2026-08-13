@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/public/auth/discord/login")({
           const message =
             error instanceof ConfigError ? error.message : "Configuração inválida";
           return Response.redirect(
-            new URL(`/auth?erro=${encodeURIComponent(message)}`, request.url),
+            new URL(`/?erro=${encodeURIComponent(message)}`, request.url),
             302,
           );
         }
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/api/public/auth/discord/login")({
         authorizeUrl.searchParams.set("redirect_uri", redirectUri);
         authorizeUrl.searchParams.set("response_type", "code");
         authorizeUrl.searchParams.set("scope", "identify guilds guilds.members.read");
-        authorizeUrl.searchParams.set("prompt", "none");
 
         return Response.redirect(authorizeUrl.toString(), 302);
       },
