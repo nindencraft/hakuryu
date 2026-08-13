@@ -21,6 +21,10 @@ import type {
 export async function requireUser(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
+  // Revalida os cargos direto no Discord (a sessão pode estar defasada).
+  const { fetchCargosAtuais } = await import("./discord.server");
+  const cargosAtuais = await fetchCargosAtuais(user.id);
+  if (cargosAtuais) user.roles = cargosAtuais;
   if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
