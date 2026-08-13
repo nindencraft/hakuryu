@@ -421,14 +421,46 @@ export async function advertirMembro(
 
   // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
   const { error } = await db.from("punicoes").insert({ ...base, staff_id: user.id });
-  if (!error) return { ok: true };
-  if (!/staff_id/i.test(error.message)) throw new Error(error.message);
+  if (error) {
+    if (!/staff_id/i.test(error.message)) throw new Error(error.message);
+    const { error: err2 } = await db.from("punicoes").insert(base);
+    if (err2) throw new Error(err2.message);
+  }
 
-  const { error: err2 } = await db.from("punicoes").insert(base);
-  if (err2) throw new Error(err2.message);
-
+  await anunciarPunicao(db, user, input);
   return { ok: true };
 }
+
+/** Publica a advertência no canal configurado. */
+async function anunciarPunicao(
+  db: ReturnType<typeof getDb>,
+  user: SessionUser,
+  input: { membroId: string; tipo: string; motivo: string },
+) {
+  const { data } = await db
+    .from("membros")
+    .select("nome_rp, discord_username")
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+  const alvo = (data as { nome_rp: string | null; discord_username: string | null } | null) ?? null;
+  const nome = alvo?.nome_rp || alvo?.discord_username || input.membroId;
+  const { enviarMensagemCanal } = await import("./discord.server");
+  await enviarMensagemCanal("canal_advertencias", {
+    title: `⚠️ ${input.tipo} aplicado`,
+    description: `<@${input.membroId}>`,
+    fields: [
+      { name: "Membro", value: nome, inline: true },
+      { name: "Tipo", value: input.tipo, inline: true },
+      { name: "Motivo", value: input.motivo || "Não informado" },
+      {
+        name: "Aplicado por",
+        value: user.nomeRp || user.globalName || user.username,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  });
+}
+
 
 export async function trocarCargo(
   user: SessionUser,
