@@ -1136,6 +1136,43 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   return { ok: true };
 }
 
+/* ========== Dados pessoais do membro ========== */
+
+/** O próprio membro edita sua ficha; a liderança pode editar a de qualquer um. */
+export async function atualizarDadosMembro(
+  user: SessionUser,
+  input: {
+    membroId: string;
+    nome_rp: string;
+    nome_roblox: string;
+    genero: string;
+    altura: string;
+    estilo_luta_principal: string;
+  },
+) {
+  const alvo = input.membroId || user.id;
+  assert(
+    alvo === user.id || podeGerenciarMembros(user),
+    "Você só pode alterar os seus próprios dados.",
+  );
+
+  const limpo = (v: string) => (v ?? "").trim() || null;
+  const alturaNum = Number((input.altura ?? "").toString().replace(",", "."));
+
+  const { error } = await getDb()
+    .from("membros")
+    .update({
+      nome_rp: limpo(input.nome_rp),
+      nome_roblox: limpo(input.nome_roblox),
+      genero: limpo(input.genero),
+      altura_jogo: Number.isFinite(alturaNum) && input.altura?.trim() ? alturaNum : null,
+      estilo_luta_principal: limpo(input.estilo_luta_principal),
+    })
+    .eq("discord_id", alvo);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
 /* ========== Configurações do painel ========== */
 
 export async function loadConfiguracoesPainel(user: SessionUser) {
