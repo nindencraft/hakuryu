@@ -503,13 +503,19 @@ export async function criarTreino(
     tipo: string;
     local: string;
     divisao_responsavel: string;
+    aliado: string;
   },
 ) {
   assert(podeGerenciarTreinos(user));
   const db = getDb();
+  const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
+  const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
+  const descricao =
+    `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
+
   const { error } = await db.from("treinos").insert({
     titulo: input.titulo,
-    descricao: input.descricao || null,
+    descricao,
     data_treino: input.data_treino,
     horario: input.horario || null,
     tipo: input.tipo,
@@ -521,6 +527,7 @@ export async function criarTreino(
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 /** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
 async function requireDonoTreino(user: SessionUser, treinoId: number) {
