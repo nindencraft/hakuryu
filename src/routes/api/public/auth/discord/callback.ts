@@ -37,7 +37,8 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
           return fail(request, (error as Error).message);
         }
 
-        const redirectUri = `${url.origin}/api/public/auth/discord/callback`;
+        const redirectUri =
+          config.discordRedirectUri || `${url.origin}/api/public/auth/discord/callback`;
 
         // 1. Troca o código pelo token de acesso
         const tokenRes = await fetch("https://discord.com/api/v10/oauth2/token", {
