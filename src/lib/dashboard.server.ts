@@ -343,12 +343,14 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
   const { data, error } = await db.from("parcerias").select("*").order("nome");
   if (error) {
     const code = (error as { code?: string }).code ?? "";
+    const msg = error.message ?? "";
     const ausente =
       code === "42P01" ||
       code === "PGRST205" ||
-      /relation .* does not exist/i.test(error.message);
+      /relation .* does not exist/i.test(msg) ||
+      /Could not find the .* column of .* in the schema cache/i.test(msg);
     if (ausente) return { parcerias: [], tabelaAusente: true };
-    throw new Error(`${error.message}${code ? ` (${code})` : ""}`);
+    throw new Error(`${msg}${code ? ` (${code})` : ""}`);
   }
   const linhas = (data ?? []) as (Omit<
     Parceria,
