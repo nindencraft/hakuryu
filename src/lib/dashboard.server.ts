@@ -346,6 +346,21 @@ function separarAlianca(observacoes: string | null) {
   };
 }
 
+/** A tabela legada pode usar outro nome de chave primária (ex.: id_parceria). */
+let idParceriasCache: string | null = null;
+export async function colunaIdParcerias(): Promise<string> {
+  if (idParceriasCache) return idParceriasCache;
+  const db = getDb();
+  const { data } = await db.from("parcerias").select("*").limit(1);
+  const linha = (data ?? [])[0] as Record<string, unknown> | undefined;
+  const chaves = linha ? Object.keys(linha) : [];
+  idParceriasCache =
+    chaves.find((c) => c === "id") ??
+    chaves.find((c) => /^id[_-]?/i.test(c) || /[_-]id$/i.test(c)) ??
+    "id";
+  return idParceriasCache;
+}
+
 export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db.from("parcerias").select("*").order("nome");
@@ -371,10 +386,12 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
   > &
     Partial<Parceria>)[];
 
+  const colunaId = await colunaIdParcerias();
   const parcerias = linhas.map((row) => {
     const { observacoes, extras } = separarAlianca(row.observacoes ?? null);
     return {
       ...row,
+      id: (row as unknown as Record<string, number>)[colunaId] ?? row.id,
       observacoes,
       icon_hash: row.icon_hash ?? extras.icon_hash,
       representante_id: row.representante_id ?? extras.representante_id,
@@ -1039,11 +1056,12 @@ export async function salvarParceria(
   // Quem fechou é mantido no registro original ao editar.
   let fechadoPor = user.id;
   let fechadoNome = user.nomeRp || user.globalName || user.username;
+  const colunaId = await colunaIdParcerias();
   if (input.id != null) {
     const { data } = await db
       .from("parcerias")
       .select("observacoes")
-      .eq("id", input.id)
+      .eq(colunaId, input.id)
       .maybeSingle();
     const antigo = separarAlianca((data as { observacoes: string | null } | null)?.observacoes ?? null);
     if (antigo.extras.fechado_por) {
@@ -1074,7 +1092,7 @@ export async function salvarParceria(
   const query =
     input.id == null
       ? db.from("parcerias").insert(payload)
-      : db.from("parcerias").update(payload).eq("id", input.id);
+      : db.from("parcerias").update(payload).eq(colunaId, input.id);
   const { error } = await query;
   if (error) throw new Error(error.message);
 
@@ -1112,7 +1130,8 @@ export async function salvarParceria(
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
   const db = getDb();
-  const { error } = await db.from("parcerias").delete().eq("id", input.id);
+  const coluna = await colunaIdParcerias();
+  const { error } = await db.from("parcerias").delete().eq(coluna, input.id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
