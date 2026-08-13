@@ -1,11 +1,11 @@
 # Plano: Template de configuração para novo servidor
 
 ## Objetivo
-Deixar o projeto pronto para ser "clonado" em outro servidor/gang sem misturar dados: o usuário copia o banco de dados para um novo Supabase e só troca as variáveis de ambiente.
+Permitir clonar o dashboard para outro servidor/gang trocando apenas as variáveis de ambiente, sem editar código.
 
-## O que será feito
+## Escopo aprovado
 
-### 1. Criar `.env.example` documentado
+### 1. Criar `.env.example`
 Arquivo na raiz listando todas as variáveis obrigatórias e opcionais, com explicação de onde pegar cada uma no portal do Discord e do Supabase.
 
 Variáveis incluídas:
@@ -13,28 +13,19 @@ Variáveis incluídas:
 - `HAKURYU_SUPABASE_SERVICE_ROLE_KEY`
 - `DISCORD_CLIENT_ID`
 - `DISCORD_CLIENT_SECRET`
-- `DISCORD_REDIRECT_URI` (se ainda não existir, adicionar suporte)
+- `DISCORD_REDIRECT_URI` (nova — URL fixa do callback OAuth)
+- `DISCORD_BOT_TOKEN`
 - `DISCORD_GUILD_ID` (fallback; pode ser sobrescrito no painel)
 - `DISCORD_OWNER_ID` (fallback; pode ser sobrescrito no painel)
 - `HAKURYU_SESSION_SECRET`
 
-### 2. Tornar `DISCORD_GUILD_ID` e `DISCORD_OWNER_ID` opcionais no `config.server.ts`
-Hoje elas são lidas mas não são mais obrigatórias porque o painel já permite configurar guild e donos extras. O servidor não deve falhar na inicialização se elas estiverem vazias.
-
-### 3. Adicionar `DISCORD_REDIRECT_URI` configurável
-Hoje o callback monta o redirect URI dinamicamente a partir do `request.url`. Isso funciona, mas para publicação/clonagem é mais seguro permitir fixar a URL no `.env` e validar no callback.
-
-### 4. Criar `SETUP.md` (ou seção no README)
-Passo a passo resumido:
-1. Criar novo projeto no Supabase e rodar as migrations/tabelas.
-2. Criar aplicativo + bot no Discord.
-3. Preencher `.env` com os dados do novo servidor.
-4. Convidar o bot para o novo servidor com permissões de cargo/canal.
-5. Publicar.
+### 2. Usar `DISCORD_REDIRECT_URI` no callback do Discord
+Atualizar `src/lib/config.server.ts` para ler a nova variável e atualizar `src/routes/api/public/auth/discord/callback.ts` para usar o valor do `.env` quando presente. Se não estiver configurado, mantém o comportamento atual (montar a URL dinamicamente a partir do `request.url`).
 
 ## Fora do escopo deste plano
-- Multi-tenancy automático (um único banco para várias guilds). A estratégia é clonar o banco por servidor.
-- Alterar nomes internos dos cargos (`Lider`, `Vice-Lider`, etc.); os IDs dos cargos no Discord continuam mapeáveis via Configurações.
+- Alterar outras partes do código.
+- Implementar multi-tenancy automático.
+- Mudar nomes internos dos cargos.
 
 ## Resultado esperado
-Qualquer pessoa consegue pegar o projeto, copiar o banco, preencher o `.env.example` renomeado para `.env` e publicar para uma gang diferente sem editar código.
+O usuário consegue copiar o projeto, preencher o `.env.example` renomeado para `.env` com os dados do novo servidor (incluindo o domínio publicado), e publicar sem tocar em código.
