@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   RefreshCw,
+  Settings,
   Shield,
   Users,
 } from "lucide-react";
@@ -21,7 +22,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { sessionQuery } from "@/lib/queries";
-import { cargoPrincipal, nomeExibicao, rotuloCargo, type SessionUserView } from "@/lib/permissions";
+import {
+  cargoPrincipal,
+  nomeExibicao,
+  podeGerenciarMembros,
+  rotuloCargo,
+  type SessionUserView,
+} from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -31,6 +38,8 @@ const NAV = [
   { to: "/divisoes", label: "Divisões", icon: Shield },
   { to: "/parcerias", label: "Alianças", icon: Handshake },
 ];
+
+const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Settings }];
 
 function Brand() {
   return (
@@ -54,10 +63,12 @@ function Brand() {
 
 function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { data } = useQuery(sessionQuery);
+  const itens = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Navegação principal">
-      {NAV.map(({ to, label, icon: Icon }) => {
+      {itens.map(({ to, label, icon: Icon }) => {
         const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
         return (
           <Link

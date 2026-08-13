@@ -34,6 +34,11 @@ export async function requireUser(request: Request): Promise<SessionUser> {
   const { fetchCargosAtuais } = await import("./discord.server");
   const cargosAtuais = await fetchCargosAtuais(user.id);
   if (cargosAtuais) user.roles = cargosAtuais;
+  // Donos extras podem ser cadastrados nas Configurações.
+  if (!user.isOwner) {
+    const { ehDono } = await import("./settings.server");
+    if (await ehDono(user.id)) user.isOwner = true;
+  }
   if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
@@ -203,8 +208,11 @@ export async function loadDivisoes(): Promise<Divisao[]> {
       ...d,
       lider_nome: lider?.nome_rp ?? null,
       lider_discord: lider?.discord_username ?? null,
+      lider_avatar: lider?.avatar_hash ?? null,
       vice_nome: vice?.nome_rp ?? null,
       vice_discord: vice?.discord_username ?? null,
+      vice_avatar: vice?.avatar_hash ?? null,
+
       membros: membros
         .filter((m) => m.divisao_id === d.id)
         .sort((a, b) => (a.nome_rp ?? "").localeCompare(b.nome_rp ?? ""))
@@ -418,14 +426,46 @@ export async function advertirMembro(
 
   // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
   const { error } = await db.from("punicoes").insert({ ...base, staff_id: user.id });
-  if (!error) return { ok: true };
-  if (!/staff_id/i.test(error.message)) throw new Error(error.message);
+  if (error) {
+    if (!/staff_id/i.test(error.message)) throw new Error(error.message);
+    const { error: err2 } = await db.from("punicoes").insert(base);
+    if (err2) throw new Error(err2.message);
+  }
 
-  const { error: err2 } = await db.from("punicoes").insert(base);
-  if (err2) throw new Error(err2.message);
-
+  await anunciarPunicao(db, user, input);
   return { ok: true };
 }
+
+/** Publica a advertência no canal configurado. */
+async function anunciarPunicao(
+  db: ReturnType<typeof getDb>,
+  user: SessionUser,
+  input: { membroId: string; tipo: string; motivo: string },
+) {
+  const { data } = await db
+    .from("membros")
+    .select("nome_rp, discord_username")
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+  const alvo = (data as { nome_rp: string | null; discord_username: string | null } | null) ?? null;
+  const nome = alvo?.nome_rp || alvo?.discord_username || input.membroId;
+  const { enviarMensagemCanal } = await import("./discord.server");
+  await enviarMensagemCanal("canal_advertencias", {
+    title: `⚠️ ${input.tipo} aplicado`,
+    description: `<@${input.membroId}>`,
+    fields: [
+      { name: "Membro", value: nome, inline: true },
+      { name: "Tipo", value: input.tipo, inline: true },
+      { name: "Motivo", value: input.motivo || "Não informado" },
+      {
+        name: "Aplicado por",
+        value: user.nomeRp || user.globalName || user.username,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  });
+}
+
 
 export async function trocarCargo(
   user: SessionUser,
@@ -531,8 +571,28 @@ export async function criarTreino(
     criado_por: user.id,
   });
   if (error) throw new Error(error.message);
+
+  const { enviarMensagemCanal } = await import("./discord.server");
+  await enviarMensagemCanal("canal_treinos", {
+    title: `🐉 Novo treino: ${input.titulo}`,
+    description: input.descricao?.trim() || undefined,
+    fields: [
+      { name: "Data", value: input.data_treino, inline: true },
+      { name: "Horário", value: input.horario || "A definir", inline: true },
+      { name: "Tipo", value: input.tipo, inline: true },
+      { name: "Local", value: input.local || "A definir", inline: true },
+      { name: "Divisão", value: input.divisao_responsavel || "Geral", inline: true },
+      ...(aliado ? [{ name: "Gang aliada", value: aliado, inline: true }] : []),
+      {
+        name: "Criado por",
+        value: user.nomeRp || user.globalName || user.username,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  });
   return { ok: true };
 }
+
 
 
 /** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
@@ -724,6 +784,40 @@ async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): P
   return false;
 }
 
+/** ID do cargo do Discord associado a uma divisão. */
+async function roleIdDaDivisao(divisaoId: number | null): Promise<string | null> {
+  if (divisaoId == null) return null;
+  const db = getDb();
+  const { data } = await db
+    .from("divisoes")
+    .select("discord_role_id")
+    .eq("id", divisaoId)
+    .maybeSingle();
+  const id = (data as { discord_role_id: string | null } | null)?.discord_role_id ?? null;
+  return id ? id.replace(/\D/g, "") || null : null;
+}
+
+/**
+ * Aplica o cargo do Discord da divisão de destino e remove o da divisão anterior.
+ * Vale para líder, vice e membros comuns.
+ */
+async function trocarCargoDivisaoDiscord(
+  membroId: string,
+  antiga: number | null,
+  nova: number | null,
+) {
+  if (antiga === nova) return;
+  const { ajustarCargoPorId } = await import("./discord.server");
+  const [roleAntigo, roleNovo] = await Promise.all([
+    roleIdDaDivisao(antiga),
+    roleIdDaDivisao(nova),
+  ]);
+  if (roleAntigo && roleAntigo !== roleNovo) {
+    await ajustarCargoPorId(membroId, roleAntigo, "remove");
+  }
+  if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add");
+}
+
 
 export async function criarDivisao(
   user: SessionUser,
@@ -773,22 +867,49 @@ export async function atualizarDivisao(
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
 
-  const entrando = [
-    ...(liderId ? [liderId] : []),
-    ...(viceLiderId ? [viceLiderId] : []),
-    ...input.novosMembros,
-  ];
+  const entrando = Array.from(
+    new Set([
+      ...(liderId ? [liderId] : []),
+      ...(viceLiderId ? [viceLiderId] : []),
+      ...input.novosMembros,
+    ]),
+  );
   if (entrando.length > 0) {
+    // Guarda a divisão anterior de cada um para trocar o cargo no Discord.
+    const { data: antesData } = await db
+      .from("membros")
+      .select("discord_id, divisao_id")
+      .in("discord_id", entrando);
+    const anteriores = new Map(
+      ((antesData ?? []) as { discord_id: string; divisao_id: number | null }[]).map((m) => [
+        m.discord_id,
+        m.divisao_id,
+      ]),
+    );
+
     const { error: err2 } = await db
       .from("membros")
       .update({ divisao_id: input.divisaoId })
-      .in("discord_id", Array.from(new Set(entrando)));
+      .in("discord_id", entrando);
     if (err2) throw new Error(err2.message);
+
+    for (const id of entrando) {
+      await trocarCargoDivisaoDiscord(id, anteriores.get(id) ?? null, input.divisaoId);
+    }
+  }
+
+  // Quem deixou a liderança e não faz mais parte da divisão perde o cargo dela.
+  for (const antigo of [divisao.lider_id, divisao.vice_lider_id]) {
+    if (!antigo || entrando.includes(antigo)) continue;
+    if ((await divisaoDoUsuario(antigo)) !== input.divisaoId) {
+      await trocarCargoDivisaoDiscord(antigo, input.divisaoId, null);
+    }
   }
 
   await sincronizarCargosLideranca(db, divisao, liderId, viceLiderId);
   return { ok: true };
 }
+
 
 /** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
 async function sincronizarCargosLideranca(
@@ -850,11 +971,23 @@ export async function removerMembroDivisao(
     await podeGerirDivisao(user, await carregarLideranca(divisaoId)),
     "Você não gerencia esta divisão.",
   );
+  const lideranca = await carregarLideranca(divisaoId);
+  const novoLider = lideranca.lider_id === input.membroId ? null : lideranca.lider_id;
+  const novoVice = lideranca.vice_lider_id === input.membroId ? null : lideranca.vice_lider_id;
+  if (novoLider !== lideranca.lider_id || novoVice !== lideranca.vice_lider_id) {
+    await db
+      .from("divisoes")
+      .update({ lider_id: novoLider, vice_lider_id: novoVice })
+      .eq("id", divisaoId);
+    await sincronizarCargosLideranca(db, lideranca, novoLider, novoVice);
+  }
+
   const { error } = await db
     .from("membros")
     .update({ divisao_id: null })
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
+  await trocarCargoDivisaoDiscord(input.membroId, divisaoId, null);
   return { ok: true };
 }
 
@@ -864,11 +997,22 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   // Liderança perde o cargo de capitão junto com a divisão.
   const lideranca = await carregarLideranca(input.divisaoId);
   await sincronizarCargosLideranca(db, lideranca, null, null);
+
+  // Todos os integrantes perdem o cargo do Discord da divisão.
+  const { data: integrantes } = await db
+    .from("membros")
+    .select("discord_id")
+    .eq("divisao_id", input.divisaoId);
+  for (const m of (integrantes ?? []) as { discord_id: string }[]) {
+    await trocarCargoDivisaoDiscord(m.discord_id, input.divisaoId, null);
+  }
+
   await db.from("membros").update({ divisao_id: null }).eq("divisao_id", input.divisaoId);
   const { error } = await db.from("divisoes").delete().eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 /* ========== Escrita: alianças ========== */
 
@@ -933,8 +1077,36 @@ export async function salvarParceria(
       : db.from("parcerias").update(payload).eq("id", input.id);
   const { error } = await query;
   if (error) throw new Error(error.message);
+
+  if (input.id == null) {
+    const { enviarMensagemCanal } = await import("./discord.server");
+    await enviarMensagemCanal("canal_aliancas", {
+      title: `🤝 Nova aliança: ${input.nome}`,
+      description: input.observacoes?.trim() || undefined,
+      fields: [
+        ...(input.tag ? [{ name: "Tag", value: input.tag, inline: true }] : []),
+        { name: "Status", value: input.status, inline: true },
+        ...(input.representante_id
+          ? [
+              {
+                name: "Representante",
+                value: `${input.representante_nome || ""} <@${input.representante_id}>`.trim(),
+                inline: true,
+              },
+            ]
+          : []),
+        ...(input.link_servidor
+          ? [{ name: "Servidor", value: input.link_servidor }]
+          : []),
+        ...(input.contato ? [{ name: "Contato", value: input.contato }] : []),
+        { name: "Fechada por", value: fechadoNome },
+      ],
+      timestamp: new Date().toISOString(),
+    });
+  }
   return { ok: true };
 }
+
 
 
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
@@ -942,5 +1114,29 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   const db = getDb();
   const { error } = await db.from("parcerias").delete().eq("id", input.id);
   if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/* ========== Configurações do painel ========== */
+
+export async function loadConfiguracoesPainel(user: SessionUser) {
+  assert(
+    podeGerenciarMembros(user),
+    "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
+  );
+  const { loadConfiguracoes } = await import("./settings.server");
+  return loadConfiguracoes([...CARGOS_PERMITIDOS]);
+}
+
+export async function salvarConfiguracoesPainel(
+  user: SessionUser,
+  input: { cargos: Record<string, string>; canais: Record<string, string>; owners: string },
+) {
+  assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
+  const { salvarConfiguracoes, chaveCargo } = await import("./settings.server");
+  const valores: Record<string, string> = { owner_ids: input.owners };
+  for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
+  for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
+  await salvarConfiguracoes(valores);
   return { ok: true };
 }

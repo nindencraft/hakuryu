@@ -5,6 +5,7 @@ import {
   fetchMembros,
   fetchParcerias,
   fetchTreinos,
+  fetchConfiguracoes,
   getSession,
 } from "./dashboard.functions";
 
@@ -37,4 +38,10 @@ export const parceriasQuery = queryOptions({
   queryKey: ["parcerias"],
   queryFn: () => fetchParcerias(),
   staleTime: 30_000,
+});
+
+export const configuracoesQuery = queryOptions({
+  queryKey: ["configuracoes"],
+  queryFn: () => fetchConfiguracoes(),
+  staleTime: 10_000,
 });
