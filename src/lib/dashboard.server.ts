@@ -105,11 +105,27 @@ export async function loadMembros(): Promise<Membro[]> {
     /* tabela opcional */
   }
 
+  // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
+  const { fetchCargosDeTodos } = await import("./discord.server");
+  const cargosDiscord = await fetchCargosDeTodos();
+  const canonizar = (nomes: string[]) => {
+    const norm = (v: string) =>
+      v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const set = new Set(nomes.map(norm));
+    return CARGOS_PERMITIDOS.filter((c) => set.has(norm(c)));
+  };
+
   return membros.map((m) => ({
     ...m,
+    cargo: (() => {
+      const doDiscord = cargosDiscord?.get(m.discord_id);
+      const lista = doDiscord ? canonizar(doDiscord) : [];
+      return lista.length ? lista.join(", ") : m.cargo;
+    })(),
     divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
     warns: warns.get(m.discord_id) ?? 0,
     stats: stats.get(m.discord_id) ?? { internos: 0, amistosos: 0, guerras: 0 },
+
   }));
 }
 
