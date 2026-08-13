@@ -31,7 +31,9 @@ export type Treino = {
   criado_por: string | null;
   inscritos: number;
   adiamento: Adiamento | null;
+  aliado: string | null;
 };
+
 
 
 export type PresencaTreino = {
