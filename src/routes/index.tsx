@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, Shield, Users } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
-import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
+import { EmptyState, GoldRule, PageTitle, StatCard } from "@/components/hakuryu/ui-bits";
+import { formatarData, formatarHorario } from "@/components/hakuryu/hooks";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { divisoesQuery, membrosQuery, treinosQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,21 +26,115 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: VisaoGeral,
+  component: VisaoGeralPage,
 });
 
-function VisaoGeral() {
+function VisaoGeralPage() {
   return (
     <DashboardShell>
+      <VisaoGeral />
+    </DashboardShell>
+  );
+}
+
+function VisaoGeral() {
+  const membros = useQuery(membrosQuery);
+  const treinos = useQuery(treinosQuery);
+  const divisoes = useQuery(divisoesQuery);
+
+  const erro = membros.error ?? treinos.error ?? divisoes.error;
+  const carregando = membros.isPending || treinos.isPending || divisoes.isPending;
+
+  const ativos = (membros.data ?? []).filter(
+    (m) => (m.status ?? "").toLowerCase() === "ativo" || !m.status,
+  ).length;
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const proximos = (treinos.data ?? [])
+    .filter((t) => t.data_treino >= hoje)
+    .sort((a, b) => a.data_treino.localeCompare(b.data_treino))
+    .slice(0, 5);
+
+  return (
+    <>
       <PageTitle
         kanji="白竜"
         title="Visão Geral"
         subtitle="Resumo da gang: membros, treinos e atividade recente."
       />
-      <EmptyState
-        title="Métricas em finalização"
-        description="Os indicadores serão ligados ao banco assim que as credenciais forem configuradas."
-      />
-    </DashboardShell>
+
+      {erro ? (
+        <EmptyState
+          title="Sem conexão com o banco"
+          description={erro.message}
+        />
+      ) : carregando ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard
+              label="Membros ativos"
+              value={ativos}
+              hint={`${membros.data?.length ?? 0} cadastrados no total`}
+              icon={<Users className="h-6 w-6" />}
+            />
+            <StatCard
+              label="Treinos cadastrados"
+              value={treinos.data?.length ?? 0}
+              hint={`${proximos.length} agendados à frente`}
+              icon={<CalendarDays className="h-6 w-6" />}
+            />
+            <StatCard
+              label="Divisões"
+              value={divisoes.data?.length ?? 0}
+              hint="Estrutura interna da gang"
+              icon={<Shield className="h-6 w-6" />}
+            />
+          </div>
+
+          <GoldRule />
+
+          <section aria-labelledby="proximos-treinos">
+            <h2 id="proximos-treinos" className="font-display mb-4 text-2xl text-foreground">
+              Próximos treinos
+            </h2>
+            {proximos.length === 0 ? (
+              <EmptyState
+                title="Nenhum treino agendado"
+                description="Cadastre um treino na aba Treinos para aparecer aqui."
+              />
+            ) : (
+              <ul className="space-y-3">
+                {proximos.map((t) => (
+                  <li
+                    key={t.id_treino}
+                    className="card-gold flex flex-wrap items-center justify-between gap-3 p-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-display truncate text-lg text-foreground">{t.titulo}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatarData(t.data_treino)} às {formatarHorario(t.horario)}
+                        {t.local ? ` · ${t.local}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="border-primary/40">
+                        {t.tipo}
+                      </Badge>
+                      <Badge variant="secondary">{t.inscritos} inscritos</Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
+    </>
   );
 }
