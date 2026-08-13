@@ -34,10 +34,37 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       return { configurado: false, faltando, user: null, permitido: false };
     }
 
-    const user = await currentUser(getRequest());
+    const request = getRequest();
+    const user = await currentUser(request);
     if (!user) return { configurado: true, faltando: [], user: null, permitido: false };
 
-    const { podeAcessar } = await import("./session.server");
+    const { podeAcessar, signSession, sessionCookie } = await import("./session.server");
+
+    // Cargos são revalidados no Discord a cada carregamento para nunca ficarem defasados.
+    const { fetchCargosAtuais } = await import("./discord.server");
+    const cargosAtuais = await fetchCargosAtuais(user.id);
+    if (cargosAtuais && cargosAtuais.join("|") !== user.roles.join("|")) {
+      user.roles = cargosAtuais;
+      try {
+        const { setHeader } = await import("@tanstack/react-start/server");
+        const token = await signSession({
+          id: user.id,
+          username: user.username,
+          globalName: user.globalName,
+          avatarUrl: user.avatarUrl,
+          roles: user.roles,
+          isOwner: user.isOwner,
+          nomeRp: user.nomeRp,
+        });
+        setHeader(
+          "Set-Cookie",
+          sessionCookie(token, new URL(request.url).protocol === "https:"),
+        );
+      } catch {
+        /* ignora falha ao renovar cookie */
+      }
+    }
+
     return {
       configurado: true,
       faltando: [],
