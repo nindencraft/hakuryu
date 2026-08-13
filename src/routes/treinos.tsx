@@ -316,6 +316,7 @@ function TreinoCard({
 
 function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const divisoes = useQuery(divisoesQuery);
+  const aliancas = useQuery(parceriasQuery);
   const [form, setForm] = useState({
     titulo: "",
     descricao: "",
@@ -324,7 +325,9 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
     tipo: "Interno" as string,
     local: "",
     divisao_responsavel: "Todas",
+    aliado: "",
   });
+
 
   const acao = useAcao<typeof form>(criarTreino, {
     sucesso: "Treino criado.",
