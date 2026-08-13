@@ -77,3 +77,41 @@ export async function ajustarCargoDiscord(
     /* best-effort */
   }
 }
+
+/**
+ * Cargos de todos os membros do servidor (1 chamada), para usar o Discord
+ * como fonte da verdade na listagem de membros.
+ */
+export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const headers = { Authorization: `Bot ${config.discordBotToken}` };
+    const [membersRes, rolesRes] = await Promise.all([
+      fetch(`https://discord.com/api/v10/guilds/${config.discordGuildId}/members?limit=1000`, {
+        headers,
+      }),
+      fetch(`https://discord.com/api/v10/guilds/${config.discordGuildId}/roles`, { headers }),
+    ]);
+    if (!membersRes.ok || !rolesRes.ok) return null;
+    const members = (await membersRes.json()) as { user?: { id: string }; roles: string[] }[];
+    const allRoles = (await rolesRes.json()) as GuildRole[];
+    const nomePorId = new Map(allRoles.map((r) => [r.id, r.name]));
+
+    const mapa = new Map<string, string[]>();
+    for (const m of members) {
+      if (!m.user?.id) continue;
+      mapa.set(
+        m.user.id,
+        m.roles.map((id) => nomePorId.get(id)).filter((n): n is string => !!n),
+      );
+    }
+    return mapa;
+  } catch {
+    return null;
+  }
+}

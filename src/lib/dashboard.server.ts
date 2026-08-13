@@ -10,8 +10,10 @@ import {
   podeGerenciarTreinos,
   temCargo,
   CARGOS_DIVISAO,
+  CARGOS_PERMITIDOS,
   type SessionUser,
 } from "./session.server";
+import { cargoPrimario } from "./permissions";
 import type {
   Divisao,
   Membro,
@@ -105,11 +107,27 @@ export async function loadMembros(): Promise<Membro[]> {
     /* tabela opcional */
   }
 
+  // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
+  const { fetchCargosDeTodos } = await import("./discord.server");
+  const cargosDiscord = await fetchCargosDeTodos();
+  const canonizar = (nomes: string[]) => {
+    const norm = (v: string) =>
+      v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const set = new Set(nomes.map(norm));
+    return CARGOS_PERMITIDOS.filter((c) => set.has(norm(c)));
+  };
+
   return membros.map((m) => ({
     ...m,
+    cargo: (() => {
+      const doDiscord = cargosDiscord?.get(m.discord_id);
+      const lista = doDiscord ? canonizar(doDiscord) : [];
+      return lista.length ? lista.join(", ") : m.cargo;
+    })(),
     divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
     warns: warns.get(m.discord_id) ?? 0,
     stats: stats.get(m.discord_id) ?? { internos: 0, amistosos: 0, guerras: 0 },
+
   }));
 }
 
@@ -309,24 +327,26 @@ export async function trocarCargo(
   );
 
   const db = getDb();
-  const { data: atual } = await db
-    .from("membros")
-    .select("cargo")
-    .eq("discord_id", input.membroId)
-    .maybeSingle();
+  const { fetchCargosAtuais } = await import("./discord.server");
+  const doDiscord = await fetchCargosAtuais(input.membroId);
 
-  const antigos = ((atual as { cargo: string | null } | null)?.cargo ?? "")
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  const norm = (v: string) =>
+    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const antigos = doDiscord
+    ? (CARGOS_PERMITIDOS as readonly string[]).filter((c) =>
+        doDiscord.some((r) => norm(r) === norm(c)),
+      )
+    : [];
+
 
   // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
   const finais = Array.from(new Set([...preservados, ...novos]));
 
+  // A coluna `cargo` é curta (varchar 30): guarda só o principal.
   const { error } = await db
     .from("membros")
-    .update({ cargo: finais.join(", ") })
+    .update({ cargo: cargoPrimario(finais) })
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
 
@@ -674,7 +694,7 @@ async function sincronizarCargosLideranca(
   const gravar = async (id: string, cargos: string[]) => {
     await db
       .from("membros")
-      .update({ cargo: (cargos.length ? cargos : ["Membro"]).join(", ") })
+      .update({ cargo: cargoPrimario(cargos.length ? cargos : ["Membro"]) })
       .eq("discord_id", id);
   };
 
