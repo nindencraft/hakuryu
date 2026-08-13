@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisoesQuery, treinosQuery } from "@/lib/queries";
+import { divisoesQuery, parceriasQuery, treinosQuery } from "@/lib/queries";
 import {
   ausentarSe,
   atualizarPresenca,
