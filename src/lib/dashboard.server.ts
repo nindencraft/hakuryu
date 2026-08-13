@@ -585,7 +585,7 @@ export async function atualizarDivisao(
   },
 ) {
   const divisao = await carregarLideranca(input.divisaoId);
-  assert(podeGerirDivisao(user, divisao), "Você não gerencia esta divisão.");
+  assert(await podeGerirDivisao(user, divisao), "Você não gerencia esta divisão.");
   const db = getDb();
 
   // Líder/vice da própria divisão não trocam o líder; só a cúpula faz isso.
@@ -601,15 +601,50 @@ export async function atualizarDivisao(
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
 
-  if (input.novosMembros.length > 0) {
+  const entrando = [
+    ...(liderId ? [liderId] : []),
+    ...(viceLiderId ? [viceLiderId] : []),
+    ...input.novosMembros,
+  ];
+  if (entrando.length > 0) {
     const { error: err2 } = await db
       .from("membros")
       .update({ divisao_id: input.divisaoId })
-      .in("discord_id", input.novosMembros);
+      .in("discord_id", Array.from(new Set(entrando)));
     if (err2) throw new Error(err2.message);
   }
+
+  await sincronizarCargosLideranca(db, divisao, liderId, viceLiderId);
   return { ok: true };
 }
+
+/** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
+async function sincronizarCargosLideranca(
+  db: ReturnType<typeof getDb>,
+  antes: LiderancaDivisao,
+  liderId: string | null,
+  viceLiderId: string | null,
+) {
+  const { ajustarCargoDiscord } = await import("./discord.server");
+
+  const pares: { antigo: string | null; novo: string | null; cargo: string }[] = [
+    { antigo: antes.lider_id, novo: liderId, cargo: CARGO_LIDER_DIVISAO },
+    { antigo: antes.vice_lider_id, novo: viceLiderId, cargo: CARGO_VICE_LIDER_DIVISAO },
+  ];
+
+  for (const { antigo, novo, cargo } of pares) {
+    if (antigo === novo) continue;
+    if (antigo) {
+      await ajustarCargoDiscord(antigo, cargo, "remove");
+      await db.from("membros").update({ cargo: "Membro" }).eq("discord_id", antigo).eq("cargo", cargo);
+    }
+    if (novo) {
+      await ajustarCargoDiscord(novo, cargo, "add");
+      await db.from("membros").update({ cargo }).eq("discord_id", novo);
+    }
+  }
+}
+
 
 export async function removerMembroDivisao(
   user: SessionUser,
