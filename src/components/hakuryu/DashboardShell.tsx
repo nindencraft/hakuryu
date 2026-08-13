@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { sessionQuery } from "@/lib/queries";
-import { nomeExibicao, type SessionUserView } from "@/lib/permissions";
+import { cargoPrincipal, nomeExibicao, type SessionUserView } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
