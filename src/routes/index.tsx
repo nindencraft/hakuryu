@@ -1,24 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+import { DashboardShell } from "@/components/hakuryu/DashboardShell";
+import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
+
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Hakuryū Dashboard — Painel da Gang" },
+      {
+        name: "description",
+        content: "Painel de gestão da gang Hakuryū: membros, treinos, divisões e parcerias.",
+      },
+      { property: "og:title", content: "Hakuryū Dashboard — Painel da Gang" },
+      {
+        property: "og:description",
+        content: "Painel de gestão da gang Hakuryū: membros, treinos, divisões e parcerias.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: VisaoGeral,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function VisaoGeral() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
+    <DashboardShell>
+      <PageTitle
+        kanji="白竜"
+        title="Visão Geral"
+        subtitle="Resumo da gang: membros, treinos e atividade recente."
       />
-    </div>
+      <EmptyState
+        title="Métricas em finalização"
+        description="Os indicadores serão ligados ao banco assim que as credenciais forem configuradas."
+      />
+    </DashboardShell>
   );
 }
