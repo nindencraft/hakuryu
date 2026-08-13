@@ -6,6 +6,7 @@ import { ConfigError, isConfigured } from "./config.server";
 import { currentUser } from "./db.server";
 import type { SessionUserView } from "./permissions";
 import type {
+  ConfiguracoesPainel,
   Divisao,
   Membro,
   Parceria,
@@ -44,6 +45,11 @@ export const getSession = createServerFn({ method: "GET" }).handler(
     const { fetchCargosAtuais } = await import("./discord.server");
     const cargosAtuais = await fetchCargosAtuais(user.id);
     if (cargosAtuais) user.roles = cargosAtuais;
+
+    if (!user.isOwner) {
+      const { ehDono } = await import("./settings.server");
+      if (await ehDono(user.id)) user.isOwner = true;
+    }
 
     return {
       configurado: true,
@@ -234,3 +240,20 @@ export const deletarParceria = createServerFn({ method: "POST" })
   .inputValidator((data: { id: number }) => data)
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
 
+
+export const fetchConfiguracoes = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ConfiguracoesPainel> =>
+    svc.loadConfiguracoesPainel(await svc.requireUser(getRequest())),
+);
+
+export const salvarConfiguracoes = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      cargos: Record<string, string>;
+      canais: Record<string, string>;
+      owners: string;
+    }) => data,
+  )
+  .handler(async ({ data }) =>
+    svc.salvarConfiguracoesPainel(await svc.requireUser(getRequest()), data),
+  );
