@@ -591,10 +591,11 @@ export async function atualizarDivisao(
 
   // Líder/vice da própria divisão não trocam o líder; só a cúpula faz isso.
   const liderId = podeCriarDivisao(user) ? input.liderId : divisao.lider_id;
-  const viceLiderId =
-    podeCriarDivisao(user) || user.id === divisao.lider_id
-      ? input.viceLiderId
-      : divisao.vice_lider_id;
+  const podeDefinirVice =
+    podeCriarDivisao(user) ||
+    user.id === divisao.lider_id ||
+    (temCargo(user, CARGO_LIDER_DIVISAO) && (await divisaoDoUsuario(user.id)) === divisao.id);
+  const viceLiderId = podeDefinirVice ? input.viceLiderId : divisao.vice_lider_id;
 
   const { error } = await db
     .from("divisoes")

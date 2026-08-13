@@ -99,9 +99,13 @@ export function podeGerenciarDivisao(
 export function podeDefinirLiderancaDivisao(
   user: SessionUserView | null,
   divisao: DivisaoLideranca,
+  minhaDivisaoId?: number | null,
 ): boolean {
   if (!user) return false;
-  return podeCriarDivisao(user) || user.id === divisao.lider_id;
+  if (podeCriarDivisao(user) || user.id === divisao.lider_id) return true;
+  return (
+    temCargo(user, "Líder de Divisão") && minhaDivisaoId != null && minhaDivisaoId === divisao.id
+  );
 }
 
 export function podeGerenciarDivisoes(user: SessionUserView | null): boolean {

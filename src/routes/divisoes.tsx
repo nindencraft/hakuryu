@@ -325,8 +325,12 @@ function GerenciarDivisaoDialog({
 }) {
   const user = useSessionUser();
   const podeTrocarLider = podeCriarDivisao(user);
-  const podeTrocarVice = divisao ? podeDefinirLiderancaDivisao(user, divisao) : false;
   const membros = useQuery(membrosQuery);
+  const minhaDivisaoId =
+    (membros.data ?? []).find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
+  const podeTrocarVice = divisao
+    ? podeDefinirLiderancaDivisao(user, divisao, minhaDivisaoId)
+    : false;
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
   const [novos, setNovos] = useState<string[]>([]);
