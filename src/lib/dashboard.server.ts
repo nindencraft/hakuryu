@@ -8,6 +8,7 @@ import {
   podeRevogarPunicao,
   podeGerenciarParcerias,
   podeGerenciarTreinos,
+  temCargo,
   type SessionUser,
 } from "./session.server";
 import type {
@@ -660,7 +661,7 @@ export async function removerMembroDivisao(
   const divisaoId = (membro as { divisao_id: number | null } | null)?.divisao_id ?? null;
   if (divisaoId == null) return { ok: true };
   assert(
-    podeGerirDivisao(user, await carregarLideranca(divisaoId)),
+    await podeGerirDivisao(user, await carregarLideranca(divisaoId)),
     "Você não gerencia esta divisão.",
   );
   const { error } = await db
