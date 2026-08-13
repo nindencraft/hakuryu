@@ -857,7 +857,7 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   return { ok: true };
 }
 
-/* ========== Escrita: parcerias ========== */
+/* ========== Escrita: alianças ========== */
 
 export async function salvarParceria(
   user: SessionUser,
@@ -870,18 +870,49 @@ export async function salvarParceria(
     link_servidor: string;
     observacoes: string;
     data_inicio: string;
+    icon_hash: string;
+    representante_id: string;
+    representante_nome: string;
+    representante_avatar: string;
   },
 ) {
-  assert(podeGerenciarParcerias(user));
+  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
   const db = getDb();
+
+  // Quem fechou é mantido no registro original ao editar.
+  let fechadoPor = user.id;
+  let fechadoNome = user.nomeRp || user.globalName || user.username;
+  if (input.id != null) {
+    const { data } = await db
+      .from("parcerias")
+      .select("observacoes")
+      .eq("id", input.id)
+      .maybeSingle();
+    const antigo = separarAlianca((data as { observacoes: string | null } | null)?.observacoes ?? null);
+    if (antigo.extras.fechado_por) {
+      fechadoPor = antigo.extras.fechado_por;
+      fechadoNome = antigo.extras.fechado_por_nome ?? fechadoPor;
+    }
+  }
+
+  const marca = montarMarcaAlianca({
+    icon_hash: input.icon_hash || null,
+    representante_id: input.representante_id || null,
+    representante_nome: input.representante_nome || null,
+    representante_avatar: input.representante_avatar || null,
+    fechado_por: fechadoPor,
+    fechado_por_nome: fechadoNome,
+  });
+  const obs = `${input.observacoes ? `${input.observacoes.trim()}\n` : ""}${marca}`;
+
   const payload = {
     nome: input.nome,
     tag: input.tag || null,
     contato: input.contato || null,
     status: input.status,
     link_servidor: input.link_servidor || null,
-    observacoes: input.observacoes || null,
-    data_inicio: input.data_inicio || null,
+    observacoes: obs,
+    data_inicio: input.data_inicio || new Date().toISOString().slice(0, 10),
   };
   const query =
     input.id == null
@@ -891,6 +922,7 @@ export async function salvarParceria(
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
