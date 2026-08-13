@@ -1112,7 +1112,8 @@ export async function salvarParceria(
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
   const db = getDb();
-  const { error } = await db.from("parcerias").delete().eq("id", input.id);
+  const coluna = await colunaIdParcerias();
+  const { error } = await db.from("parcerias").delete().eq(coluna, input.id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
