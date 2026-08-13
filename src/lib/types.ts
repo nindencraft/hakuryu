@@ -59,12 +59,12 @@ export type Divisao = {
 };
 
 export type Punicao = {
-  id?: number;
+  id_punicao?: number;
   membro_id: string;
   tipo: string;
   motivo: string | null;
-  aplicado_por: string | null;
-  data_punicao: string | null;
+  staff_id?: string | null;
+  data_aplicacao?: string | null;
 };
 
 export type Parceria = {
@@ -79,5 +79,7 @@ export type Parceria = {
 };
 
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
-export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório", "Extra"] as const;
+export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
+export const TIPO_PUNICAO_OPCOES = ["Warn", "Mute", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
+
