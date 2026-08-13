@@ -130,54 +130,17 @@ function Membros() {
     return true;
   });
 
+  const estaEmAnalise = (m: Membro) =>
+    m.status === "Em Analise" || parseCargos(m.cargo).includes("Em Analise");
+  const oficiais = filtrados.filter((m) => !estaEmAnalise(m));
+  const emAnalise = filtrados.filter(estaEmAnalise);
+
   const removerAcao = useAcao<{ membroId: string }>(removerMembro, {
     sucesso: "Membro removido.",
     invalidar: [["membros"], ["divisoes"]],
   });
 
-  return (
-    <>
-      <PageTitle
-        kanji="隊員"
-        title="Membros"
-        subtitle="Cargos, avisos e status dos integrantes."
-        actions={<Badge variant="secondary">{filtrados.length} exibidos</Badge>}
-      />
-
-      <div className="card-gold mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Buscar por nome..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            aria-label="Buscar membro"
-          />
-        </div>
-        <Filtro label="Cargo" value={cargo} onChange={setCargo} options={cargos} />
-        <Filtro
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={Array.from(new Set([...STATUS_OPCOES, ...membros.map((m) => m.status)])).filter(
-            Boolean,
-          )}
-        />
-        <Filtro label="Divisão" value={divisao} onChange={setDivisao} options={divisoes} />
-      </div>
-
-      {error ? (
-        <EmptyState title="Sem conexão com o banco" description={error.message} />
-      ) : isPending ? (
-        <div className="space-y-3">
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
-        </div>
-      ) : filtrados.length === 0 ? (
-        <EmptyState title="Nenhum membro encontrado" description="Ajuste a busca ou os filtros." />
-      ) : (
+  const renderLista = (itens: Membro[]) => (
         <ul className="space-y-3">
           {filtrados.map((m) => {
             const expandido = aberto === m.discord_id;
@@ -266,6 +229,63 @@ function Membros() {
             );
           })}
         </ul>
+  );
+
+  return (
+    <>
+      <PageTitle
+        kanji="隊員"
+        title="Membros"
+        subtitle="Cargos, avisos e status dos integrantes."
+        actions={<Badge variant="secondary">{filtrados.length} exibidos</Badge>}
+      />
+
+      <div className="card-gold mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="relative">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por nome..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            aria-label="Buscar membro"
+          />
+        </div>
+        <Filtro label="Cargo" value={cargo} onChange={setCargo} options={cargos} />
+        <Filtro
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={Array.from(new Set([...STATUS_OPCOES, ...membros.map((m) => m.status)])).filter(
+            Boolean,
+          )}
+        />
+        <Filtro label="Divisão" value={divisao} onChange={setDivisao} options={divisoes} />
+      </div>
+
+      {error ? (
+        <EmptyState title="Sem conexão com o banco" description={error.message} />
+      ) : isPending ? (
+        <div className="space-y-3">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+      ) : filtrados.length === 0 ? (
+        <EmptyState title="Nenhum membro encontrado" description="Ajuste a busca ou os filtros." />
+      ) : (
+        <>
+          {renderLista(oficiais)}
+          {emAnalise.length > 0 ? (
+            <div className="mt-8">
+              <h2 className="font-display text-xl text-foreground">Em Análise</h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Candidatos aguardando aprovação ({emAnalise.length}).
+              </p>
+              {renderLista(emAnalise)}
+            </div>
+          ) : null}
+        </>
       )}
 
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
