@@ -10,6 +10,7 @@ export type AppConfig = {
   discordClientId: string;
   discordClientSecret: string;
   discordBotToken: string;
+  discordRedirectUri: string;
   discordGuildId: string;
   discordOwnerId: string;
   sessionSecret: string;
@@ -37,6 +38,7 @@ export function getConfig(): AppConfig {
     discordClientId: read("DISCORD_CLIENT_ID"),
     discordClientSecret: read("DISCORD_CLIENT_SECRET"),
     discordBotToken: read("DISCORD_BOT_TOKEN"),
+    discordRedirectUri: read("DISCORD_REDIRECT_URI"),
     discordGuildId: read("DISCORD_GUILD_ID"),
     discordOwnerId: read("DISCORD_OWNER_ID"),
     sessionSecret: read("HAKURYU_SESSION_SECRET"),
@@ -57,6 +59,7 @@ export function getConfig(): AppConfig {
     discordClientId: "DISCORD_CLIENT_ID",
     discordClientSecret: "DISCORD_CLIENT_SECRET",
     discordBotToken: "DISCORD_BOT_TOKEN",
+    discordRedirectUri: "DISCORD_REDIRECT_URI",
     discordGuildId: "DISCORD_GUILD_ID",
     sessionSecret: "HAKURYU_SESSION_SECRET",
   };
