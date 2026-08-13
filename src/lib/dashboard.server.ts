@@ -1096,9 +1096,6 @@ export async function salvarParceria(
         ...(input.contato ? [{ name: "Contato", value: input.contato }] : []),
         { name: "Fechada por", value: fechadoNome },
       ],
-      ...(input.icon_hash && /^\d+$/.test(input.representante_id || "0")
-        ? {}
-        : {}),
       timestamp: new Date().toISOString(),
     });
   }
