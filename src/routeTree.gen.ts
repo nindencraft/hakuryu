@@ -10,33 +10,130 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DivisoesRouteImport } from './routes/divisoes'
+import { Route as MembrosRouteImport } from './routes/membros'
+import { Route as ParceriasRouteImport } from './routes/parcerias'
+import { Route as TreinosRouteImport } from './routes/treinos'
+import { Route as ApiPublicAuthLogoutRouteImport } from './routes/api/public/auth/logout'
+import { Route as ApiPublicAuthDiscordCallbackRouteImport } from './routes/api/public/auth/discord/callback'
+import { Route as ApiPublicAuthDiscordLoginRouteImport } from './routes/api/public/auth/discord/login'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DivisoesRoute = DivisoesRouteImport.update({
+  id: '/divisoes',
+  path: '/divisoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MembrosRoute = MembrosRouteImport.update({
+  id: '/membros',
+  path: '/membros',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParceriasRoute = ParceriasRouteImport.update({
+  id: '/parcerias',
+  path: '/parcerias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TreinosRoute = TreinosRouteImport.update({
+  id: '/treinos',
+  path: '/treinos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAuthLogoutRoute = ApiPublicAuthLogoutRouteImport.update({
+  id: '/api/public/auth/logout',
+  path: '/api/public/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAuthDiscordCallbackRoute =
+  ApiPublicAuthDiscordCallbackRouteImport.update({
+    id: '/api/public/auth/discord/callback',
+    path: '/api/public/auth/discord/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAuthDiscordLoginRoute =
+  ApiPublicAuthDiscordLoginRouteImport.update({
+    id: '/api/public/auth/discord/login',
+    path: '/api/public/auth/discord/login',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/divisoes': typeof DivisoesRoute
+  '/membros': typeof MembrosRoute
+  '/parcerias': typeof ParceriasRoute
+  '/treinos': typeof TreinosRoute
+  '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/divisoes': typeof DivisoesRoute
+  '/membros': typeof MembrosRoute
+  '/parcerias': typeof ParceriasRoute
+  '/treinos': typeof TreinosRoute
+  '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/divisoes': typeof DivisoesRoute
+  '/membros': typeof MembrosRoute
+  '/parcerias': typeof ParceriasRoute
+  '/treinos': typeof TreinosRoute
+  '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/divisoes'
+    | '/membros'
+    | '/parcerias'
+    | '/treinos'
+    | '/api/public/auth/logout'
+    | '/api/public/auth/discord/callback'
+    | '/api/public/auth/discord/login'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/divisoes'
+    | '/membros'
+    | '/parcerias'
+    | '/treinos'
+    | '/api/public/auth/logout'
+    | '/api/public/auth/discord/callback'
+    | '/api/public/auth/discord/login'
+  id:
+    | '__root__'
+    | '/'
+    | '/divisoes'
+    | '/membros'
+    | '/parcerias'
+    | '/treinos'
+    | '/api/public/auth/logout'
+    | '/api/public/auth/discord/callback'
+    | '/api/public/auth/discord/login'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DivisoesRoute: typeof DivisoesRoute
+  MembrosRoute: typeof MembrosRoute
+  ParceriasRoute: typeof ParceriasRoute
+  TreinosRoute: typeof TreinosRoute
+  ApiPublicAuthLogoutRoute: typeof ApiPublicAuthLogoutRoute
+  ApiPublicAuthDiscordCallbackRoute: typeof ApiPublicAuthDiscordCallbackRoute
+  ApiPublicAuthDiscordLoginRoute: typeof ApiPublicAuthDiscordLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +145,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/divisoes': {
+      id: '/divisoes'
+      path: '/divisoes'
+      fullPath: '/divisoes'
+      preLoaderRoute: typeof DivisoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/membros': {
+      id: '/membros'
+      path: '/membros'
+      fullPath: '/membros'
+      preLoaderRoute: typeof MembrosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parcerias': {
+      id: '/parcerias'
+      path: '/parcerias'
+      fullPath: '/parcerias'
+      preLoaderRoute: typeof ParceriasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/treinos': {
+      id: '/treinos'
+      path: '/treinos'
+      fullPath: '/treinos'
+      preLoaderRoute: typeof TreinosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/auth/logout': {
+      id: '/api/public/auth/logout'
+      path: '/api/public/auth/logout'
+      fullPath: '/api/public/auth/logout'
+      preLoaderRoute: typeof ApiPublicAuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/auth/discord/callback': {
+      id: '/api/public/auth/discord/callback'
+      path: '/api/public/auth/discord/callback'
+      fullPath: '/api/public/auth/discord/callback'
+      preLoaderRoute: typeof ApiPublicAuthDiscordCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/auth/discord/login': {
+      id: '/api/public/auth/discord/login'
+      path: '/api/public/auth/discord/login'
+      fullPath: '/api/public/auth/discord/login'
+      preLoaderRoute: typeof ApiPublicAuthDiscordLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DivisoesRoute: DivisoesRoute,
+  MembrosRoute: MembrosRoute,
+  ParceriasRoute: ParceriasRoute,
+  TreinosRoute: TreinosRoute,
+  ApiPublicAuthLogoutRoute: ApiPublicAuthLogoutRoute,
+  ApiPublicAuthDiscordCallbackRoute: ApiPublicAuthDiscordCallbackRoute,
+  ApiPublicAuthDiscordLoginRoute: ApiPublicAuthDiscordLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
