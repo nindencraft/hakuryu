@@ -167,8 +167,11 @@ export function podeRevogarPunicao(user: SessionUser | null): boolean {
   return podeGerenciarMembros(user);
 }
 
+export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
+
 export function cargosAtribuiveis(user: SessionUser | null): string[] {
-  if (podeGerenciarMembros(user)) return [...CARGOS_PERMITIDOS];
+  if (podeGerenciarMembros(user))
+    return CARGOS_PERMITIDOS.filter((c) => !CARGOS_DIVISAO.includes(c));
   if (temCargo(user, "Recrutador")) return ["Membro"];
   return [];
 }
