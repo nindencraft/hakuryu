@@ -81,6 +81,6 @@ export type Parceria = {
 
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
 export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
-export const TIPO_PUNICAO_OPCOES = ["Warn", "Mute", "Kick", "Ban"] as const;
+export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
 

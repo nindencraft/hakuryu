@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* O painel é sempre claro: evita o "modo escuro forçado" de navegadores mobile. */
+:root {
+  color-scheme: light;
+}
+
 /*
  * Hakuryū (白竜) design system — dragão branco com detalhes dourados.
  * Paleta: marfim, dourado, cinzas. Sem vermelho.

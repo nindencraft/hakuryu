@@ -21,6 +21,27 @@ export const CARGOS_PERMITIDOS = [
   "Em Analise",
 ];
 
+/** Cargos atribuídos automaticamente pela liderança de uma divisão. */
+export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
+
+const ROTULOS: Record<string, string> = {
+  "Líder de Divisão": "Capitão de Divisão",
+  "Vice-Líder de Divisão": "Vice-Capitão",
+};
+
+/** Nome exibido do cargo (o valor real no Discord/banco continua o mesmo). */
+export function rotuloCargo(cargo: string): string {
+  return ROTULOS[cargo] ?? cargo;
+}
+
+/** O campo `cargo` guarda uma lista separada por vírgula. */
+export function parseCargos(valor: string | null | undefined): string[] {
+  return (valor ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
 function normalize(value: string): string {
   return value
     .normalize("NFD")
@@ -70,7 +91,8 @@ export function podeRevogarPunicao(user: SessionUserView | null): boolean {
 
 /** Cargos que o usuário pode atribuir a outra pessoa. */
 export function cargosAtribuiveis(user: SessionUserView | null): string[] {
-  if (podeGerenciarMembros(user)) return [...CARGOS_PERMITIDOS];
+  if (podeGerenciarMembros(user))
+    return CARGOS_PERMITIDOS.filter((c) => !CARGOS_DIVISAO.includes(c));
   if (temCargo(user, "Recrutador")) return ["Membro"];
   return [];
 }

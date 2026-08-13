@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { sessionQuery } from "@/lib/queries";
-import { cargoPrincipal, nomeExibicao, type SessionUserView } from "@/lib/permissions";
+import { cargoPrincipal, nomeExibicao, rotuloCargo, type SessionUserView } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -111,7 +111,7 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
           {user.isOwner ? <Badge variant="default">Dono</Badge> : null}
           {cargoPrincipal(user) ? (
             <Badge variant="outline" className="border-primary/40 text-muted-foreground">
-              {cargoPrincipal(user)}
+              {rotuloCargo(cargoPrincipal(user)!)}
             </Badge>
           ) : null}
         </div>
@@ -141,7 +141,7 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-fixed px-4 py-10"
+      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed px-4 py-10"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <div className="card-gold relative z-10 w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm">
@@ -263,7 +263,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div
-          className="relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-fixed"
+          className="relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
           style={{ backgroundImage: `url(${mainBgAsset.url})` }}
         >
           <div className="absolute inset-0 bg-background/55 pointer-events-none" />

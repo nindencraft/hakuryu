@@ -57,6 +57,8 @@ import {
   podeGerenciarMembros,
   podeRevogarPunicao,
   podeVerRegistroPunicoes,
+  parseCargos,
+  rotuloCargo,
 } from "@/lib/permissions";
 import { TIPO_PUNICAO_OPCOES } from "@/lib/types";
 import type { Membro, Punicao } from "@/lib/types";
@@ -111,7 +113,7 @@ function Membros() {
 
   const membros = data ?? [];
   const cargos = useMemo(
-    () => Array.from(new Set(membros.map((m) => m.cargo).filter(Boolean))).sort(),
+    () => Array.from(new Set(membros.flatMap((m) => parseCargos(m.cargo)))).sort(),
     [membros],
   );
   const divisoes = useMemo(
@@ -122,7 +124,7 @@ function Membros() {
   const filtrados = membros.filter((m) => {
     const alvo = `${m.nome_rp ?? ""} ${m.discord_username ?? ""} ${m.nome_roblox ?? ""}`.toLowerCase();
     if (busca && !alvo.includes(busca.toLowerCase())) return false;
-    if (cargo !== TODOS && m.cargo !== cargo) return false;
+    if (cargo !== TODOS && !parseCargos(m.cargo).includes(cargo)) return false;
     if (status !== TODOS && m.status !== status) return false;
     if (divisao !== TODOS && m.divisao !== divisao) return false;
     return true;
@@ -196,9 +198,11 @@ function Membros() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="border-primary/40">
-                      {m.cargo}
-                    </Badge>
+                    {parseCargos(m.cargo).map((c) => (
+                      <Badge key={c} variant="outline" className="border-primary/40">
+                        {rotuloCargo(c)}
+                      </Badge>
+                    ))}
                     {m.divisao ? <Badge variant="secondary">{m.divisao}</Badge> : null}
                     <Badge variant={m.warns > 0 ? "default" : "outline"}>{m.warns} warns</Badge>
                     <Button
@@ -315,7 +319,7 @@ function Filtro({
           <SelectItem value={TODOS}>{label}: todos</SelectItem>
           {options.map((o) => (
             <SelectItem key={o} value={o}>
-              {o}
+              {rotuloCargo(o)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -402,10 +406,10 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
   const user = useSessionUser();
   const opcoesCargo = cargosAtribuiveis(user);
   const podeStatus = podeGerenciarMembros(user);
-  const [cargo, setCargo] = useState(membro?.cargo ?? "Membro");
+  const [cargos, setCargos] = useState<string[]>(parseCargos(membro?.cargo));
   const [status, setStatus] = useState(membro?.status ?? "Ativo");
-  const cargoAcao = useAcao<{ membroId: string; cargo: string }>(trocarCargo, {
-    sucesso: "Cargo atualizado.",
+  const cargoAcao = useAcao<{ membroId: string; cargos: string[] }>(trocarCargo, {
+    sucesso: "Cargos atualizados.",
     invalidar: [["membros"]],
   });
   const statusAcao = useAcao<{ membroId: string; status: string }>(alterarStatusMembro, {
@@ -413,39 +417,59 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
     invalidar: [["membros"]],
   });
 
+  const alternar = (c: string) =>
+    setCargos((atual) => (atual.includes(c) ? atual.filter((x) => x !== c) : [...atual, c]));
+
+  const selecionaveis = parseCargos(membro?.cargo).filter((c) => !opcoesCargo.includes(c));
+
   return (
     <Dialog
       open={!!membro}
       onOpenChange={(o) => {
         if (!o) onClose();
         else if (membro) {
-          setCargo(membro.cargo);
+          setCargos(parseCargos(membro.cargo));
           setStatus(membro.status);
         }
       }}
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cargo e status</DialogTitle>
+          <DialogTitle>Cargos e status</DialogTitle>
           <DialogDescription>
-            Atualize a posição de {membro?.nome_rp || membro?.discord_username} na gang.
+            Atualize a posição de {membro?.nome_rp || membro?.discord_username} na gang. É possível
+            acumular cargos.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Cargo</Label>
-            <Select value={cargo} onValueChange={setCargo}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {opcoesCargo.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Cargos</Label>
+            <div className="flex flex-wrap gap-2">
+              {opcoesCargo.map((c) => {
+                const ativo = cargos.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={ativo}
+                    onClick={() => alternar(c)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      ativo
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {rotuloCargo(c)}
+                  </button>
+                );
+              })}
+            </div>
+            {selecionaveis.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Mantidos automaticamente: {selecionaveis.map(rotuloCargo).join(", ")} (definidos nas
+                divisões).
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2" hidden={!podeStatus}>
             <Label>Status</Label>
@@ -468,11 +492,17 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
             Cancelar
           </Button>
           <Button
-            disabled={cargoAcao.isPending || statusAcao.isPending}
+            disabled={cargoAcao.isPending || statusAcao.isPending || cargos.length === 0}
             onClick={async () => {
               if (!membro) return;
-              if (cargo !== membro.cargo)
-                await cargoAcao.mutateAsync({ membroId: membro.discord_id, cargo });
+              const mudouCargos =
+                cargos.slice().sort().join(",") !==
+                parseCargos(membro.cargo)
+                  .filter((c) => opcoesCargo.includes(c))
+                  .sort()
+                  .join(",");
+              if (mudouCargos)
+                await cargoAcao.mutateAsync({ membroId: membro.discord_id, cargos });
               if (status !== membro.status)
                 await statusAcao.mutateAsync({ membroId: membro.discord_id, status });
               onClose();
