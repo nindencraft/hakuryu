@@ -414,7 +414,29 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
               </Select>
             </div>
           </div>
+          {form.tipo === "Amistoso" ? (
+            <div className="space-y-2">
+              <Label>Gang aliada</Label>
+              <Select
+                value={form.aliado || "nenhuma"}
+                onValueChange={(v) => setForm({ ...form, aliado: v === "nenhuma" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a gang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhuma">Nenhuma</SelectItem>
+                  {(aliancas.data?.parcerias ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.nome}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="space-y-2">
+
             <Label htmlFor="local">Local</Label>
             <Input
               id="local"
