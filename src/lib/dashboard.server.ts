@@ -1056,11 +1056,12 @@ export async function salvarParceria(
   // Quem fechou é mantido no registro original ao editar.
   let fechadoPor = user.id;
   let fechadoNome = user.nomeRp || user.globalName || user.username;
+  const colunaId = await colunaIdParcerias();
   if (input.id != null) {
     const { data } = await db
       .from("parcerias")
       .select("observacoes")
-      .eq("id", input.id)
+      .eq(colunaId, input.id)
       .maybeSingle();
     const antigo = separarAlianca((data as { observacoes: string | null } | null)?.observacoes ?? null);
     if (antigo.extras.fechado_por) {
