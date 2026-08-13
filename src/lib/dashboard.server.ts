@@ -222,13 +222,19 @@ export async function advertirMembro(
 ) {
   assert(podeGerenciarMembros(user));
   const db = getDb();
-  const { error } = await db.from("punicoes").insert({
+  const base = {
     membro_id: input.membroId,
     tipo: input.tipo,
     motivo: input.motivo || null,
-    aplicado_por: user.id,
-  });
-  if (error) throw new Error(error.message);
+  };
+
+  // Algumas bases não têm a coluna de autoria; tenta com ela e recua se não existir.
+  const { error } = await db.from("punicoes").insert({ ...base, aplicado_por: user.id });
+  if (!error) return { ok: true };
+  if (!/aplicado_por/i.test(error.message)) throw new Error(error.message);
+
+  const { error: err2 } = await db.from("punicoes").insert(base);
+  if (err2) throw new Error(err2.message);
   return { ok: true };
 }
 
