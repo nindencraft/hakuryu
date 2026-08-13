@@ -727,6 +727,40 @@ async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): P
   return false;
 }
 
+/** ID do cargo do Discord associado a uma divisão. */
+async function roleIdDaDivisao(divisaoId: number | null): Promise<string | null> {
+  if (divisaoId == null) return null;
+  const db = getDb();
+  const { data } = await db
+    .from("divisoes")
+    .select("discord_role_id")
+    .eq("id", divisaoId)
+    .maybeSingle();
+  const id = (data as { discord_role_id: string | null } | null)?.discord_role_id ?? null;
+  return id ? id.replace(/\D/g, "") || null : null;
+}
+
+/**
+ * Aplica o cargo do Discord da divisão de destino e remove o da divisão anterior.
+ * Vale para líder, vice e membros comuns.
+ */
+async function trocarCargoDivisaoDiscord(
+  membroId: string,
+  antiga: number | null,
+  nova: number | null,
+) {
+  if (antiga === nova) return;
+  const { ajustarCargoPorId } = await import("./discord.server");
+  const [roleAntigo, roleNovo] = await Promise.all([
+    roleIdDaDivisao(antiga),
+    roleIdDaDivisao(nova),
+  ]);
+  if (roleAntigo && roleAntigo !== roleNovo) {
+    await ajustarCargoPorId(membroId, roleAntigo, "remove");
+  }
+  if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add");
+}
+
 
 export async function criarDivisao(
   user: SessionUser,
