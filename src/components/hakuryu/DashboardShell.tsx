@@ -15,6 +15,7 @@ import { useState, type ReactNode } from "react";
 import logo from "@/assets/hakuryu-logo.png";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
+import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -261,30 +262,36 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1">
-          <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur lg:hidden">
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Abrir menu">
-                  <Menu className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="relative w-80 overflow-y-auto bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2"
-                style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
-              >
-                <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
-                <div className="relative z-10 flex h-full flex-col">
-                  <SheetTitle className="sr-only">Navegação</SheetTitle>
-                  <SidebarBody user={user} onNavigate={() => setOpen(false)} />
-                </div>
-              </SheetContent>
-            </Sheet>
-            <span className="text-gold-gradient font-display text-lg font-semibold">Hakuryū</span>
-          </div>
+        <div
+          className="relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: `url(${mainBgAsset.url})` }}
+        >
+          <div className="absolute inset-0 bg-background/55 pointer-events-none" />
+          <div className="relative z-10">
+            <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur lg:hidden">
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" aria-label="Abrir menu">
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side="left"
+                  className="relative w-80 overflow-y-auto bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2"
+                  style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
+                >
+                  <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
+                  <div className="relative z-10 flex h-full flex-col">
+                    <SheetTitle className="sr-only">Navegação</SheetTitle>
+                    <SidebarBody user={user} onNavigate={() => setOpen(false)} />
+                  </div>
+                </SheetContent>
+              </Sheet>
+              <span className="text-gold-gradient font-display text-lg font-semibold">Hakuryū</span>
+            </div>
 
-          <main className="px-4 py-6 sm:px-8 sm:py-10">{children}</main>
+            <main className="px-4 py-6 sm:px-8 sm:py-10">{children}</main>
+          </div>
         </div>
       </div>
     </div>
