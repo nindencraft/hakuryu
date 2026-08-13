@@ -86,9 +86,10 @@ export async function loadMembros(): Promise<Membro[]> {
     const treino = Array.isArray(p.treinos) ? p.treinos[0] : p.treinos;
     if (!treino) continue;
     const s = bucket(p.membro_id);
-    if (treino.tipo === "Interno") s.internos += 1;
     if (treino.tipo === "Amistoso") s.amistosos += 1;
+    else s.internos += 1;
   }
+
 
   try {
     const guerras = unwrap(
