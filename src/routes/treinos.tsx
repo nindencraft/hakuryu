@@ -235,7 +235,7 @@ function TreinoCard({
             {formatarData(treino.data_treino)} às {formatarHorario(treino.horario)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="border-primary/40">
             {treino.tipo}
           </Badge>
@@ -244,6 +244,16 @@ function TreinoCard({
             <Badge variant="outline" className="border-primary/40 text-primary">
               Adiado{treino.adiamento.antes ? ` (era ${formatarData(treino.adiamento.antes.slice(0, 10))})` : ""}
             </Badge>
+          ) : null}
+          {podeGerir ? (
+            <button
+              type="button"
+              aria-label={`Deletar treino ${treino.titulo}`}
+              onClick={onDeletar}
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           ) : null}
         </div>
       </div>
@@ -297,9 +307,6 @@ function TreinoCard({
                 </Button>
               </>
             ) : null}
-            <Button size="sm" variant="ghost" onClick={onDeletar}>
-              Deletar
-            </Button>
           </>
         ) : null}
       </div>
