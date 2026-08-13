@@ -346,6 +346,21 @@ function separarAlianca(observacoes: string | null) {
   };
 }
 
+/** A tabela legada pode usar outro nome de chave primária (ex.: id_parceria). */
+let idParceriasCache: string | null = null;
+export async function colunaIdParcerias(): Promise<string> {
+  if (idParceriasCache) return idParceriasCache;
+  const db = getDb();
+  const { data } = await db.from("parcerias").select("*").limit(1);
+  const linha = (data ?? [])[0] as Record<string, unknown> | undefined;
+  const chaves = linha ? Object.keys(linha) : [];
+  idParceriasCache =
+    chaves.find((c) => c === "id") ??
+    chaves.find((c) => /^id[_-]?/i.test(c) || /[_-]id$/i.test(c)) ??
+    "id";
+  return idParceriasCache;
+}
+
 export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db.from("parcerias").select("*").order("nome");
