@@ -1072,8 +1072,39 @@ export async function salvarParceria(
       : db.from("parcerias").update(payload).eq("id", input.id);
   const { error } = await query;
   if (error) throw new Error(error.message);
+
+  if (input.id == null) {
+    const { enviarMensagemCanal } = await import("./discord.server");
+    await enviarMensagemCanal("canal_aliancas", {
+      title: `🤝 Nova aliança: ${input.nome}`,
+      description: input.observacoes?.trim() || undefined,
+      fields: [
+        ...(input.tag ? [{ name: "Tag", value: input.tag, inline: true }] : []),
+        { name: "Status", value: input.status, inline: true },
+        ...(input.representante_id
+          ? [
+              {
+                name: "Representante",
+                value: `${input.representante_nome || ""} <@${input.representante_id}>`.trim(),
+                inline: true,
+              },
+            ]
+          : []),
+        ...(input.link_servidor
+          ? [{ name: "Servidor", value: input.link_servidor }]
+          : []),
+        ...(input.contato ? [{ name: "Contato", value: input.contato }] : []),
+        { name: "Fechada por", value: fechadoNome },
+      ],
+      ...(input.icon_hash && /^\d+$/.test(input.representante_id || "0")
+        ? {}
+        : {}),
+      timestamp: new Date().toISOString(),
+    });
+  }
   return { ok: true };
 }
+
 
 
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
