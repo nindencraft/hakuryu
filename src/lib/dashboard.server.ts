@@ -386,10 +386,12 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
   > &
     Partial<Parceria>)[];
 
+  const colunaId = await colunaIdParcerias();
   const parcerias = linhas.map((row) => {
     const { observacoes, extras } = separarAlianca(row.observacoes ?? null);
     return {
       ...row,
+      id: (row as unknown as Record<string, number>)[colunaId] ?? row.id,
       observacoes,
       icon_hash: row.icon_hash ?? extras.icon_hash,
       representante_id: row.representante_id ?? extras.representante_id,
