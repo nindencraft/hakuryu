@@ -132,16 +132,22 @@ export async function loadMembros(): Promise<Membro[]> {
 }
 
 /** Marcador de adiamento guardado no fim da descrição (o banco não tem coluna própria). */
-const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*$/;
+const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*/;
+
+/** Gang aliada de um treino amistoso, guardada na própria descrição. */
+const MARCA_ALIADO = /\n?\[ALIADO\|([^\]]*)\]\s*/;
 
 function separarAdiamento(descricao: string | null) {
-  if (!descricao) return { descricao: null, adiamento: null };
-  const m = descricao.match(MARCA_ADIAMENTO);
-  if (!m) return { descricao, adiamento: null };
-  const limpa = descricao.replace(MARCA_ADIAMENTO, "").trim();
+  if (!descricao) return { descricao: null, adiamento: null, aliado: null };
+  const mAdi = descricao.match(MARCA_ADIAMENTO);
+  const mAli = descricao.match(MARCA_ALIADO);
+  const limpa = descricao.replace(MARCA_ADIAMENTO, "").replace(MARCA_ALIADO, "").trim();
   return {
     descricao: limpa || null,
-    adiamento: { por: m[1] || null, em: m[2] || null, antes: m[3] || null },
+    adiamento: mAdi
+      ? { por: mAdi[1] || null, em: mAdi[2] || null, antes: mAdi[3] || null }
+      : null,
+    aliado: mAli ? mAli[1] || null : null,
   };
 }
 
@@ -149,7 +155,7 @@ export async function loadTreinos(): Promise<Treino[]> {
   const db = getDb();
   const treinos = unwrap(
     await db.from("treinos").select("*").order("data_treino", { ascending: false }),
-  ) as Omit<Treino, "inscritos" | "adiamento">[];
+  ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
 
   const inscricoes = unwrap(
     await db.from("presencas_treino").select("treino_id, inscricao"),
@@ -163,10 +169,11 @@ export async function loadTreinos(): Promise<Treino[]> {
   }
 
   return treinos.map((t) => {
-    const { descricao, adiamento } = separarAdiamento(t.descricao);
-    return { ...t, descricao, adiamento, inscritos: contagem.get(t.id_treino) ?? 0 };
+    const { descricao, adiamento, aliado } = separarAdiamento(t.descricao);
+    return { ...t, descricao, adiamento, aliado, inscritos: contagem.get(t.id_treino) ?? 0 };
   });
 }
+
 
 
 export async function loadDivisoes(): Promise<Divisao[]> {
