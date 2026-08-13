@@ -17,6 +17,8 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
   }
 
   try {
+    const guildId = await guildIdAtivo();
+    if (!guildId) return null;
     const memberRes = await fetch(
       `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
       { headers: { Authorization: `Bot ${config.discordBotToken}` } },
@@ -40,6 +42,8 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
 
 async function buscarRoleId(nome: string): Promise<string | null> {
   const config = getConfig();
+  const guildId = await guildIdAtivo();
+  if (!guildId) return null;
   const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
     headers: { Authorization: `Bot ${config.discordBotToken}` },
   });
@@ -66,7 +70,8 @@ export async function ajustarCargoPorId(
   try {
     const config = getConfig();
     const id = roleId.trim().replace(/\D/g, "");
-    if (!id) return;
+    const guildId = await guildIdAtivo();
+    if (!id || !guildId) return;
     await fetch(
       `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`,
       {
@@ -144,6 +149,8 @@ export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null
     return null;
   }
   try {
+    const guildId = await guildIdAtivo();
+    if (!guildId) return null;
     const headers = { Authorization: `Bot ${config.discordBotToken}` };
     const [membersRes, rolesRes] = await Promise.all([
       fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
