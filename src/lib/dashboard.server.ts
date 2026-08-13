@@ -328,16 +328,83 @@ export async function criarTreino(
   return { ok: true };
 }
 
+/** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
+async function requireDonoTreino(user: SessionUser, treinoId: number) {
+  const db = getDb();
+  const { data, error } = await db
+    .from("treinos")
+    .select("id_treino, descricao, data_treino, horario, criado_por, status")
+    .eq("id_treino", treinoId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Treino não encontrado.");
+  if (!user.isOwner && data.criado_por !== user.id) {
+    throw new Error("Apenas quem criou o treino pode gerenciá-lo.");
+  }
+  return data as {
+    id_treino: number;
+    descricao: string | null;
+    data_treino: string;
+    horario: string | null;
+    criado_por: string | null;
+    status: string | null;
+  };
+}
+
 export async function deletarTreino(user: SessionUser, input: { treinoId: number }) {
   assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const { error } = await db.from("treinos").delete().eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
+export async function encerrarTreino(user: SessionUser, input: { treinoId: number }) {
+  assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
+  const db = getDb();
+  const { error } = await db
+    .from("treinos")
+    .update({ status: "Encerrado" })
+    .eq("id_treino", input.treinoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function adiarTreino(
+  user: SessionUser,
+  input: { treinoId: number; data_treino: string; horario: string },
+) {
+  assert(podeGerenciarTreinos(user));
+  const treino = await requireDonoTreino(user, input.treinoId);
+  const db = getDb();
+  const antes = `${treino.data_treino}${treino.horario ? ` ${treino.horario}` : ""}`;
+  const limpa = (treino.descricao ?? "").replace(MARCA_ADIAMENTO, "").trim();
+  const marca = `[ADIADO|${user.id}|${new Date().toISOString()}|${antes}]`;
+  const { error } = await db
+    .from("treinos")
+    .update({
+      data_treino: input.data_treino,
+      horario: input.horario || null,
+      descricao: `${limpa ? `${limpa}\n` : ""}${marca}`,
+    })
+    .eq("id_treino", input.treinoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
 export async function inscreverSe(user: SessionUser, input: { treinoId: number }) {
   const db = getDb();
+  const { data: treino } = await db
+    .from("treinos")
+    .select("status")
+    .eq("id_treino", input.treinoId)
+    .maybeSingle();
+  if (treino && treino.status && treino.status !== "Aberto") {
+    throw new Error("Este treino não está mais aberto para inscrições.");
+  }
+
 
   // Sem depender de constraint única: verifica e então atualiza ou insere.
   const { data: existente, error: errSel } = await db
