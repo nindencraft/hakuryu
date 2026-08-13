@@ -664,15 +664,30 @@ async function sincronizarCargosLideranca(
     { antigo: antes.vice_lider_id, novo: viceLiderId, cargo: CARGO_VICE_LIDER_DIVISAO },
   ];
 
+  const lerCargos = async (id: string): Promise<string[]> => {
+    const { data } = await db.from("membros").select("cargo").eq("discord_id", id).maybeSingle();
+    return ((data as { cargo: string | null } | null)?.cargo ?? "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+  };
+  const gravar = async (id: string, cargos: string[]) => {
+    await db
+      .from("membros")
+      .update({ cargo: (cargos.length ? cargos : ["Membro"]).join(", ") })
+      .eq("discord_id", id);
+  };
+
   for (const { antigo, novo, cargo } of pares) {
     if (antigo === novo) continue;
     if (antigo) {
       await ajustarCargoDiscord(antigo, cargo, "remove");
-      await db.from("membros").update({ cargo: "Membro" }).eq("discord_id", antigo).eq("cargo", cargo);
+      await gravar(antigo, (await lerCargos(antigo)).filter((c) => c !== cargo));
     }
     if (novo) {
       await ajustarCargoDiscord(novo, cargo, "add");
-      await db.from("membros").update({ cargo }).eq("discord_id", novo);
+      const atuais = await lerCargos(novo);
+      await gravar(novo, atuais.includes(cargo) ? atuais : [...atuais, cargo]);
     }
   }
 }

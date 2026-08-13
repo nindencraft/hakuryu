@@ -122,7 +122,7 @@ export const advertirMembro = createServerFn({ method: "POST" })
   .handler(async ({ data }) => svc.advertirMembro(await svc.requireUser(getRequest()), data));
 
 export const trocarCargo = createServerFn({ method: "POST" })
-  .inputValidator((data: { membroId: string; cargo: string }) => data)
+  .inputValidator((data: { membroId: string; cargos: string[] }) => data)
   .handler(async ({ data }) => svc.trocarCargo(await svc.requireUser(getRequest()), data));
 
 export const alterarStatusMembro = createServerFn({ method: "POST" })
