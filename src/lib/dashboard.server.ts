@@ -285,6 +285,57 @@ export async function revogarPunicao(user: SessionUser, input: { punicaoId: numb
   return { ok: true };
 }
 
+/** Dados extras da aliança guardados no fim de `observacoes` (o banco não tem colunas próprias). */
+const MARCA_ALIANCA = /\n?\[ALIANCA\|([^\]]*)\]\s*$/;
+
+function montarMarcaAlianca(campos: {
+  icon_hash: string | null;
+  representante_id: string | null;
+  representante_nome: string | null;
+  representante_avatar: string | null;
+  fechado_por: string | null;
+  fechado_por_nome: string | null;
+}): string {
+  const limpar = (v: string | null) => (v ?? "").replace(/[|\]\n]/g, " ").trim();
+  return `[ALIANCA|${[
+    campos.icon_hash,
+    campos.representante_id,
+    campos.representante_nome,
+    campos.representante_avatar,
+    campos.fechado_por,
+    campos.fechado_por_nome,
+  ]
+    .map(limpar)
+    .join("|")}]`;
+}
+
+function separarAlianca(observacoes: string | null) {
+  const vazio = {
+    icon_hash: null as string | null,
+    representante_id: null as string | null,
+    representante_nome: null as string | null,
+    representante_avatar: null as string | null,
+    fechado_por: null as string | null,
+    fechado_por_nome: null as string | null,
+  };
+  if (!observacoes) return { observacoes: null, extras: vazio };
+  const m = observacoes.match(MARCA_ALIANCA);
+  if (!m) return { observacoes, extras: vazio };
+  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome] = (m[1] ?? "").split("|");
+  const limpa = observacoes.replace(MARCA_ALIANCA, "").trim();
+  return {
+    observacoes: limpa || null,
+    extras: {
+      icon_hash: icon || null,
+      representante_id: repId || null,
+      representante_nome: repNome || null,
+      representante_avatar: repAvatar || null,
+      fechado_por: fechadoPor || null,
+      fechado_por_nome: fechadoNome || null,
+    },
+  };
+}
+
 export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db.from("parcerias").select("*").order("nome");
@@ -293,8 +344,55 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
     if (ausente) return { parcerias: [], tabelaAusente: true };
     throw new Error(error.message);
   }
-  return { parcerias: (data ?? []) as Parceria[], tabelaAusente: false };
+  const linhas = (data ?? []) as (Omit<
+    Parceria,
+    | "icon_hash"
+    | "representante_id"
+    | "representante_nome"
+    | "representante_avatar"
+    | "fechado_por"
+    | "fechado_por_nome"
+  > &
+    Partial<Parceria>)[];
+
+  const parcerias = linhas.map((row) => {
+    const { observacoes, extras } = separarAlianca(row.observacoes ?? null);
+    return {
+      ...row,
+      observacoes,
+      icon_hash: row.icon_hash ?? extras.icon_hash,
+      representante_id: row.representante_id ?? extras.representante_id,
+      representante_nome: row.representante_nome ?? extras.representante_nome,
+      representante_avatar: row.representante_avatar ?? extras.representante_avatar,
+      fechado_por: row.fechado_por ?? extras.fechado_por,
+      fechado_por_nome: row.fechado_por_nome ?? extras.fechado_por_nome,
+    } as Parceria;
+  });
+
+  return { parcerias, tabelaAusente: false };
 }
+
+/** Resolve convite do servidor aliado + perfil do representante pelo ID. */
+export async function resolverAliado(
+  user: SessionUser,
+  input: { convite: string; representanteId: string },
+): Promise<AliadoResolvido> {
+  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
+  const { resolverConvite, fetchUsuarioDiscord } = await import("./discord.server");
+
+  const convite = input.convite.trim() ? await resolverConvite(input.convite) : null;
+  const rep = input.representanteId.trim()
+    ? await fetchUsuarioDiscord(input.representanteId)
+    : null;
+
+  return {
+    guild: convite ? { id: convite.guildId, nome: convite.nome ?? "", iconHash: convite.iconHash } : null,
+    representante: rep
+      ? { id: rep.id, nome: rep.globalName || rep.username, avatarHash: rep.avatarHash }
+      : null,
+  };
+}
+
 
 /* ========== Escrita: membros ========== */
 
