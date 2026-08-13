@@ -55,8 +55,11 @@ export type Divisao = {
   vice_lider_id: string | null;
   lider_nome: string | null;
   lider_discord: string | null;
+  lider_avatar: string | null;
   vice_nome: string | null;
   vice_discord: string | null;
+  vice_avatar: string | null;
+
   membros: { discord_id: string; discord_username: string | null; nome_rp: string | null; avatar_hash: string | null }[];
 };
 
