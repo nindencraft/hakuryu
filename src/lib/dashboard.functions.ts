@@ -111,6 +111,10 @@ export const fetchMinhaInscricao = createServerFn({ method: "POST" })
     return { inscricao: await svc.minhaInscricao(user, data) };
   });
 
+export const revogarPunicao = createServerFn({ method: "POST" })
+  .inputValidator((data: { punicaoId: number }) => data)
+  .handler(async ({ data }) => svc.revogarPunicao(await svc.requireUser(getRequest()), data));
+
 export const advertirMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string; tipo: string; motivo: string }) => data)
   .handler(async ({ data }) => svc.advertirMembro(await svc.requireUser(getRequest()), data));

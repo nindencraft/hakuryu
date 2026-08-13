@@ -64,6 +64,7 @@ export type Punicao = {
   tipo: string;
   motivo: string | null;
   staff_id?: string | null;
+  staff_nome?: string | null;
   data_aplicacao?: string | null;
 };
 

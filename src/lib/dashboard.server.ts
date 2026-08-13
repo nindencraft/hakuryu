@@ -4,7 +4,6 @@ import {
   podeAcessar,
   podeAdvertir,
   podeCriarDivisao,
-  podeGerenciarDivisoes,
   podeGerenciarMembros,
   podeRevogarPunicao,
   podeGerenciarParcerias,
