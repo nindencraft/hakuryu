@@ -14,6 +14,7 @@ export const CARGOS_PERMITIDOS = [
   "Lider",
   "Vice-Lider",
   "Líder de Divisão",
+  "Vice-Líder de Divisão",
   "Staff",
   "Recrutador",
   "Membro",
@@ -49,8 +50,54 @@ export function podeGerenciarTreinos(user: SessionUserView | null): boolean {
     (user.isOwner ||
       temCargo(user, "Lider") ||
       temCargo(user, "Vice-Lider") ||
-      temCargo(user, "Líder de Divisão"))
+      temCargo(user, "Líder de Divisão") ||
+      temCargo(user, "Vice-Líder de Divisão"))
   );
+}
+
+/** Staff também aplica e consulta advertências. */
+export function podeAdvertir(user: SessionUserView | null): boolean {
+  return podeGerenciarMembros(user) || temCargo(user, "Staff");
+}
+
+export function podeVerRegistroPunicoes(user: SessionUserView | null): boolean {
+  return podeAdvertir(user);
+}
+
+export function podeRevogarPunicao(user: SessionUserView | null): boolean {
+  return podeGerenciarMembros(user);
+}
+
+/** Cargos que o usuário pode atribuir a outra pessoa. */
+export function cargosAtribuiveis(user: SessionUserView | null): string[] {
+  if (podeGerenciarMembros(user)) return [...CARGOS_PERMITIDOS];
+  if (temCargo(user, "Recrutador")) return ["Membro"];
+  return [];
+}
+
+export function podeCriarDivisao(user: SessionUserView | null): boolean {
+  return podeGerenciarMembros(user);
+}
+
+type DivisaoLideranca = { lider_id: string | null; vice_lider_id: string | null };
+
+/** Líder e vice-líder administram a própria divisão. */
+export function podeGerenciarDivisao(
+  user: SessionUserView | null,
+  divisao: DivisaoLideranca,
+): boolean {
+  if (!user) return false;
+  if (podeCriarDivisao(user)) return true;
+  return user.id === divisao.lider_id || user.id === divisao.vice_lider_id;
+}
+
+/** Só o líder da divisão (ou a cúpula) escolhe o vice-líder. */
+export function podeDefinirLiderancaDivisao(
+  user: SessionUserView | null,
+  divisao: DivisaoLideranca,
+): boolean {
+  if (!user) return false;
+  return podeCriarDivisao(user) || user.id === divisao.lider_id;
 }
 
 export function podeGerenciarDivisoes(user: SessionUserView | null): boolean {
