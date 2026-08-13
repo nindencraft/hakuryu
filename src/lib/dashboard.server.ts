@@ -322,6 +322,7 @@ export async function criarTreino(
     tipo: input.tipo,
     local: input.local || null,
     divisao_responsavel: input.divisao_responsavel || null,
+    status: "Aberto",
     criado_por: user.id,
   });
   if (error) throw new Error(error.message);
@@ -451,6 +452,7 @@ export async function atualizarPresenca(
   input: { treinoId: number; membroId: string; presenca: string },
 ) {
   assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const { error } = await db
     .from("presencas_treino")
