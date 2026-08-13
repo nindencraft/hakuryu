@@ -147,6 +147,14 @@ export const deletarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
   .handler(async ({ data }) => svc.deletarTreino(await svc.requireUser(getRequest()), data));
 
+export const encerrarTreino = createServerFn({ method: "POST" })
+  .inputValidator((data: { treinoId: number }) => data)
+  .handler(async ({ data }) => svc.encerrarTreino(await svc.requireUser(getRequest()), data));
+
+export const adiarTreino = createServerFn({ method: "POST" })
+  .inputValidator((data: { treinoId: number; data_treino: string; horario: string }) => data)
+  .handler(async ({ data }) => svc.adiarTreino(await svc.requireUser(getRequest()), data));
+
 export const inscreverSe = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
   .handler(async ({ data }) => svc.inscreverSe(await svc.requireUser(getRequest()), data));
