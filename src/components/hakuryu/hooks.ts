@@ -12,7 +12,7 @@ export function useSessionUser(): SessionUserView | null {
 /** Executa uma server function, mostra toast e revalida as consultas afetadas. */
 export function useAcao<TInput>(
   fn: (args: { data: TInput }) => Promise<unknown>,
-  options: { sucesso: string; invalidar?: (string | number)[][] },
+  options: { sucesso: string; invalidar?: (string | number)[][]; aoConcluir?: () => void },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -22,6 +22,7 @@ export function useAcao<TInput>(
       for (const key of options.invalidar ?? []) {
         void queryClient.invalidateQueries({ queryKey: key });
       }
+      options.aoConcluir?.();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Não foi possível concluir a ação.");

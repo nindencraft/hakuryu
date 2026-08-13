@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
@@ -47,6 +47,7 @@ import {
   advertirMembro,
   alterarStatusMembro,
   fetchHistorico,
+  atualizarMeusDados,
   removerMembro,
   revogarPunicao,
   trocarCargo,
@@ -110,6 +111,7 @@ function Membros() {
   const [trocando, setTrocando] = useState<Membro | null>(null);
   const [historico, setHistorico] = useState<Membro | null>(null);
   const [removendo, setRemovendo] = useState<Membro | null>(null);
+  const [editando, setEditando] = useState<Membro | null>(null);
 
   const membros = data ?? [];
   const cargos = useMemo(
@@ -188,7 +190,7 @@ function Membros() {
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       <Info label="Gênero" value={m.genero ?? "—"} />
                       <Info
-                        label="Altura no jogo"
+                        label="Altura"
                         value={m.altura_jogo != null ? `${m.altura_jogo}` : "—"}
                       />
                       <Info label="Estilo de luta" value={m.estilo_luta_principal ?? "—"} />
@@ -199,8 +201,12 @@ function Membros() {
                         value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
                       />
                     </div>
-                    {podePunir || podeTrocarCargo || podeVerRegistro || podeGerenciar ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {m.discord_id === user?.id || podeGerenciar ? (
+                          <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
+                            Editar dados
+                          </Button>
+                        ) : null}
                         {podePunir ? (
                           <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
                             Advertir
@@ -221,8 +227,7 @@ function Membros() {
                             Remover
                           </Button>
                         ) : null}
-                      </div>
-                    ) : null}
+                    </div>
                   </>
                 ) : null}
               </li>
@@ -288,6 +293,7 @@ function Membros() {
         </>
       )}
 
+      <EditarDadosDialog membro={editando} onClose={() => setEditando(null)} />
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
       <TrocarCargoDialog membro={trocando} onClose={() => setTrocando(null)} />
       <HistoricoDialog membro={historico} onClose={() => setHistorico(null)} />
@@ -354,6 +360,95 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">{label}</p>
       <p className="mt-1 text-sm text-foreground">{value}</p>
     </div>
+  );
+}
+
+function EditarDadosDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const [nomeRp, setNomeRp] = useState("");
+  const [roblox, setRoblox] = useState("");
+  const [genero, setGenero] = useState("");
+  const [altura, setAltura] = useState("");
+  const [estilo, setEstilo] = useState("");
+
+  useEffect(() => {
+    if (!membro) return;
+    setNomeRp(membro.nome_rp ?? "");
+    setRoblox(membro.nome_roblox ?? "");
+    setGenero(membro.genero ?? "");
+    setAltura(membro.altura_jogo != null ? String(membro.altura_jogo) : "");
+    setEstilo(membro.estilo_luta_principal ?? "");
+  }, [membro]);
+
+  const acao = useAcao<{
+    membroId: string;
+    nome_rp: string;
+    nome_roblox: string;
+    genero: string;
+    altura: string;
+    estilo_luta_principal: string;
+  }>(atualizarMeusDados, {
+    sucesso: "Dados atualizados.",
+    invalidar: [["membros"], ["session"]],
+    aoConcluir: onClose,
+  });
+
+  return (
+    <Dialog open={!!membro} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar dados</DialogTitle>
+          <DialogDescription>Ficha de {membro?.discord_username ?? "membro"}.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="ed-nome-rp">Nome no RP</Label>
+            <Input id="ed-nome-rp" value={nomeRp} onChange={(e) => setNomeRp(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ed-roblox">Nick do Roblox</Label>
+            <Input id="ed-roblox" value={roblox} onChange={(e) => setRoblox(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ed-genero">Gênero</Label>
+            <Input id="ed-genero" value={genero} onChange={(e) => setGenero(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ed-altura">Altura</Label>
+            <Input
+              id="ed-altura"
+              inputMode="decimal"
+              value={altura}
+              onChange={(e) => setAltura(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="ed-estilo">Estilo de luta</Label>
+            <Input id="ed-estilo" value={estilo} onChange={(e) => setEstilo(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={acao.isPending}
+            onClick={() =>
+              membro &&
+              acao.mutate({
+                membroId: membro.discord_id,
+                nome_rp: nomeRp,
+                nome_roblox: roblox,
+                genero,
+                altura,
+                estilo_luta_principal: estilo,
+              })
+            }
+          >
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

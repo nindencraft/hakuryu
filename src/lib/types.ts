@@ -110,6 +110,7 @@ export type ConfiguracoesPainel = {
   cargos: Record<string, string>;
   canais: Record<string, string>;
   owners: string[];
+  guildId: string;
   tabelaAusente: boolean;
 };
 

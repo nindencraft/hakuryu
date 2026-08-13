@@ -11,8 +11,25 @@ export type Configuracoes = {
   cargos: Record<string, string>;
   canais: Record<string, string>;
   owners: string[];
+  guildId: string;
   tabelaAusente: boolean;
 };
+
+/** Donos globais do painel (acesso total em qualquer servidor). */
+export const SUPER_OWNER_IDS = ["1454976616735313970"];
+
+export const CHAVE_GUILD = "guild_id";
+
+/** ID do servidor configurado no painel; cai para a variável de ambiente. */
+export async function guildIdAtivo(): Promise<string> {
+  const salvo = (await lerConfig(CHAVE_GUILD))?.replace(/\D/g, "");
+  if (salvo) return salvo;
+  try {
+    return getConfig().discordGuildId.trim();
+  } catch {
+    return "";
+  }
+}
 
 export function chaveCargo(nome: string): string {
   return `cargo_id:${nome}`;
@@ -35,7 +52,7 @@ export async function loadConfiguracoes(cargosConhecidos: string[]): Promise<Con
   const { data, error } = await db.from(TABELA_CONFIG).select("chave, valor");
   if (error) {
     if (ausente(error)) {
-      return { cargos: {}, canais: {}, owners: [], tabelaAusente: true };
+      return { cargos: {}, canais: {}, owners: [], guildId: "", tabelaAusente: true };
     }
     throw new Error(error.message);
   }
@@ -54,7 +71,7 @@ export async function loadConfiguracoes(cargosConhecidos: string[]): Promise<Con
     .map((v) => v.trim())
     .filter(Boolean);
 
-  return { cargos, canais, owners, tabelaAusente: false };
+  return { cargos, canais, owners, guildId: mapa.get(CHAVE_GUILD) ?? "", tabelaAusente: false };
 }
 
 /** Valor único, tolerante a erros (usado em caminhos best-effort). */
@@ -86,7 +103,7 @@ export async function salvarConfiguracoes(valores: Record<string, string>): Prom
 
 /** IDs de dono: variável de ambiente + os cadastrados nas configurações. */
 export async function ownerIds(): Promise<string[]> {
-  const ids: string[] = [];
+  const ids: string[] = [...SUPER_OWNER_IDS];
   try {
     const envOwner = getConfig().discordOwnerId.trim();
     if (envOwner) ids.push(envOwner);

@@ -1136,6 +1136,43 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   return { ok: true };
 }
 
+/* ========== Dados pessoais do membro ========== */
+
+/** O próprio membro edita sua ficha; a liderança pode editar a de qualquer um. */
+export async function atualizarDadosMembro(
+  user: SessionUser,
+  input: {
+    membroId: string;
+    nome_rp: string;
+    nome_roblox: string;
+    genero: string;
+    altura: string;
+    estilo_luta_principal: string;
+  },
+) {
+  const alvo = input.membroId || user.id;
+  assert(
+    alvo === user.id || podeGerenciarMembros(user),
+    "Você só pode alterar os seus próprios dados.",
+  );
+
+  const limpo = (v: string) => (v ?? "").trim() || null;
+  const alturaNum = Number((input.altura ?? "").toString().replace(",", "."));
+
+  const { error } = await getDb()
+    .from("membros")
+    .update({
+      nome_rp: limpo(input.nome_rp),
+      nome_roblox: limpo(input.nome_roblox),
+      genero: limpo(input.genero),
+      altura_jogo: Number.isFinite(alturaNum) && input.altura?.trim() ? alturaNum : null,
+      estilo_luta_principal: limpo(input.estilo_luta_principal),
+    })
+    .eq("discord_id", alvo);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
 /* ========== Configurações do painel ========== */
 
 export async function loadConfiguracoesPainel(user: SessionUser) {
@@ -1149,11 +1186,19 @@ export async function loadConfiguracoesPainel(user: SessionUser) {
 
 export async function salvarConfiguracoesPainel(
   user: SessionUser,
-  input: { cargos: Record<string, string>; canais: Record<string, string>; owners: string },
+  input: {
+    cargos: Record<string, string>;
+    canais: Record<string, string>;
+    owners: string;
+    guildId: string;
+  },
 ) {
   assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
-  const { salvarConfiguracoes, chaveCargo } = await import("./settings.server");
-  const valores: Record<string, string> = { owner_ids: input.owners };
+  const { salvarConfiguracoes, chaveCargo, CHAVE_GUILD } = await import("./settings.server");
+  const valores: Record<string, string> = {
+    owner_ids: input.owners,
+    [CHAVE_GUILD]: (input.guildId ?? "").replace(/\D/g, ""),
+  };
   for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
   for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
   await salvarConfiguracoes(valores);
