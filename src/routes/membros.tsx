@@ -51,6 +51,7 @@ import {
   trocarCargo,
 } from "@/lib/dashboard.functions";
 import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
+import { TIPO_PUNICAO_OPCOES } from "@/lib/types";
 import type { Membro, Punicao } from "@/lib/types";
 
 const TODOS = "__todos__";
@@ -314,7 +315,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
-  const [tipo, setTipo] = useState("Advertência");
+  const [tipo, setTipo] = useState<string>(TIPO_PUNICAO_OPCOES[0]);
   const [motivo, setMotivo] = useState("");
   const acao = useAcao<{ membroId: string; tipo: string; motivo: string }>(advertirMembro, {
     sucesso: "Advertência registrada.",
@@ -338,7 +339,7 @@ function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: (
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["Advertência", "Suspensão", "Observação"].map((t) => (
+                {TIPO_PUNICAO_OPCOES.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
                   </SelectItem>
@@ -484,11 +485,11 @@ function HistoricoDialog({ membro, onClose }: { membro: Membro | null; onClose: 
         ) : (data as Punicao[] | undefined)?.length ? (
           <ul className="max-h-80 space-y-2 overflow-y-auto">
             {(data as Punicao[]).map((p, i) => (
-              <li key={p.id ?? i} className="rounded-md border border-border bg-muted/50 p-3">
+              <li key={p.id_punicao ?? i} className="rounded-md border border-border bg-muted/50 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{p.tipo}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatarData(p.data_punicao)}
+                    {formatarData(p.data_aplicacao ?? null)}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{p.motivo ?? "Sem motivo."}</p>
