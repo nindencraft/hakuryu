@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import {
@@ -48,9 +48,16 @@ import {
   alterarStatusMembro,
   fetchHistorico,
   removerMembro,
+  revogarPunicao,
   trocarCargo,
 } from "@/lib/dashboard.functions";
-import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
+import {
+  cargosAtribuiveis,
+  podeAdvertir,
+  podeGerenciarMembros,
+  podeRevogarPunicao,
+  podeVerRegistroPunicoes,
+} from "@/lib/permissions";
 import { TIPO_PUNICAO_OPCOES } from "@/lib/types";
 import type { Membro, Punicao } from "@/lib/types";
 
@@ -85,6 +92,10 @@ function MembrosPage() {
 function Membros() {
   const user = useSessionUser();
   const podeGerenciar = podeGerenciarMembros(user);
+  const podePunir = podeAdvertir(user);
+  const podeVerRegistro = podeVerRegistroPunicoes(user);
+  const cargosPermitidos = cargosAtribuiveis(user);
+  const podeTrocarCargo = cargosPermitidos.length > 0;
   const { data, isPending, error } = useQuery(membrosQuery);
 
   const [busca, setBusca] = useState("");
@@ -221,20 +232,28 @@ function Membros() {
                         value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
                       />
                     </div>
-                    {podeGerenciar ? (
+                    {podePunir || podeTrocarCargo || podeVerRegistro || podeGerenciar ? (
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
-                          Advertir
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setTrocando(m)}>
-                          Trocar cargo
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setHistorico(m)}>
-                          Histórico
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setRemovendo(m)}>
-                          Remover
-                        </Button>
+                        {podePunir ? (
+                          <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
+                            Advertir
+                          </Button>
+                        ) : null}
+                        {podeTrocarCargo ? (
+                          <Button size="sm" variant="outline" onClick={() => setTrocando(m)}>
+                            Trocar cargo
+                          </Button>
+                        ) : null}
+                        {podeVerRegistro ? (
+                          <Button size="sm" variant="ghost" onClick={() => setHistorico(m)}>
+                            Histórico
+                          </Button>
+                        ) : null}
+                        {podeGerenciar ? (
+                          <Button size="sm" variant="ghost" onClick={() => setRemovendo(m)}>
+                            Remover
+                          </Button>
+                        ) : null}
                       </div>
                     ) : null}
                   </>
@@ -380,6 +399,9 @@ function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: (
 }
 
 function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const user = useSessionUser();
+  const opcoesCargo = cargosAtribuiveis(user);
+  const podeStatus = podeGerenciarMembros(user);
   const [cargo, setCargo] = useState(membro?.cargo ?? "Membro");
   const [status, setStatus] = useState(membro?.status ?? "Ativo");
   const cargoAcao = useAcao<{ membroId: string; cargo: string }>(trocarCargo, {
@@ -417,7 +439,7 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CARGOS_PERMITIDOS.map((c) => (
+                {opcoesCargo.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -425,9 +447,9 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2" hidden={!podeStatus}>
             <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={setStatus} disabled={!podeStatus}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -465,6 +487,12 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
 }
 
 function HistoricoDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const user = useSessionUser();
+  const podeRevogar = podeRevogarPunicao(user);
+  const revogar = useAcao<{ punicaoId: number }>(revogarPunicao, {
+    sucesso: "Advertência revogada.",
+    invalidar: [["membros"], ["historico", membro?.discord_id ?? ""]],
+  });
   const { data, isPending } = useQuery({
     queryKey: ["historico", membro?.discord_id],
     queryFn: () => fetchHistorico({ data: { membroId: membro!.discord_id } }),
@@ -485,14 +513,31 @@ function HistoricoDialog({ membro, onClose }: { membro: Membro | null; onClose: 
         ) : (data as Punicao[] | undefined)?.length ? (
           <ul className="max-h-80 space-y-2 overflow-y-auto">
             {(data as Punicao[]).map((p, i) => (
-              <li key={p.id_punicao ?? i} className="rounded-md border border-border bg-muted/50 p-3">
-                <div className="flex items-center justify-between gap-2">
+              <li
+                key={p.id_punicao ?? i}
+                className="relative rounded-md border border-border bg-muted/50 p-3"
+              >
+                {podeRevogar && p.id_punicao != null ? (
+                  <button
+                    type="button"
+                    aria-label={`Revogar ${p.tipo}`}
+                    disabled={revogar.isPending}
+                    onClick={() => revogar.mutate({ punicaoId: p.id_punicao! })}
+                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+                <div className="flex items-center justify-between gap-2 pr-4">
                   <span className="text-sm font-semibold">{p.tipo}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatarData(p.data_aplicacao ?? null)}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{p.motivo ?? "Sem motivo."}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Aplicada por: {p.staff_nome ?? "—"}
+                </p>
               </li>
             ))}
           </ul>
