@@ -43,7 +43,11 @@ import {
   deletarDivisao,
   removerMembroDivisao,
 } from "@/lib/dashboard.functions";
-import { podeGerenciarDivisoes } from "@/lib/permissions";
+import {
+  podeCriarDivisao,
+  podeDefinirLiderancaDivisao,
+  podeGerenciarDivisao,
+} from "@/lib/permissions";
 import type { Divisao } from "@/lib/types";
 
 const NENHUM = "__nenhum__";
@@ -75,7 +79,7 @@ function DivisoesPage() {
 
 function Divisoes() {
   const user = useSessionUser();
-  const podeGerenciar = podeGerenciarDivisoes(user);
+  const podeCriar = podeCriarDivisao(user);
   const { data, isPending, error } = useQuery(divisoesQuery);
   const [criando, setCriando] = useState(false);
   const [gerenciando, setGerenciando] = useState<Divisao | null>(null);
@@ -97,7 +101,7 @@ function Divisoes() {
         title="Divisões"
         subtitle="Estrutura interna: líderes, vices e integrantes."
         actions={
-          podeGerenciar ? (
+          podeCriar ? (
             <Button onClick={() => setCriando(true)}>
               <Plus className="h-4 w-4" /> Nova divisão
             </Button>
@@ -116,7 +120,9 @@ function Divisoes() {
         <EmptyState title="Nenhuma divisão criada" description="Crie a primeira divisão da gang." />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
-          {(data ?? []).map((d) => (
+          {(data ?? []).map((d) => {
+            const podeGerenciar = podeGerenciarDivisao(user, d);
+            return (
             <article key={d.id} className="card-gold p-5">
               <div className="flex items-center gap-4">
                 {d.logo_url ? (
@@ -190,18 +196,23 @@ function Divisoes() {
                 </ul>
               ) : null}
 
-              {podeGerenciar ? (
+              {podeGerenciar || podeCriar ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setGerenciando(d)}>
-                    Gerenciar
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeletando(d)}>
-                    Deletar
-                  </Button>
+                  {podeGerenciar ? (
+                    <Button size="sm" variant="outline" onClick={() => setGerenciando(d)}>
+                      Gerenciar
+                    </Button>
+                  ) : null}
+                  {podeCriar ? (
+                    <Button size="sm" variant="ghost" onClick={() => setDeletando(d)}>
+                      Deletar
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -309,6 +320,9 @@ function GerenciarDivisaoDialog({
   divisao: Divisao | null;
   onClose: () => void;
 }) {
+  const user = useSessionUser();
+  const podeTrocarLider = podeCriarDivisao(user);
+  const podeTrocarVice = divisao ? podeDefinirLiderancaDivisao(user, divisao) : false;
   const membros = useQuery(membrosQuery);
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
@@ -345,9 +359,9 @@ function GerenciarDivisaoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-2" hidden={!podeTrocarLider}>
             <Label>Líder</Label>
-            <Select value={lider} onValueChange={setLider}>
+            <Select value={lider} onValueChange={setLider} disabled={!podeTrocarLider}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
@@ -363,7 +377,7 @@ function GerenciarDivisaoDialog({
           </div>
           <div className="space-y-2">
             <Label>Vice-líder</Label>
-            <Select value={vice} onValueChange={setVice}>
+            <Select value={vice} onValueChange={setVice} disabled={!podeTrocarVice}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>

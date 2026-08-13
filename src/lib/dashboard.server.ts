@@ -1,8 +1,11 @@
 import { getDb, currentUser } from "./db.server";
 import {
+  cargosAtribuiveis,
   podeAcessar,
-  podeGerenciarDivisoes,
+  podeAdvertir,
+  podeCriarDivisao,
   podeGerenciarMembros,
+  podeRevogarPunicao,
   podeGerenciarParcerias,
   podeGerenciarTreinos,
   type SessionUser,
@@ -221,9 +224,38 @@ export async function loadPresencas(treinoId: number): Promise<PresencaTreino[]>
 
 export async function loadHistorico(membroId: string): Promise<Punicao[]> {
   const db = getDb();
-  return unwrap(
+  const punicoes = unwrap(
     await db.from("punicoes").select("*").eq("membro_id", membroId),
   ) as Punicao[];
+
+  const autores = Array.from(
+    new Set(punicoes.map((p) => p.staff_id).filter(Boolean) as string[]),
+  );
+  if (autores.length === 0) return punicoes.map((p) => ({ ...p, staff_nome: null }));
+
+  const membros = unwrap(
+    await db
+      .from("membros")
+      .select("discord_id, discord_username, nome_rp")
+      .in("discord_id", autores),
+  ) as { discord_id: string; discord_username: string | null; nome_rp: string | null }[];
+  const porId = new Map(membros.map((m) => [m.discord_id, m]));
+
+  return punicoes.map((p) => {
+    const autor = p.staff_id ? porId.get(p.staff_id) : undefined;
+    return {
+      ...p,
+      staff_nome: autor?.nome_rp || autor?.discord_username || p.staff_id || null,
+    };
+  });
+}
+
+export async function revogarPunicao(user: SessionUser, input: { punicaoId: number }) {
+  assert(podeRevogarPunicao(user), "Apenas Dono, Líder e Vice-Líder podem revogar advertências.");
+  const db = getDb();
+  const { error } = await db.from("punicoes").delete().eq("id_punicao", input.punicaoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
 }
 
 export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
@@ -243,7 +275,7 @@ export async function advertirMembro(
   user: SessionUser,
   input: { membroId: string; tipo: string; motivo: string },
 ) {
-  assert(podeGerenciarMembros(user));
+  assert(podeAdvertir(user));
   const db = getDb();
   const base = {
     membro_id: input.membroId,
@@ -266,7 +298,10 @@ export async function trocarCargo(
   user: SessionUser,
   input: { membroId: string; cargo: string },
 ) {
-  assert(podeGerenciarMembros(user));
+  assert(
+    cargosAtribuiveis(user).includes(input.cargo),
+    "Você não pode atribuir este cargo.",
+  );
   const db = getDb();
   const { error } = await db
     .from("membros")
@@ -480,6 +515,29 @@ export async function minhaInscricao(
 
 /* ========== Escrita: divisões ========== */
 
+type LiderancaDivisao = { id: number; lider_id: string | null; vice_lider_id: string | null };
+
+async function carregarLideranca(divisaoId: number): Promise<LiderancaDivisao> {
+  const db = getDb();
+  const { data, error } = await db
+    .from("divisoes")
+    .select("id, lider_id, vice_lider_id")
+    .eq("id", divisaoId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Divisão não encontrada.");
+  return data as LiderancaDivisao;
+}
+
+/** Cúpula da gang ou liderança da própria divisão. */
+function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): boolean {
+  return (
+    podeCriarDivisao(user) ||
+    user.id === divisao.lider_id ||
+    user.id === divisao.vice_lider_id
+  );
+}
+
 export async function criarDivisao(
   user: SessionUser,
   input: {
@@ -489,7 +547,7 @@ export async function criarDivisao(
     funcao_principal: string;
   },
 ) {
-  assert(podeGerenciarDivisoes(user));
+  assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem criar divisões.");
   const db = getDb();
   const { error } = await db.from("divisoes").insert({
     nome_divisao: input.nome_divisao,
@@ -510,11 +568,20 @@ export async function atualizarDivisao(
     novosMembros: string[];
   },
 ) {
-  assert(podeGerenciarDivisoes(user));
+  const divisao = await carregarLideranca(input.divisaoId);
+  assert(podeGerirDivisao(user, divisao), "Você não gerencia esta divisão.");
   const db = getDb();
+
+  // Líder/vice da própria divisão não trocam o líder; só a cúpula faz isso.
+  const liderId = podeCriarDivisao(user) ? input.liderId : divisao.lider_id;
+  const viceLiderId =
+    podeCriarDivisao(user) || user.id === divisao.lider_id
+      ? input.viceLiderId
+      : divisao.vice_lider_id;
+
   const { error } = await db
     .from("divisoes")
-    .update({ lider_id: input.liderId, vice_lider_id: input.viceLiderId })
+    .update({ lider_id: liderId, vice_lider_id: viceLiderId })
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
 
@@ -532,8 +599,19 @@ export async function removerMembroDivisao(
   user: SessionUser,
   input: { membroId: string },
 ) {
-  assert(podeGerenciarDivisoes(user));
   const db = getDb();
+  const { data: membro, error: errMembro } = await db
+    .from("membros")
+    .select("divisao_id")
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+  if (errMembro) throw new Error(errMembro.message);
+  const divisaoId = (membro as { divisao_id: number | null } | null)?.divisao_id ?? null;
+  if (divisaoId == null) return { ok: true };
+  assert(
+    podeGerirDivisao(user, await carregarLideranca(divisaoId)),
+    "Você não gerencia esta divisão.",
+  );
   const { error } = await db
     .from("membros")
     .update({ divisao_id: null })
@@ -543,7 +621,7 @@ export async function removerMembroDivisao(
 }
 
 export async function deletarDivisao(user: SessionUser, input: { divisaoId: number }) {
-  assert(podeGerenciarDivisoes(user));
+  assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem deletar divisões.");
   const db = getDb();
   const { error } = await db.from("divisoes").delete().eq("id", input.divisaoId);
   if (error) throw new Error(error.message);

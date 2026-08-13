@@ -100,7 +100,9 @@ export const fetchPresencas = createServerFn({ method: "POST" })
 export const fetchHistorico = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string }) => data)
   .handler(async ({ data }): Promise<Punicao[]> => {
-    await svc.requireUser(getRequest());
+    const user = await svc.requireUser(getRequest());
+    const { podeAdvertir } = await import("./session.server");
+    if (!podeAdvertir(user)) throw new Error("Você não pode ver o registro de punições.");
     return svc.loadHistorico(data.membroId);
   });
 
@@ -110,6 +112,10 @@ export const fetchMinhaInscricao = createServerFn({ method: "POST" })
     const user = await svc.requireUser(getRequest());
     return { inscricao: await svc.minhaInscricao(user, data) };
   });
+
+export const revogarPunicao = createServerFn({ method: "POST" })
+  .inputValidator((data: { punicaoId: number }) => data)
+  .handler(async ({ data }) => svc.revogarPunicao(await svc.requireUser(getRequest()), data));
 
 export const advertirMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string; tipo: string; motivo: string }) => data)

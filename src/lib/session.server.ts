@@ -118,6 +118,7 @@ export const CARGOS_PERMITIDOS = [
   "Lider",
   "Vice-Lider",
   "Líder de Divisão",
+  "Vice-Líder de Divisão",
   "Staff",
   "Recrutador",
   "Membro",
@@ -153,8 +154,27 @@ export function podeGerenciarTreinos(user: SessionUser | null): boolean {
     (user.isOwner ||
       temCargo(user, "Lider") ||
       temCargo(user, "Vice-Lider") ||
-      temCargo(user, "Líder de Divisão"))
+      temCargo(user, "Líder de Divisão") ||
+      temCargo(user, "Vice-Líder de Divisão"))
   );
+}
+
+export function podeAdvertir(user: SessionUser | null): boolean {
+  return podeGerenciarMembros(user) || temCargo(user, "Staff");
+}
+
+export function podeRevogarPunicao(user: SessionUser | null): boolean {
+  return podeGerenciarMembros(user);
+}
+
+export function cargosAtribuiveis(user: SessionUser | null): string[] {
+  if (podeGerenciarMembros(user)) return [...CARGOS_PERMITIDOS];
+  if (temCargo(user, "Recrutador")) return ["Membro"];
+  return [];
+}
+
+export function podeCriarDivisao(user: SessionUser | null): boolean {
+  return podeGerenciarMembros(user);
 }
 
 export function podeGerenciarDivisoes(user: SessionUser | null): boolean {
