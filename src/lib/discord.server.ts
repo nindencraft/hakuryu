@@ -115,3 +115,72 @@ export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null
     return null;
   }
 }
+
+export type ConviteInfo = {
+  guildId: string | null;
+  nome: string | null;
+  iconHash: string | null;
+  code: string;
+};
+
+/** Resolve um convite do Discord (endpoint público) para nome/ícone do servidor. */
+export async function resolverConvite(url: string): Promise<ConviteInfo | null> {
+  const code = (url.trim().match(/(?:discord\.gg\/|discord\.com\/invite\/)([A-Za-z0-9-]+)/)?.[1] ??
+    url.trim().replace(/^\/+|\/+$/g, "")) as string;
+  if (!code || /\s|\//.test(code)) return null;
+  try {
+    const res = await fetch(`https://discord.com/api/v10/invites/${encodeURIComponent(code)}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      guild?: { id: string; name: string; icon: string | null };
+    };
+    if (!data.guild) return null;
+    return {
+      guildId: data.guild.id,
+      nome: data.guild.name,
+      iconHash: data.guild.icon ?? null,
+      code,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type UsuarioDiscord = {
+  id: string;
+  username: string;
+  globalName: string | null;
+  avatarHash: string | null;
+};
+
+/** Busca qualquer usuário do Discord pelo ID (usa o token do bot). */
+export async function fetchUsuarioDiscord(id: string): Promise<UsuarioDiscord | null> {
+  const limpo = id.trim().replace(/\D/g, "");
+  if (!limpo) return null;
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const res = await fetch(`https://discord.com/api/v10/users/${limpo}`, {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
+    if (!res.ok) return null;
+    const u = (await res.json()) as {
+      id: string;
+      username: string;
+      global_name?: string | null;
+      avatar?: string | null;
+    };
+    return {
+      id: u.id,
+      username: u.username,
+      globalName: u.global_name ?? null,
+      avatarHash: u.avatar ?? null,
+    };
+  } catch {
+    return null;
+  }
+}

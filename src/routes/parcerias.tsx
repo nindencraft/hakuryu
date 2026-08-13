@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus, Search, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
-import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
+import { EmptyState, MemberAvatar, PageTitle } from "@/components/hakuryu/ui-bits";
 import { formatarData, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,20 +39,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { parceriasQuery } from "@/lib/queries";
-import { deletarParceria, salvarParceria } from "@/lib/dashboard.functions";
+import { deletarParceria, resolverAliado, salvarParceria } from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
 import { STATUS_PARCERIA_OPCOES, type Parceria } from "@/lib/types";
 
 export const Route = createFileRoute("/parcerias")({
   head: () => ({
     meta: [
-      { title: "Parcerias — Hakuryū Dashboard" },
+      { title: "Alianças — Hakuryū Dashboard" },
       {
         name: "description",
-        content: "Alianças e parcerias da gang Hakuryū: contatos, status e servidores aliados.",
+        content: "Alianças da gang Hakuryū: servidores aliados, representantes e contatos.",
       },
-      { property: "og:title", content: "Parcerias — Hakuryū Dashboard" },
-      { property: "og:description", content: "Alianças e parcerias da gang Hakuryū." },
+      { property: "og:title", content: "Alianças — Hakuryū Dashboard" },
+      { property: "og:description", content: "Servidores aliados da gang Hakuryū." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/parcerias")({
 function ParceriasPage() {
   return (
     <DashboardShell>
-      <Parcerias />
+      <Aliancas />
     </DashboardShell>
   );
 }
@@ -76,32 +77,43 @@ const VAZIA = {
   link_servidor: "",
   observacoes: "",
   data_inicio: "",
+  icon_hash: "",
+  representante_id: "",
+  representante_nome: "",
+  representante_avatar: "",
 };
 
-function Parcerias() {
+type FormAlianca = typeof VAZIA;
+
+function guildIconUrl(guildId: string | null, iconHash: string | null): string | null {
+  if (!guildId || !iconHash) return null;
+  return `https://cdn.discordapp.com/icons/${guildId}/${iconHash}.png?size=128`;
+}
+
+function Aliancas() {
   const user = useSessionUser();
   const podeGerenciar = podeGerenciarParcerias(user);
   const { data, isPending, error } = useQuery(parceriasQuery);
-  const [editando, setEditando] = useState<typeof VAZIA | null>(null);
+  const [editando, setEditando] = useState<FormAlianca | null>(null);
   const [deletando, setDeletando] = useState<Parceria | null>(null);
 
   const deletarAcao = useAcao<{ id: number }>(deletarParceria, {
-    sucesso: "Parceria removida.",
+    sucesso: "Aliança desfeita.",
     invalidar: [["parcerias"]],
   });
 
-  const parcerias = data?.parcerias ?? [];
+  const aliancas = data?.parcerias ?? [];
 
   return (
     <>
       <PageTitle
         kanji="同盟"
-        title="Parcerias"
-        subtitle="Alianças com outros servidores e gangs."
+        title="Alianças"
+        subtitle="Gangs e servidores aliados da Hakuryū."
         actions={
           podeGerenciar && !data?.tabelaAusente ? (
             <Button onClick={() => setEditando({ ...VAZIA })}>
-              <Plus className="h-4 w-4" /> Nova parceria
+              <Plus className="h-4 w-4" /> Adicionar aliança
             </Button>
           ) : null
         }
@@ -116,77 +128,49 @@ function Parcerias() {
         </div>
       ) : data?.tabelaAusente ? (
         <EmptyState
-          title="Tabela de parcerias não encontrada"
+          title="Tabela de alianças não encontrada"
           description="Crie a tabela `parcerias` no banco da gang (colunas: id, nome, tag, contato, status, link_servidor, observacoes, data_inicio) para habilitar esta aba."
         />
-      ) : parcerias.length === 0 ? (
-        <EmptyState title="Nenhuma aliança cadastrada" description="Cadastre a primeira parceria." />
+      ) : aliancas.length === 0 ? (
+        <EmptyState
+          title="Nenhuma aliança fechada"
+          description="Adicione a primeira gang aliada usando o link do servidor dela."
+        />
       ) : (
         <ul className="grid gap-4 lg:grid-cols-2">
-          {parcerias.map((p) => (
-            <li key={p.id} className="card-gold flex flex-col gap-3 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="font-display truncate text-xl text-foreground">{p.nome}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {p.tag ? `[${p.tag}] · ` : ""}Desde {formatarData(p.data_inicio)}
-                  </p>
-                </div>
-                <Badge variant="outline" className="border-primary/40">
-                  {p.status}
-                </Badge>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Contato: {p.contato ?? "—"}
-              </p>
-              {p.observacoes ? <p className="text-sm">{p.observacoes}</p> : null}
-
-              <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
-                {p.link_servidor ? (
-                  <Button size="sm" variant="outline" asChild>
-                    <a href={p.link_servidor} target="_blank" rel="noreferrer noopener">
-                      Servidor <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </Button>
-                ) : null}
-                {podeGerenciar ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setEditando({
-                          id: p.id,
-                          nome: p.nome,
-                          tag: p.tag ?? "",
-                          contato: p.contato ?? "",
-                          status: p.status,
-                          link_servidor: p.link_servidor ?? "",
-                          observacoes: p.observacoes ?? "",
-                          data_inicio: p.data_inicio?.slice(0, 10) ?? "",
-                        })
-                      }
-                    >
-                      Editar
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeletando(p)}>
-                      Remover
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </li>
+          {aliancas.map((p) => (
+            <AliancaCard
+              key={p.id}
+              alianca={p}
+              podeGerenciar={podeGerenciar}
+              onEditar={() =>
+                setEditando({
+                  id: p.id,
+                  nome: p.nome,
+                  tag: p.tag ?? "",
+                  contato: p.contato ?? "",
+                  status: p.status,
+                  link_servidor: p.link_servidor ?? "",
+                  observacoes: p.observacoes ?? "",
+                  data_inicio: p.data_inicio?.slice(0, 10) ?? "",
+                  icon_hash: p.icon_hash ?? "",
+                  representante_id: p.representante_id ?? "",
+                  representante_nome: p.representante_nome ?? "",
+                  representante_avatar: p.representante_avatar ?? "",
+                })
+              }
+              onDeletar={() => setDeletando(p)}
+            />
           ))}
         </ul>
       )}
 
-      <ParceriaDialog valor={editando} onClose={() => setEditando(null)} />
+      <AliancaDialog valor={editando} onClose={() => setEditando(null)} />
 
       <AlertDialog open={!!deletando} onOpenChange={(o) => !o && setDeletando(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover parceria?</AlertDialogTitle>
+            <AlertDialogTitle>Desfazer aliança?</AlertDialogTitle>
             <AlertDialogDescription>
               A aliança com “{deletando?.nome}” será apagada.
             </AlertDialogDescription>
@@ -199,7 +183,7 @@ function Parcerias() {
                 setDeletando(null);
               }}
             >
-              Remover
+              Desfazer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -208,18 +192,135 @@ function Parcerias() {
   );
 }
 
-function ParceriaDialog({
+function AliancaCard({
+  alianca: p,
+  podeGerenciar,
+  onEditar,
+  onDeletar,
+}: {
+  alianca: Parceria;
+  podeGerenciar: boolean;
+  onEditar: () => void;
+  onDeletar: () => void;
+}) {
+  const icone = guildIconUrl(p.tag, p.icon_hash);
+
+  return (
+    <li className="card-gold relative flex flex-col gap-3 p-5">
+      {podeGerenciar ? (
+        <button
+          type="button"
+          aria-label={`Desfazer aliança com ${p.nome}`}
+          onClick={onDeletar}
+          className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+
+      <div className="flex items-start gap-4 pr-8">
+        {icone ? (
+          <img
+            src={icone}
+            alt={`Ícone do servidor ${p.nome}`}
+            width={56}
+            height={56}
+            loading="lazy"
+            className="ring-gold h-14 w-14 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="ring-gold font-display flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-muted text-lg text-muted-foreground">
+            {p.nome.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display truncate text-xl text-foreground">{p.nome}</h2>
+          <p className="text-sm text-muted-foreground">Desde {formatarData(p.data_inicio)}</p>
+          <Badge variant="outline" className="mt-2 border-primary/40">
+            {p.status}
+          </Badge>
+        </div>
+      </div>
+
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted-foreground uppercase">Representante</dt>
+          <dd className="mt-1 flex items-center gap-2">
+            {p.representante_id ? (
+              <MemberAvatar
+                discordId={p.representante_id}
+                avatarHash={p.representante_avatar}
+                size={28}
+                alt={`Avatar de ${p.representante_nome ?? p.representante_id}`}
+              />
+            ) : null}
+            <span className="truncate">
+              {p.representante_nome || p.contato || "—"}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground uppercase">Aliança fechada por</dt>
+          <dd className="mt-1 truncate">{p.fechado_por_nome ?? "—"}</dd>
+        </div>
+      </dl>
+
+      {p.observacoes ? <p className="text-sm">{p.observacoes}</p> : null}
+
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
+        {p.link_servidor ? (
+          <Button size="sm" variant="outline" asChild>
+            <a href={p.link_servidor} target="_blank" rel="noreferrer noopener">
+              Servidor deles <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        ) : null}
+        {podeGerenciar ? (
+          <Button size="sm" variant="ghost" onClick={onEditar}>
+            Editar
+          </Button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function AliancaDialog({
   valor,
   onClose,
 }: {
-  valor: typeof VAZIA | null;
+  valor: FormAlianca | null;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState(valor ?? VAZIA);
-  const acao = useAcao<typeof VAZIA>(salvarParceria, {
-    sucesso: "Parceria salva.",
+  const [form, setForm] = useState<FormAlianca>(valor ?? VAZIA);
+
+  const acao = useAcao<FormAlianca>(salvarParceria, {
+    sucesso: "Aliança salva.",
     invalidar: [["parcerias"]],
   });
+
+  const buscar = useMutation({
+    mutationFn: (input: { convite: string; representanteId: string }) =>
+      resolverAliado({ data: input }),
+    onSuccess: (res) => {
+      setForm((f) => ({
+        ...f,
+        nome: res.guild?.nome || f.nome,
+        tag: res.guild?.id ?? f.tag,
+        icon_hash: res.guild?.iconHash ?? f.icon_hash,
+        representante_id: res.representante?.id ?? f.representante_id,
+        representante_nome: res.representante?.nome ?? f.representante_nome,
+        representante_avatar: res.representante?.avatarHash ?? f.representante_avatar,
+        contato: res.representante?.nome ?? f.contato,
+      }));
+      if (!res.guild) toast.error("Não consegui ler o convite. Preencha o nome manualmente.");
+      else if (!res.representante) toast.error("Servidor encontrado, mas o ID do representante não foi resolvido.");
+      else toast.success("Dados carregados do Discord.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const icone = guildIconUrl(form.tag || null, form.icon_hash || null);
 
   return (
     <Dialog
@@ -231,35 +332,74 @@ function ParceriaDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{form.id == null ? "Nova parceria" : "Editar parceria"}</DialogTitle>
-          <DialogDescription>Dados da aliança com outro grupo.</DialogDescription>
+          <DialogTitle>{form.id == null ? "Adicionar aliança" : "Editar aliança"}</DialogTitle>
+          <DialogDescription>
+            Cole o link do servidor aliado e o ID do representante — o resto vem do Discord.
+          </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="pconvite">Link do servidor (convite)</Label>
+            <Input
+              id="pconvite"
+              placeholder="https://discord.gg/abc123"
+              value={form.link_servidor}
+              onChange={(e) => setForm({ ...form, link_servidor: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="prep">ID do representante no Discord</Label>
+            <div className="flex gap-2">
+              <Input
+                id="prep"
+                placeholder="123456789012345678"
+                value={form.representante_id}
+                onChange={(e) => setForm({ ...form, representante_id: e.target.value })}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={buscar.isPending || (!form.link_servidor && !form.representante_id)}
+                onClick={() =>
+                  buscar.mutate({
+                    convite: form.link_servidor,
+                    representanteId: form.representante_id,
+                  })
+                }
+              >
+                <Search className="h-4 w-4" /> Buscar
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
+            {icone ? (
+              <img
+                src={icone}
+                alt="Ícone do servidor aliado"
+                width={44}
+                height={44}
+                className="ring-gold h-11 w-11 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-11 w-11 rounded-full bg-muted" aria-hidden />
+            )}
+            <div className="min-w-0 text-sm">
+              <p className="truncate font-medium">{form.nome || "Servidor não identificado"}</p>
+              <p className="truncate text-muted-foreground">
+                Representante: {form.representante_nome || "—"}
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="pnome">Nome</Label>
+              <Label htmlFor="pnome">Nome do servidor</Label>
               <Input
                 id="pnome"
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ptag">Tag</Label>
-              <Input
-                id="ptag"
-                value={form.tag}
-                onChange={(e) => setForm({ ...form, tag: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="pcontato">Contato</Label>
-              <Input
-                id="pcontato"
-                value={form.contato}
-                onChange={(e) => setForm({ ...form, contato: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -278,25 +418,7 @@ function ParceriaDialog({
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="plink">Link do servidor</Label>
-              <Input
-                id="plink"
-                value={form.link_servidor}
-                onChange={(e) => setForm({ ...form, link_servidor: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pdata">Data de início</Label>
-              <Input
-                id="pdata"
-                type="date"
-                value={form.data_inicio}
-                onChange={(e) => setForm({ ...form, data_inicio: e.target.value })}
-              />
-            </div>
-          </div>
+
           <div className="space-y-2">
             <Label htmlFor="pobs">Observações</Label>
             <Textarea
@@ -306,6 +428,7 @@ function ParceriaDialog({
             />
           </div>
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Cancelar
@@ -314,7 +437,7 @@ function ParceriaDialog({
             disabled={!form.nome || acao.isPending}
             onClick={() => acao.mutate(form, { onSuccess: onClose })}
           >
-            Salvar
+            Salvar aliança
           </Button>
         </DialogFooter>
       </DialogContent>

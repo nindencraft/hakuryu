@@ -15,6 +15,7 @@ import {
 } from "./session.server";
 import { cargoPrimario } from "./permissions";
 import type {
+  AliadoResolvido,
   Divisao,
   Membro,
   Parceria,
@@ -22,6 +23,7 @@ import type {
   Punicao,
   Treino,
 } from "./types";
+
 
 /* ========== Sessão / guardas ========== */
 
@@ -132,16 +134,22 @@ export async function loadMembros(): Promise<Membro[]> {
 }
 
 /** Marcador de adiamento guardado no fim da descrição (o banco não tem coluna própria). */
-const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*$/;
+const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*/;
+
+/** Gang aliada de um treino amistoso, guardada na própria descrição. */
+const MARCA_ALIADO = /\n?\[ALIADO\|([^\]]*)\]\s*/;
 
 function separarAdiamento(descricao: string | null) {
-  if (!descricao) return { descricao: null, adiamento: null };
-  const m = descricao.match(MARCA_ADIAMENTO);
-  if (!m) return { descricao, adiamento: null };
-  const limpa = descricao.replace(MARCA_ADIAMENTO, "").trim();
+  if (!descricao) return { descricao: null, adiamento: null, aliado: null };
+  const mAdi = descricao.match(MARCA_ADIAMENTO);
+  const mAli = descricao.match(MARCA_ALIADO);
+  const limpa = descricao.replace(MARCA_ADIAMENTO, "").replace(MARCA_ALIADO, "").trim();
   return {
     descricao: limpa || null,
-    adiamento: { por: m[1] || null, em: m[2] || null, antes: m[3] || null },
+    adiamento: mAdi
+      ? { por: mAdi[1] || null, em: mAdi[2] || null, antes: mAdi[3] || null }
+      : null,
+    aliado: mAli ? mAli[1] || null : null,
   };
 }
 
@@ -149,7 +157,7 @@ export async function loadTreinos(): Promise<Treino[]> {
   const db = getDb();
   const treinos = unwrap(
     await db.from("treinos").select("*").order("data_treino", { ascending: false }),
-  ) as Omit<Treino, "inscritos" | "adiamento">[];
+  ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
 
   const inscricoes = unwrap(
     await db.from("presencas_treino").select("treino_id, inscricao"),
@@ -163,10 +171,11 @@ export async function loadTreinos(): Promise<Treino[]> {
   }
 
   return treinos.map((t) => {
-    const { descricao, adiamento } = separarAdiamento(t.descricao);
-    return { ...t, descricao, adiamento, inscritos: contagem.get(t.id_treino) ?? 0 };
+    const { descricao, adiamento, aliado } = separarAdiamento(t.descricao);
+    return { ...t, descricao, adiamento, aliado, inscritos: contagem.get(t.id_treino) ?? 0 };
   });
 }
+
 
 
 export async function loadDivisoes(): Promise<Divisao[]> {
@@ -278,6 +287,57 @@ export async function revogarPunicao(user: SessionUser, input: { punicaoId: numb
   return { ok: true };
 }
 
+/** Dados extras da aliança guardados no fim de `observacoes` (o banco não tem colunas próprias). */
+const MARCA_ALIANCA = /\n?\[ALIANCA\|([^\]]*)\]\s*$/;
+
+function montarMarcaAlianca(campos: {
+  icon_hash: string | null;
+  representante_id: string | null;
+  representante_nome: string | null;
+  representante_avatar: string | null;
+  fechado_por: string | null;
+  fechado_por_nome: string | null;
+}): string {
+  const limpar = (v: string | null) => (v ?? "").replace(/[|\]\n]/g, " ").trim();
+  return `[ALIANCA|${[
+    campos.icon_hash,
+    campos.representante_id,
+    campos.representante_nome,
+    campos.representante_avatar,
+    campos.fechado_por,
+    campos.fechado_por_nome,
+  ]
+    .map(limpar)
+    .join("|")}]`;
+}
+
+function separarAlianca(observacoes: string | null) {
+  const vazio = {
+    icon_hash: null as string | null,
+    representante_id: null as string | null,
+    representante_nome: null as string | null,
+    representante_avatar: null as string | null,
+    fechado_por: null as string | null,
+    fechado_por_nome: null as string | null,
+  };
+  if (!observacoes) return { observacoes: null, extras: vazio };
+  const m = observacoes.match(MARCA_ALIANCA);
+  if (!m) return { observacoes, extras: vazio };
+  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome] = (m[1] ?? "").split("|");
+  const limpa = observacoes.replace(MARCA_ALIANCA, "").trim();
+  return {
+    observacoes: limpa || null,
+    extras: {
+      icon_hash: icon || null,
+      representante_id: repId || null,
+      representante_nome: repNome || null,
+      representante_avatar: repAvatar || null,
+      fechado_por: fechadoPor || null,
+      fechado_por_nome: fechadoNome || null,
+    },
+  };
+}
+
 export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db.from("parcerias").select("*").order("nome");
@@ -286,8 +346,55 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
     if (ausente) return { parcerias: [], tabelaAusente: true };
     throw new Error(error.message);
   }
-  return { parcerias: (data ?? []) as Parceria[], tabelaAusente: false };
+  const linhas = (data ?? []) as (Omit<
+    Parceria,
+    | "icon_hash"
+    | "representante_id"
+    | "representante_nome"
+    | "representante_avatar"
+    | "fechado_por"
+    | "fechado_por_nome"
+  > &
+    Partial<Parceria>)[];
+
+  const parcerias = linhas.map((row) => {
+    const { observacoes, extras } = separarAlianca(row.observacoes ?? null);
+    return {
+      ...row,
+      observacoes,
+      icon_hash: row.icon_hash ?? extras.icon_hash,
+      representante_id: row.representante_id ?? extras.representante_id,
+      representante_nome: row.representante_nome ?? extras.representante_nome,
+      representante_avatar: row.representante_avatar ?? extras.representante_avatar,
+      fechado_por: row.fechado_por ?? extras.fechado_por,
+      fechado_por_nome: row.fechado_por_nome ?? extras.fechado_por_nome,
+    } as Parceria;
+  });
+
+  return { parcerias, tabelaAusente: false };
 }
+
+/** Resolve convite do servidor aliado + perfil do representante pelo ID. */
+export async function resolverAliado(
+  user: SessionUser,
+  input: { convite: string; representanteId: string },
+): Promise<AliadoResolvido> {
+  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
+  const { resolverConvite, fetchUsuarioDiscord } = await import("./discord.server");
+
+  const convite = input.convite.trim() ? await resolverConvite(input.convite) : null;
+  const rep = input.representanteId.trim()
+    ? await fetchUsuarioDiscord(input.representanteId)
+    : null;
+
+  return {
+    guild: convite ? { id: convite.guildId, nome: convite.nome ?? "", iconHash: convite.iconHash } : null,
+    representante: rep
+      ? { id: rep.id, nome: rep.globalName || rep.username, avatarHash: rep.avatarHash }
+      : null,
+  };
+}
+
 
 /* ========== Escrita: membros ========== */
 
@@ -396,13 +503,19 @@ export async function criarTreino(
     tipo: string;
     local: string;
     divisao_responsavel: string;
+    aliado: string;
   },
 ) {
   assert(podeGerenciarTreinos(user));
   const db = getDb();
+  const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
+  const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
+  const descricao =
+    `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
+
   const { error } = await db.from("treinos").insert({
     titulo: input.titulo,
-    descricao: input.descricao || null,
+    descricao,
     data_treino: input.data_treino,
     horario: input.horario || null,
     tipo: input.tipo,
@@ -414,6 +527,7 @@ export async function criarTreino(
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 /** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
 async function requireDonoTreino(user: SessionUser, treinoId: number) {
@@ -750,7 +864,7 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   return { ok: true };
 }
 
-/* ========== Escrita: parcerias ========== */
+/* ========== Escrita: alianças ========== */
 
 export async function salvarParceria(
   user: SessionUser,
@@ -763,18 +877,49 @@ export async function salvarParceria(
     link_servidor: string;
     observacoes: string;
     data_inicio: string;
+    icon_hash: string;
+    representante_id: string;
+    representante_nome: string;
+    representante_avatar: string;
   },
 ) {
-  assert(podeGerenciarParcerias(user));
+  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
   const db = getDb();
+
+  // Quem fechou é mantido no registro original ao editar.
+  let fechadoPor = user.id;
+  let fechadoNome = user.nomeRp || user.globalName || user.username;
+  if (input.id != null) {
+    const { data } = await db
+      .from("parcerias")
+      .select("observacoes")
+      .eq("id", input.id)
+      .maybeSingle();
+    const antigo = separarAlianca((data as { observacoes: string | null } | null)?.observacoes ?? null);
+    if (antigo.extras.fechado_por) {
+      fechadoPor = antigo.extras.fechado_por;
+      fechadoNome = antigo.extras.fechado_por_nome ?? fechadoPor;
+    }
+  }
+
+  const marca = montarMarcaAlianca({
+    icon_hash: input.icon_hash || null,
+    representante_id: input.representante_id || null,
+    representante_nome: input.representante_nome || null,
+    representante_avatar: input.representante_avatar || null,
+    fechado_por: fechadoPor,
+    fechado_por_nome: fechadoNome,
+  });
+  const obs = `${input.observacoes ? `${input.observacoes.trim()}\n` : ""}${marca}`;
+
   const payload = {
     nome: input.nome,
     tag: input.tag || null,
     contato: input.contato || null,
     status: input.status,
     link_servidor: input.link_servidor || null,
-    observacoes: input.observacoes || null,
-    data_inicio: input.data_inicio || null,
+    observacoes: obs,
+    data_inicio: input.data_inicio || new Date().toISOString().slice(0, 10),
   };
   const query =
     input.id == null
@@ -784,6 +929,7 @@ export async function salvarParceria(
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));

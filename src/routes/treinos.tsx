@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisoesQuery, treinosQuery } from "@/lib/queries";
+import { divisoesQuery, parceriasQuery, treinosQuery } from "@/lib/queries";
 import {
   ausentarSe,
   atualizarPresenca,
@@ -239,7 +239,13 @@ function TreinoCard({
           <Badge variant="outline" className="border-primary/40">
             {treino.tipo}
           </Badge>
+          {treino.aliado ? (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              vs {treino.aliado}
+            </Badge>
+          ) : null}
           {treino.status ? <Badge variant="secondary">{treino.status}</Badge> : null}
+
           {treino.adiamento ? (
             <Badge variant="outline" className="border-primary/40 text-primary">
               Adiado{treino.adiamento.antes ? ` (era ${formatarData(treino.adiamento.antes.slice(0, 10))})` : ""}
@@ -316,6 +322,7 @@ function TreinoCard({
 
 function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const divisoes = useQuery(divisoesQuery);
+  const aliancas = useQuery(parceriasQuery);
   const [form, setForm] = useState({
     titulo: "",
     descricao: "",
@@ -324,7 +331,9 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
     tipo: "Interno" as string,
     local: "",
     divisao_responsavel: "Todas",
+    aliado: "",
   });
+
 
   const acao = useAcao<typeof form>(criarTreino, {
     sucesso: "Treino criado.",
@@ -411,7 +420,29 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
               </Select>
             </div>
           </div>
+          {form.tipo === "Amistoso" ? (
+            <div className="space-y-2">
+              <Label>Gang aliada</Label>
+              <Select
+                value={form.aliado || "nenhuma"}
+                onValueChange={(v) => setForm({ ...form, aliado: v === "nenhuma" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a gang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhuma">Nenhuma</SelectItem>
+                  {(aliancas.data?.parcerias ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.nome}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="space-y-2">
+
             <Label htmlFor="local">Local</Label>
             <Input
               id="local"

@@ -145,9 +145,11 @@ export const criarTreino = createServerFn({ method: "POST" })
       tipo: string;
       local: string;
       divisao_responsavel: string;
+      aliado: string;
     }) => data,
   )
   .handler(async ({ data }) => svc.criarTreino(await svc.requireUser(getRequest()), data));
+
 
 export const deletarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
@@ -205,6 +207,10 @@ export const deletarDivisao = createServerFn({ method: "POST" })
   .inputValidator((data: { divisaoId: number }) => data)
   .handler(async ({ data }) => svc.deletarDivisao(await svc.requireUser(getRequest()), data));
 
+export const resolverAliado = createServerFn({ method: "POST" })
+  .inputValidator((data: { convite: string; representanteId: string }) => data)
+  .handler(async ({ data }) => svc.resolverAliado(await svc.requireUser(getRequest()), data));
+
 export const salvarParceria = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -216,6 +222,10 @@ export const salvarParceria = createServerFn({ method: "POST" })
       link_servidor: string;
       observacoes: string;
       data_inicio: string;
+      icon_hash: string;
+      representante_id: string;
+      representante_nome: string;
+      representante_avatar: string;
     }) => data,
   )
   .handler(async ({ data }) => svc.salvarParceria(await svc.requireUser(getRequest()), data));
@@ -223,3 +233,4 @@ export const salvarParceria = createServerFn({ method: "POST" })
 export const deletarParceria = createServerFn({ method: "POST" })
   .inputValidator((data: { id: number }) => data)
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
+
