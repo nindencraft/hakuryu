@@ -100,11 +100,11 @@ export async function ajustarCargoDiscord(
 
 export type EmbedDiscord = {
   title: string;
-  description?: string;
-  color?: number;
-  fields?: { name: string; value: string; inline?: boolean }[];
-  thumbnail?: { url: string };
-  timestamp?: string;
+  description?: string | undefined;
+  color?: number | undefined;
+  fields?: { name: string; value: string; inline?: boolean }[] | undefined;
+  thumbnail?: { url: string } | undefined;
+  timestamp?: string | undefined;
 };
 
 /** Publica um embed em um canal do servidor. Best-effort. */
