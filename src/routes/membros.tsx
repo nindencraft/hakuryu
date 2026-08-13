@@ -201,8 +201,7 @@ function Membros() {
                         value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
                       />
                     </div>
-                    {true ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                         {m.discord_id === user?.id || podeGerenciar ? (
                           <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
                             Editar dados
@@ -228,8 +227,7 @@ function Membros() {
                             Remover
                           </Button>
                         ) : null}
-                      </div>
-                    ) : null}
+                    </div>
                   </>
                 ) : null}
               </li>
