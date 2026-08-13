@@ -9,6 +9,7 @@ import {
   podeGerenciarParcerias,
   podeGerenciarTreinos,
   temCargo,
+  CARGOS_DIVISAO,
   type SessionUser,
 } from "./session.server";
 import type {
@@ -297,18 +298,47 @@ export async function advertirMembro(
 
 export async function trocarCargo(
   user: SessionUser,
-  input: { membroId: string; cargo: string },
+  input: { membroId: string; cargos: string[] },
 ) {
+  const permitidos = cargosAtribuiveis(user);
+  const novos = Array.from(new Set(input.cargos.filter(Boolean)));
+  assert(novos.length > 0, "Selecione ao menos um cargo.");
   assert(
-    cargosAtribuiveis(user).includes(input.cargo),
+    novos.every((c) => permitidos.includes(c)),
     "Você não pode atribuir este cargo.",
   );
+
   const db = getDb();
+  const { data: atual } = await db
+    .from("membros")
+    .select("cargo")
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+
+  const antigos = ((atual as { cargo: string | null } | null)?.cargo ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
+  const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
+  const finais = Array.from(new Set([...preservados, ...novos]));
+
   const { error } = await db
     .from("membros")
-    .update({ cargo: input.cargo })
+    .update({ cargo: finais.join(", ") })
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
+
+  // Sincroniza com o Discord (adiciona os novos, remove os retirados).
+  const { ajustarCargoDiscord } = await import("./discord.server");
+  for (const cargo of permitidos) {
+    const tinha = antigos.includes(cargo);
+    const tem = finais.includes(cargo);
+    if (tinha === tem) continue;
+    await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove");
+  }
+
   return { ok: true };
 }
 
@@ -676,6 +706,10 @@ export async function removerMembroDivisao(
 export async function deletarDivisao(user: SessionUser, input: { divisaoId: number }) {
   assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem deletar divisões.");
   const db = getDb();
+  // Liderança perde o cargo de capitão junto com a divisão.
+  const lideranca = await carregarLideranca(input.divisaoId);
+  await sincronizarCargosLideranca(db, lideranca, null, null);
+  await db.from("membros").update({ divisao_id: null }).eq("divisao_id", input.divisaoId);
   const { error } = await db.from("divisoes").delete().eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
