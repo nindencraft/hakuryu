@@ -157,12 +157,12 @@ function Divisoes() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">Líder</p>
+                  <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">Capitão</p>
                   <p className="text-sm">{d.lider_nome ?? d.lider_discord ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
-                    Vice-líder
+                    Vice-Capitão
                   </p>
                   <p className="text-sm">{d.vice_nome ?? d.vice_discord ?? "—"}</p>
                 </div>
@@ -375,7 +375,7 @@ function GerenciarDivisaoDialog({
 
         <div className="space-y-4">
           <div className="space-y-2" hidden={!podeTrocarLider}>
-            <Label>Líder</Label>
+            <Label>Capitão</Label>
             <Select value={lider} onValueChange={setLider} disabled={!podeTrocarLider}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
@@ -391,7 +391,7 @@ function GerenciarDivisaoDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Vice-líder</Label>
+            <Label>Vice-Capitão</Label>
             <Select value={vice} onValueChange={setVice} disabled={!podeTrocarVice}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
