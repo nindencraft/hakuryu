@@ -105,3 +105,16 @@ export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as con
 export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
 
+
+export type ConfiguracoesPainel = {
+  cargos: Record<string, string>;
+  canais: Record<string, string>;
+  owners: string[];
+  tabelaAusente: boolean;
+};
+
+export const CANAIS_CONFIG = [
+  { chave: "canal_treinos", rotulo: "Canal de treinos" },
+  { chave: "canal_aliancas", rotulo: "Canal de alianças" },
+  { chave: "canal_advertencias", rotulo: "Canal de advertências" },
+] as const;

@@ -34,6 +34,11 @@ export async function requireUser(request: Request): Promise<SessionUser> {
   const { fetchCargosAtuais } = await import("./discord.server");
   const cargosAtuais = await fetchCargosAtuais(user.id);
   if (cargosAtuais) user.roles = cargosAtuais;
+  // Donos extras podem ser cadastrados nas Configurações.
+  if (!user.isOwner) {
+    const { ehDono } = await import("./settings.server");
+    if (await ehDono(user.id)) user.isOwner = true;
+  }
   if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
@@ -1109,5 +1114,29 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   const db = getDb();
   const { error } = await db.from("parcerias").delete().eq("id", input.id);
   if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/* ========== Configurações do painel ========== */
+
+export async function loadConfiguracoesPainel(user: SessionUser) {
+  assert(
+    podeGerenciarMembros(user),
+    "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
+  );
+  const { loadConfiguracoes } = await import("./settings.server");
+  return loadConfiguracoes([...CARGOS_PERMITIDOS]);
+}
+
+export async function salvarConfiguracoesPainel(
+  user: SessionUser,
+  input: { cargos: Record<string, string>; canais: Record<string, string>; owners: string },
+) {
+  assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
+  const { salvarConfiguracoes, chaveCargo } = await import("./settings.server");
+  const valores: Record<string, string> = { owner_ids: input.owners };
+  for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
+  for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
+  await salvarConfiguracoes(valores);
   return { ok: true };
 }
