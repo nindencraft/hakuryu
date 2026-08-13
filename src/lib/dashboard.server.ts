@@ -1092,7 +1092,7 @@ export async function salvarParceria(
   const query =
     input.id == null
       ? db.from("parcerias").insert(payload)
-      : db.from("parcerias").update(payload).eq("id", input.id);
+      : db.from("parcerias").update(payload).eq(colunaId, input.id);
   const { error } = await query;
   if (error) throw new Error(error.message);
 
