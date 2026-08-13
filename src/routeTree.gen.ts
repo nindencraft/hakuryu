@@ -10,33 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicAuthDiscordLoginRouteImport } from './routes/api/public/auth/discord/login'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAuthDiscordLoginRoute =
+  ApiPublicAuthDiscordLoginRouteImport.update({
+    id: '/api/public/auth/discord/login',
+    path: '/api/public/auth/discord/login',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/auth/discord/login'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/auth/discord/login'
+  id: '__root__' | '/' | '/api/public/auth/discord/login'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicAuthDiscordLoginRoute: typeof ApiPublicAuthDiscordLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +59,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/auth/discord/login': {
+      id: '/api/public/auth/discord/login'
+      path: '/api/public/auth/discord/login'
+      fullPath: '/api/public/auth/discord/login'
+      preLoaderRoute: typeof ApiPublicAuthDiscordLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicAuthDiscordLoginRoute: ApiPublicAuthDiscordLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
