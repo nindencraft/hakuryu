@@ -529,14 +529,30 @@ async function carregarLideranca(divisaoId: number): Promise<LiderancaDivisao> {
   return data as LiderancaDivisao;
 }
 
-/** Cúpula da gang ou liderança da própria divisão. */
-function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): boolean {
-  return (
-    podeCriarDivisao(user) ||
-    user.id === divisao.lider_id ||
-    user.id === divisao.vice_lider_id
-  );
+export const CARGO_LIDER_DIVISAO = "Líder de Divisão";
+export const CARGO_VICE_LIDER_DIVISAO = "Vice-Líder de Divisão";
+
+/** Divisão à qual o usuário pertence (tabela membros). */
+async function divisaoDoUsuario(discordId: string): Promise<number | null> {
+  const db = getDb();
+  const { data } = await db
+    .from("membros")
+    .select("divisao_id")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  return (data as { divisao_id: number | null } | null)?.divisao_id ?? null;
 }
+
+/** Cúpula da gang ou liderança da própria divisão. */
+async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): Promise<boolean> {
+  if (podeCriarDivisao(user)) return true;
+  if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
+  if (temCargo(user, CARGO_LIDER_DIVISAO) || temCargo(user, CARGO_VICE_LIDER_DIVISAO)) {
+    return (await divisaoDoUsuario(user.id)) === divisao.id;
+  }
+  return false;
+}
+
 
 export async function criarDivisao(
   user: SessionUser,
