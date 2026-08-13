@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 
 import logo from "@/assets/hakuryu-logo.png";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
+import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -250,8 +251,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="washi min-h-screen">
       <div className="relative z-10 mx-auto flex w-full max-w-[1500px]">
-        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar px-4 py-2 lg:flex">
-          <SidebarBody user={user} />
+        <aside
+          className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
+          style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
+        >
+          <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
+          <div className="relative z-10 flex h-full flex-col">
+            <SidebarBody user={user} />
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -262,9 +269,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-80 overflow-y-auto bg-sidebar px-4 py-2">
-                <SheetTitle className="sr-only">Navegação</SheetTitle>
-                <SidebarBody user={user} onNavigate={() => setOpen(false)} />
+              <SheetContent
+                side="left"
+                className="relative w-80 overflow-y-auto bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2"
+                style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
+              >
+                <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
+                <div className="relative z-10 flex h-full flex-col">
+                  <SheetTitle className="sr-only">Navegação</SheetTitle>
+                  <SidebarBody user={user} onNavigate={() => setOpen(false)} />
+                </div>
               </SheetContent>
             </Sheet>
             <span className="text-gold-gradient font-display text-lg font-semibold">Hakuryū</span>
