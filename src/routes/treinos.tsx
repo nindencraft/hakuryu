@@ -115,18 +115,44 @@ function Treinos() {
       ) : treinos.length === 0 ? (
         <EmptyState title="Nenhum treino cadastrado" description="Crie o primeiro treino da gang." />
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
-          {treinos.map((t) => (
-            <TreinoCard
-              key={t.id_treino}
-              treino={t}
-              podeGerenciar={podeGerenciar}
-              onPresenca={() => setPresencaDe(t)}
-              onDeletar={() => setDeletando(t)}
-            />
-          ))}
-        </ul>
+        <div className="space-y-8">
+          <ul className="grid gap-4 lg:grid-cols-2">
+            {abertos.map((t) => (
+              <TreinoCard
+                key={t.id_treino}
+                treino={t}
+                podeGerir={podeGerirTreino(t)}
+                onPresenca={() => setPresencaDe(t)}
+                onDeletar={() => setDeletando(t)}
+                onAdiar={() => setAdiando(t)}
+                onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+              />
+            ))}
+          </ul>
+
+          {finalizados.length > 0 ? (
+            <section className="space-y-3">
+              <h2 className="font-display text-lg text-muted-foreground">Treinos finalizados</h2>
+              <ul className="grid gap-4 opacity-80 lg:grid-cols-2">
+                {finalizados.map((t) => (
+                  <TreinoCard
+                    key={t.id_treino}
+                    treino={t}
+                    podeGerir={podeGerirTreino(t)}
+                    onPresenca={() => setPresencaDe(t)}
+                    onDeletar={() => setDeletando(t)}
+                    onAdiar={() => setAdiando(t)}
+                    onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       )}
+
+      <AdiarTreinoDialog treino={adiando} onClose={() => setAdiando(null)} />
+
 
       <CriarTreinoDialog open={criando} onClose={() => setCriando(false)} />
       <PresencaDialog treino={presencaDe} onClose={() => setPresencaDe(null)} />
