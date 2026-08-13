@@ -203,8 +203,11 @@ export async function loadDivisoes(): Promise<Divisao[]> {
       ...d,
       lider_nome: lider?.nome_rp ?? null,
       lider_discord: lider?.discord_username ?? null,
+      lider_avatar: lider?.avatar_hash ?? null,
       vice_nome: vice?.nome_rp ?? null,
       vice_discord: vice?.discord_username ?? null,
+      vice_avatar: vice?.avatar_hash ?? null,
+
       membros: membros
         .filter((m) => m.divisao_id === d.id)
         .sort((a, b) => (a.nome_rp ?? "").localeCompare(b.nome_rp ?? ""))
