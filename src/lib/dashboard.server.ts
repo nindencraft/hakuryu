@@ -251,13 +251,14 @@ export async function advertirMembro(
     motivo: input.motivo || null,
   };
 
-  // Algumas bases não têm a coluna de autoria; tenta com ela e recua se não existir.
-  const { error } = await db.from("punicoes").insert({ ...base, aplicado_por: user.id });
+  // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
+  const { error } = await db.from("punicoes").insert({ ...base, staff_id: user.id });
   if (!error) return { ok: true };
-  if (!/aplicado_por/i.test(error.message)) throw new Error(error.message);
+  if (!/staff_id/i.test(error.message)) throw new Error(error.message);
 
   const { error: err2 } = await db.from("punicoes").insert(base);
   if (err2) throw new Error(err2.message);
+
   return { ok: true };
 }
 
