@@ -10,8 +10,10 @@ import {
   podeGerenciarTreinos,
   temCargo,
   CARGOS_DIVISAO,
+  CARGOS_PERMITIDOS,
   type SessionUser,
 } from "./session.server";
+import { cargoPrimario } from "./permissions";
 import type {
   Divisao,
   Membro,
@@ -340,9 +342,10 @@ export async function trocarCargo(
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
   const finais = Array.from(new Set([...preservados, ...novos]));
 
+  // A coluna `cargo` é curta (varchar 30): guarda só o principal.
   const { error } = await db
     .from("membros")
-    .update({ cargo: finais.join(", ") })
+    .update({ cargo: cargoPrimario(finais) })
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
 
@@ -690,7 +693,7 @@ async function sincronizarCargosLideranca(
   const gravar = async (id: string, cargos: string[]) => {
     await db
       .from("membros")
-      .update({ cargo: (cargos.length ? cargos : ["Membro"]).join(", ") })
+      .update({ cargo: cargoPrimario(cargos.length ? cargos : ["Membro"]) })
       .eq("discord_id", id);
   };
 
