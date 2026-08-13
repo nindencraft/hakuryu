@@ -79,7 +79,23 @@ export type Parceria = {
   link_servidor: string | null;
   observacoes: string | null;
   data_inicio: string | null;
+  icon_hash: string | null;
+  representante_id: string | null;
+  representante_nome: string | null;
+  representante_avatar: string | null;
+  fechado_por: string | null;
+  fechado_por_nome: string | null;
 };
+
+export type AliadoResolvido = {
+  guild: { id: string | null; nome: string; iconHash: string | null } | null;
+  representante: {
+    id: string;
+    nome: string;
+    avatarHash: string | null;
+  } | null;
+};
+
 
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
 export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
