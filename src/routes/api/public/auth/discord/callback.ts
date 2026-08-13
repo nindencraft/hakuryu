@@ -68,8 +68,16 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
         const discordUser = (await userRes.json()) as DiscordUser;
 
         // 3. Membro do servidor da gang (via bot, para ler cargos com segurança)
+        const { guildIdAtivo, ehDono } = await import("@/lib/settings.server");
+        const guildId = await guildIdAtivo();
+        if (!guildId) {
+          return fail(
+            request,
+            "Nenhum servidor do Discord configurado. Um dono do painel precisa informar o ID da guild em Configurações.",
+          );
+        }
         const memberRes = await fetch(
-          `https://discord.com/api/v10/guilds/${config.discordGuildId}/members/${discordUser.id}`,
+          `https://discord.com/api/v10/guilds/${guildId}/members/${discordUser.id}`,
           { headers: { Authorization: `Bot ${config.discordBotToken}` } },
         );
         if (memberRes.status === 404) {
@@ -82,7 +90,7 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
 
         // 4. Nomes dos cargos
         const rolesRes = await fetch(
-          `https://discord.com/api/v10/guilds/${config.discordGuildId}/roles`,
+          `https://discord.com/api/v10/guilds/${guildId}/roles`,
           { headers: { Authorization: `Bot ${config.discordBotToken}` } },
         );
         const allRoles = rolesRes.ok ? ((await rolesRes.json()) as GuildRole[]) : [];
@@ -130,7 +138,9 @@ export const Route = createFileRoute("/api/public/auth/discord/callback")({
           globalName: discordUser.global_name ?? null,
           avatarUrl,
           roles: roleNames,
-          isOwner: !!config.discordOwnerId && config.discordOwnerId === discordUser.id,
+          isOwner:
+            (!!config.discordOwnerId && config.discordOwnerId === discordUser.id) ||
+            (await ehDono(discordUser.id)),
           nomeRp,
         });
 

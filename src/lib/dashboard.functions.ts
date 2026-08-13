@@ -241,6 +241,19 @@ export const deletarParceria = createServerFn({ method: "POST" })
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
 
 
+export const atualizarMeusDados = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      membroId: string;
+      nome_rp: string;
+      nome_roblox: string;
+      genero: string;
+      altura: string;
+      estilo_luta_principal: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => svc.atualizarDadosMembro(await svc.requireUser(getRequest()), data));
+
 export const fetchConfiguracoes = createServerFn({ method: "GET" }).handler(
   async (): Promise<ConfiguracoesPainel> =>
     svc.loadConfiguracoesPainel(await svc.requireUser(getRequest())),
@@ -252,6 +265,7 @@ export const salvarConfiguracoes = createServerFn({ method: "POST" })
       cargos: Record<string, string>;
       canais: Record<string, string>;
       owners: string;
+      guildId: string;
     }) => data,
   )
   .handler(async ({ data }) =>

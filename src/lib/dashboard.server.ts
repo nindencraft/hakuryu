@@ -1149,11 +1149,19 @@ export async function loadConfiguracoesPainel(user: SessionUser) {
 
 export async function salvarConfiguracoesPainel(
   user: SessionUser,
-  input: { cargos: Record<string, string>; canais: Record<string, string>; owners: string },
+  input: {
+    cargos: Record<string, string>;
+    canais: Record<string, string>;
+    owners: string;
+    guildId: string;
+  },
 ) {
   assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
-  const { salvarConfiguracoes, chaveCargo } = await import("./settings.server");
-  const valores: Record<string, string> = { owner_ids: input.owners };
+  const { salvarConfiguracoes, chaveCargo, CHAVE_GUILD } = await import("./settings.server");
+  const valores: Record<string, string> = {
+    owner_ids: input.owners,
+    [CHAVE_GUILD]: (input.guildId ?? "").replace(/\D/g, ""),
+  };
   for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
   for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
   await salvarConfiguracoes(valores);
