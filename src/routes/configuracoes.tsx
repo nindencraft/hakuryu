@@ -51,18 +51,21 @@ function Configuracoes() {
   const [cargos, setCargos] = useState<Record<string, string>>({});
   const [canais, setCanais] = useState<Record<string, string>>({});
   const [owners, setOwners] = useState("");
+  const [guildId, setGuildId] = useState("");
 
   useEffect(() => {
     if (!data) return;
     setCargos(data.cargos);
     setCanais(data.canais);
     setOwners(data.owners.join(", "));
+    setGuildId(data.guildId);
   }, [data]);
 
   const acao = useAcao<{
     cargos: Record<string, string>;
     canais: Record<string, string>;
     owners: string;
+    guildId: string;
   }>(salvarConfiguracoes, {
     sucesso: "Configurações salvas.",
     invalidar: [["configuracoes"], ["session"]],
@@ -78,7 +81,7 @@ function Configuracoes() {
           autorizado && data && !data.tabelaAusente ? (
             <Button
               disabled={acao.isPending}
-              onClick={() => acao.mutate({ cargos, canais, owners })}
+              onClick={() => acao.mutate({ cargos, canais, owners, guildId })}
             >
               Salvar alterações
             </Button>
@@ -105,6 +108,24 @@ function Configuracoes() {
         />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
+          <section className="card-gold p-5 lg:col-span-2">
+            <h2 className="font-display text-xl">Servidor do Discord</h2>
+            <p className="text-sm text-muted-foreground">
+              ID da guild que o painel vai ler. Só quem está nesse servidor consegue entrar.
+            </p>
+            <GoldRule className="my-4" />
+            <Label htmlFor="guild-id" className="sr-only">
+              ID do servidor
+            </Label>
+            <Input
+              id="guild-id"
+              inputMode="numeric"
+              placeholder="123456789012345678"
+              value={guildId}
+              onChange={(e) => setGuildId(e.target.value)}
+            />
+          </section>
+
           <section className="card-gold p-5">
             <h2 className="font-display text-xl">Cargos do Discord</h2>
             <p className="text-sm text-muted-foreground">
