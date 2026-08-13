@@ -275,7 +275,7 @@ function Membros() {
         <EmptyState title="Nenhum membro encontrado" description="Ajuste a busca ou os filtros." />
       ) : (
         <>
-          {renderLista(oficiais)}
+          {oficiais.length > 0 ? renderLista(oficiais) : null}
           {emAnalise.length > 0 ? (
             <div className="mt-8">
               <h2 className="font-display text-xl text-foreground">Em Análise</h2>

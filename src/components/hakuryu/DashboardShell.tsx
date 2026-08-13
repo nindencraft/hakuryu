@@ -277,11 +277,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="relative w-80 overflow-y-auto bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2"
-                  style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
+                  className="relative w-[85vw] max-w-xs overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                 >
-                  <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
-                  <div className="relative z-10 flex h-full flex-col">
+                  <img
+                    src={sidebarBgAsset.url}
+                    alt=""
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
+                  />
+                  <div className="relative z-10 flex min-h-full flex-col">
                     <SheetTitle className="sr-only">Navegação</SheetTitle>
                     <SidebarBody user={user} onNavigate={() => setOpen(false)} />
                   </div>
