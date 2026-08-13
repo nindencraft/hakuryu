@@ -27,7 +27,7 @@ const NAV = [
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
   { to: "/divisoes", label: "Divisões", icon: Shield },
   { to: "/parcerias", label: "Parcerias", icon: Handshake },
-] as const;
+];
 
 function Brand() {
   return (
@@ -49,7 +49,7 @@ function Brand() {
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
@@ -95,7 +95,7 @@ function UserCard({ user }: { user: SessionUserView }) {
   );
 }
 
-function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?: () => void }) {
+function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?: (() => void) | undefined }) {
   const queryClient = useQueryClient();
 
   return (
@@ -143,7 +143,7 @@ function CenteredCard({ children }: { children: ReactNode }) {
   );
 }
 
-function LoginScreen({ erro }: { erro?: string }) {
+function LoginScreen({ erro }: { erro?: string | undefined }) {
   return (
     <CenteredCard>
       <img
