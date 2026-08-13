@@ -222,13 +222,19 @@ export async function advertirMembro(
 ) {
   assert(podeGerenciarMembros(user));
   const db = getDb();
-  const { error } = await db.from("punicoes").insert({
+  const base = {
     membro_id: input.membroId,
     tipo: input.tipo,
     motivo: input.motivo || null,
-    aplicado_por: user.id,
-  });
-  if (error) throw new Error(error.message);
+  };
+
+  // Algumas bases não têm a coluna de autoria; tenta com ela e recua se não existir.
+  const { error } = await db.from("punicoes").insert({ ...base, aplicado_por: user.id });
+  if (!error) return { ok: true };
+  if (!/aplicado_por/i.test(error.message)) throw new Error(error.message);
+
+  const { error: err2 } = await db.from("punicoes").insert(base);
+  if (err2) throw new Error(err2.message);
   return { ok: true };
 }
 
@@ -308,12 +314,32 @@ export async function deletarTreino(user: SessionUser, input: { treinoId: number
 
 export async function inscreverSe(user: SessionUser, input: { treinoId: number }) {
   const db = getDb();
-  const { error } = await db
+
+  // Sem depender de constraint única: verifica e então atualiza ou insere.
+  const { data: existente, error: errSel } = await db
     .from("presencas_treino")
-    .upsert(
-      { treino_id: input.treinoId, membro_id: user.id, inscricao: "Confirmado" },
-      { onConflict: "treino_id,membro_id" },
-    );
+    .select("membro_id")
+    .eq("treino_id", input.treinoId)
+    .eq("membro_id", user.id)
+    .maybeSingle();
+  if (errSel) throw new Error(errSel.message);
+
+  if (existente) {
+    const { error } = await db
+      .from("presencas_treino")
+      .update({ inscricao: "Confirmado" })
+      .eq("treino_id", input.treinoId)
+      .eq("membro_id", user.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  }
+
+  const { error } = await db.from("presencas_treino").insert({
+    treino_id: input.treinoId,
+    membro_id: user.id,
+    inscricao: "Confirmado",
+    presenca: "Pendente",
+  });
   if (error) throw new Error(error.message);
   return { ok: true };
 }

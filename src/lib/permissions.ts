@@ -75,3 +75,9 @@ export function discordAvatarUrl(
   }
   return "https://cdn.discordapp.com/embed/avatars/0.png";
 }
+
+/** Cargo mais alto do usuário dentro da hierarquia da gang. */
+export function cargoPrincipal(user: SessionUserView | null): string | null {
+  if (!user) return null;
+  return CARGOS_PERMITIDOS.find((c) => temCargo(user, c)) ?? null;
+}

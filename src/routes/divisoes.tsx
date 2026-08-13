@@ -380,29 +380,49 @@ function GerenciarDivisaoDialog({
 
           <div className="space-y-2">
             <Label>Adicionar membros</Label>
-            <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border p-2">
-              {disponiveis.map((m) => {
-                const marcado = novos.includes(m.discord_id);
-                return (
-                  <li key={m.discord_id}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={marcado}
-                        onChange={() =>
-                          setNovos((prev) =>
-                            marcado
-                              ? prev.filter((id) => id !== m.discord_id)
-                              : [...prev, m.discord_id],
-                          )
-                        }
-                      />
-                      {m.nome_rp || m.discord_username || m.discord_id}
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+            <Select
+              value=""
+              onValueChange={(id) => setNovos((prev) => (prev.includes(id) ? prev : [...prev, id]))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um membro..." />
+              </SelectTrigger>
+              <SelectContent>
+                {disponiveis.filter((m) => !novos.includes(m.discord_id)).length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    Nenhum membro disponível
+                  </div>
+                ) : (
+                  disponiveis
+                    .filter((m) => !novos.includes(m.discord_id))
+                    .map((m) => (
+                      <SelectItem key={m.discord_id} value={m.discord_id}>
+                        {m.nome_rp || m.discord_username || m.discord_id}
+                      </SelectItem>
+                    ))
+                )}
+              </SelectContent>
+            </Select>
+            {novos.length > 0 ? (
+              <ul className="flex flex-wrap gap-1.5 pt-1">
+                {novos.map((id) => {
+                  const m = (membros.data ?? []).find((x) => x.discord_id === id);
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => setNovos((prev) => prev.filter((x) => x !== id))}
+                        className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-muted px-3 py-1 text-xs transition-colors hover:bg-accent"
+                      >
+                        {m?.nome_rp || m?.discord_username || id}
+                        <X className="h-3 w-3" aria-hidden />
+                        <span className="sr-only">Remover da seleção</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
         </div>
 
