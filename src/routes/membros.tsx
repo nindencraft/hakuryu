@@ -142,7 +142,7 @@ function Membros() {
 
   const renderLista = (itens: Membro[]) => (
         <ul className="space-y-3">
-          {filtrados.map((m) => {
+          {itens.map((m) => {
             const expandido = aberto === m.discord_id;
             return (
               <li key={m.discord_id} className="card-gold p-4">
