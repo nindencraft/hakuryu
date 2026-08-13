@@ -16,6 +16,8 @@ export type Membro = {
   stats: { internos: number; amistosos: number; guerras: number };
 };
 
+export type Adiamento = { por: string | null; em: string | null; antes: string | null };
+
 export type Treino = {
   id_treino: number;
   titulo: string;
@@ -28,7 +30,9 @@ export type Treino = {
   status: string | null;
   criado_por: string | null;
   inscritos: number;
+  adiamento: Adiamento | null;
 };
+
 
 export type PresencaTreino = {
   membro_id: string;
