@@ -333,7 +333,9 @@ export async function trocarCargo(
   const norm = (v: string) =>
     v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   const antigos = doDiscord
-    ? CARGOS_PERMITIDOS.filter((c) => doDiscord.some((r) => norm(r) === norm(c)))
+    ? (CARGOS_PERMITIDOS as readonly string[]).filter((c) =>
+        doDiscord.some((r) => norm(r) === norm(c)),
+      )
     : [];
 
 
