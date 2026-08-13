@@ -13,6 +13,7 @@ import {
 import { useState, type ReactNode } from "react";
 
 import logo from "@/assets/hakuryu-logo.png";
+import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -137,8 +138,13 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
 
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
-    <div className="washi flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="card-gold relative z-10 w-full max-w-lg p-8 text-center">{children}</div>
+    <div
+      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-fixed px-4 py-10"
+      style={{ backgroundImage: `url(${bgAsset.url})` }}
+    >
+      <div className="card-gold relative z-10 w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm">
+        {children}
+      </div>
     </div>
   );
 }
