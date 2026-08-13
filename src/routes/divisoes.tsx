@@ -261,6 +261,30 @@ function Divisoes() {
   );
 }
 
+function LiderancaLinha({
+  rotulo,
+  id,
+  nome,
+  avatarHash,
+}: {
+  rotulo: string;
+  id: string | null;
+  nome: string | null;
+  avatarHash: string | null;
+}) {
+  return (
+    <div>
+      <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">{rotulo}</p>
+      <div className="mt-1 flex items-center gap-2">
+        {id ? (
+          <MemberAvatar discordId={id} avatarHash={avatarHash} size={32} alt="" />
+        ) : null}
+        <span className="truncate text-sm">{nome ?? "—"}</span>
+      </div>
+    </div>
+  );
+}
+
 function CriarDivisaoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [form, setForm] = useState({
     nome_divisao: "",
