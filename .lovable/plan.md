@@ -26,7 +26,7 @@ Recriar o dashboard atual do Streamlit como um site web moderno (React + TypeScr
 - Sessão persistente e logout.
 
 ### 4. Design system
-- Definir tokens de cor: branco, dourado, cinza escuro e toques de vermelho/coral se necessário.
+- Definir tokens de cor: branco, dourado, cinza e tons próximos (sem vermelho).
 - Escolher tipografia com estilo japonês/dracônico (sem serif genérica, com peso e traço marcantes).
 - Criar componentes base: botões dourados, cards com bordas sutis, tabelas, formulários, modais, badges de rank.
 - Aplicar o tema no modo claro (base branca) com acentos dourados.
