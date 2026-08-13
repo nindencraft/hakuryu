@@ -108,11 +108,25 @@ export async function loadMembros(): Promise<Membro[]> {
   }));
 }
 
+/** Marcador de adiamento guardado no fim da descrição (o banco não tem coluna própria). */
+const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*$/;
+
+function separarAdiamento(descricao: string | null) {
+  if (!descricao) return { descricao: null, adiamento: null };
+  const m = descricao.match(MARCA_ADIAMENTO);
+  if (!m) return { descricao, adiamento: null };
+  const limpa = descricao.replace(MARCA_ADIAMENTO, "").trim();
+  return {
+    descricao: limpa || null,
+    adiamento: { por: m[1] || null, em: m[2] || null, antes: m[3] || null },
+  };
+}
+
 export async function loadTreinos(): Promise<Treino[]> {
   const db = getDb();
   const treinos = unwrap(
     await db.from("treinos").select("*").order("data_treino", { ascending: false }),
-  ) as Omit<Treino, "inscritos">[];
+  ) as Omit<Treino, "inscritos" | "adiamento">[];
 
   const inscricoes = unwrap(
     await db.from("presencas_treino").select("treino_id, inscricao"),
@@ -125,8 +139,12 @@ export async function loadTreinos(): Promise<Treino[]> {
     }
   }
 
-  return treinos.map((t) => ({ ...t, inscritos: contagem.get(t.id_treino) ?? 0 }));
+  return treinos.map((t) => {
+    const { descricao, adiamento } = separarAdiamento(t.descricao);
+    return { ...t, descricao, adiamento, inscritos: contagem.get(t.id_treino) ?? 0 };
+  });
 }
+
 
 export async function loadDivisoes(): Promise<Divisao[]> {
   const db = getDb();
