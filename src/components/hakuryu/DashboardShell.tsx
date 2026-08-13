@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 
 import logo from "@/assets/hakuryu-logo.png";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
+import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
