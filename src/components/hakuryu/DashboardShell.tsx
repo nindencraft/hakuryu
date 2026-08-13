@@ -103,14 +103,14 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
       <Brand />
       <div className="rule-gold" aria-hidden />
       <UserCard user={user} />
-      {user.roles.length > 0 ? (
+      {user.isOwner || cargoPrincipal(user) ? (
         <div className="flex flex-wrap gap-1.5">
           {user.isOwner ? <Badge variant="default">Dono</Badge> : null}
-          {user.roles.slice(0, 6).map((r) => (
-            <Badge key={r} variant="outline" className="border-primary/40 text-muted-foreground">
-              {r}
+          {cargoPrincipal(user) ? (
+            <Badge variant="outline" className="border-primary/40 text-muted-foreground">
+              {cargoPrincipal(user)}
             </Badge>
-          ))}
+          ) : null}
         </div>
       ) : null}
       <div className="rule-gold" aria-hidden />
