@@ -320,6 +320,9 @@ function GerenciarDivisaoDialog({
   divisao: Divisao | null;
   onClose: () => void;
 }) {
+  const user = useSessionUser();
+  const podeTrocarLider = podeCriarDivisao(user);
+  const podeTrocarVice = divisao ? podeDefinirLiderancaDivisao(user, divisao) : false;
   const membros = useQuery(membrosQuery);
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
@@ -356,9 +359,9 @@ function GerenciarDivisaoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-2" hidden={!podeTrocarLider}>
             <Label>Líder</Label>
-            <Select value={lider} onValueChange={setLider}>
+            <Select value={lider} onValueChange={setLider} disabled={!podeTrocarLider}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
@@ -374,7 +377,7 @@ function GerenciarDivisaoDialog({
           </div>
           <div className="space-y-2">
             <Label>Vice-líder</Label>
-            <Select value={vice} onValueChange={setVice}>
+            <Select value={vice} onValueChange={setVice} disabled={!podeTrocarVice}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
