@@ -34,10 +34,17 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       return { configurado: false, faltando, user: null, permitido: false };
     }
 
-    const user = await currentUser(getRequest());
+    const request = getRequest();
+    const user = await currentUser(request);
     if (!user) return { configurado: true, faltando: [], user: null, permitido: false };
 
     const { podeAcessar } = await import("./session.server");
+
+    // Cargos são revalidados no Discord a cada carregamento para nunca ficarem defasados.
+    const { fetchCargosAtuais } = await import("./discord.server");
+    const cargosAtuais = await fetchCargosAtuais(user.id);
+    if (cargosAtuais) user.roles = cargosAtuais;
+
     return {
       configurado: true,
       faltando: [],

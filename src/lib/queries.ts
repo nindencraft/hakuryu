@@ -11,7 +11,8 @@ import {
 export const sessionQuery = queryOptions({
   queryKey: ["session"],
   queryFn: () => getSession(),
-  staleTime: 60_000,
+  staleTime: 0,
+  refetchOnWindowFocus: true,
 });
 
 export const membrosQuery = queryOptions({
