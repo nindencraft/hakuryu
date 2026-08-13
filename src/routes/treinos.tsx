@@ -46,6 +46,8 @@ import {
   fetchMinhaInscricao,
   fetchPresencas,
   inscreverSe,
+  encerrarTreino,
+  adiarTreino,
 } from "@/lib/dashboard.functions";
 import { podeGerenciarTreinos } from "@/lib/permissions";
 import { PRESENCA_OPCOES, TIPO_TREINO_OPCOES, type PresencaTreino, type Treino } from "@/lib/types";
@@ -82,6 +84,12 @@ function Treinos() {
   const [criando, setCriando] = useState(false);
   const [presencaDe, setPresencaDe] = useState<Treino | null>(null);
   const [deletando, setDeletando] = useState<Treino | null>(null);
+  const [adiando, setAdiando] = useState<Treino | null>(null);
+
+  const encerrarAcao = useAcao<{ treinoId: number }>(encerrarTreino, {
+    sucesso: "Treino encerrado.",
+    invalidar: [["treinos"], ["membros"]],
+  });
 
   const deletarAcao = useAcao<{ treinoId: number }>(deletarTreino, {
     sucesso: "Treino removido.",
@@ -89,6 +97,11 @@ function Treinos() {
   });
 
   const treinos = [...(data ?? [])].sort((a, b) => b.data_treino.localeCompare(a.data_treino));
+  const finalizado = (t: Treino) => t.status === "Encerrado" || t.status === "Cancelado";
+  const abertos = treinos.filter((t) => !finalizado(t));
+  const finalizados = treinos.filter(finalizado);
+  const podeGerirTreino = (t: Treino) =>
+    podeGerenciar && (!!user?.isOwner || t.criado_por === user?.id);
 
   return (
     <>
@@ -115,18 +128,44 @@ function Treinos() {
       ) : treinos.length === 0 ? (
         <EmptyState title="Nenhum treino cadastrado" description="Crie o primeiro treino da gang." />
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
-          {treinos.map((t) => (
-            <TreinoCard
-              key={t.id_treino}
-              treino={t}
-              podeGerenciar={podeGerenciar}
-              onPresenca={() => setPresencaDe(t)}
-              onDeletar={() => setDeletando(t)}
-            />
-          ))}
-        </ul>
+        <div className="space-y-8">
+          <ul className="grid gap-4 lg:grid-cols-2">
+            {abertos.map((t) => (
+              <TreinoCard
+                key={t.id_treino}
+                treino={t}
+                podeGerir={podeGerirTreino(t)}
+                onPresenca={() => setPresencaDe(t)}
+                onDeletar={() => setDeletando(t)}
+                onAdiar={() => setAdiando(t)}
+                onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+              />
+            ))}
+          </ul>
+
+          {finalizados.length > 0 ? (
+            <section className="space-y-3">
+              <h2 className="font-display text-lg text-muted-foreground">Treinos finalizados</h2>
+              <ul className="grid gap-4 opacity-80 lg:grid-cols-2">
+                {finalizados.map((t) => (
+                  <TreinoCard
+                    key={t.id_treino}
+                    treino={t}
+                    podeGerir={podeGerirTreino(t)}
+                    onPresenca={() => setPresencaDe(t)}
+                    onDeletar={() => setDeletando(t)}
+                    onAdiar={() => setAdiando(t)}
+                    onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       )}
+
+      <AdiarTreinoDialog treino={adiando} onClose={() => setAdiando(null)} />
+
 
       <CriarTreinoDialog open={criando} onClose={() => setCriando(false)} />
       <PresencaDialog treino={presencaDe} onClose={() => setPresencaDe(null)} />
@@ -158,15 +197,20 @@ function Treinos() {
 
 function TreinoCard({
   treino,
-  podeGerenciar,
+  podeGerir,
   onPresenca,
   onDeletar,
+  onAdiar,
+  onEncerrar,
 }: {
   treino: Treino;
-  podeGerenciar: boolean;
+  podeGerir: boolean;
   onPresenca: () => void;
   onDeletar: () => void;
+  onAdiar: () => void;
+  onEncerrar: () => void;
 }) {
+  const encerrado = treino.status === "Encerrado" || treino.status === "Cancelado";
   const { data } = useQuery({
     queryKey: ["inscricao", treino.id_treino],
     queryFn: () => fetchMinhaInscricao({ data: { treinoId: treino.id_treino } }),
@@ -196,6 +240,11 @@ function TreinoCard({
             {treino.tipo}
           </Badge>
           {treino.status ? <Badge variant="secondary">{treino.status}</Badge> : null}
+          {treino.adiamento ? (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              Adiado{treino.adiamento.antes ? ` (era ${formatarData(treino.adiamento.antes.slice(0, 10))})` : ""}
+            </Badge>
+          ) : null}
         </div>
       </div>
 
@@ -220,7 +269,7 @@ function TreinoCard({
         <Button
           size="sm"
           variant={inscrito ? "secondary" : "default"}
-          disabled={inscrever.isPending}
+          disabled={inscrever.isPending || encerrado}
           onClick={() => inscrever.mutate({ treinoId: treino.id_treino })}
         >
           {inscrito ? "Inscrito" : "Vou participar"}
@@ -228,16 +277,26 @@ function TreinoCard({
         <Button
           size="sm"
           variant="outline"
-          disabled={ausentar.isPending}
+          disabled={ausentar.isPending || encerrado}
           onClick={() => ausentar.mutate({ treinoId: treino.id_treino })}
         >
           Não vou
         </Button>
-        {podeGerenciar ? (
+        {podeGerir ? (
           <>
             <Button size="sm" variant="ghost" onClick={onPresenca}>
               Presença
             </Button>
+            {!encerrado ? (
+              <>
+                <Button size="sm" variant="ghost" onClick={onAdiar}>
+                  Adiar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onEncerrar}>
+                  Encerrar
+                </Button>
+              </>
+            ) : null}
             <Button size="sm" variant="ghost" onClick={onDeletar}>
               Deletar
             </Button>
@@ -445,6 +504,78 @@ function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: (
             ))}
           </ul>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AdiarTreinoDialog({ treino, onClose }: { treino: Treino | null; onClose: () => void }) {
+  const [data, setData] = useState("");
+  const [horario, setHorario] = useState("");
+  const acao = useAcao<{ treinoId: number; data_treino: string; horario: string }>(adiarTreino, {
+    sucesso: "Treino adiado.",
+    invalidar: [["treinos"]],
+  });
+
+  return (
+    <Dialog
+      open={!!treino}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+        else if (treino) {
+          setData(treino.data_treino.slice(0, 10));
+          setHorario((treino.horario ?? "20:00").slice(0, 5));
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Adiar treino</DialogTitle>
+          <DialogDescription>
+            Escolha a nova data e horário de “{treino?.titulo}”.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="nova-data">Nova data</Label>
+            <Input
+              id="nova-data"
+              type="date"
+              value={data || (treino?.data_treino ?? "").slice(0, 10)}
+              onChange={(e) => setData(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="novo-horario">Novo horário</Label>
+            <Input
+              id="novo-horario"
+              type="time"
+              value={horario || (treino?.horario ?? "20:00").slice(0, 5)}
+              onChange={(e) => setHorario(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={acao.isPending}
+            onClick={() => {
+              if (!treino) return;
+              acao.mutate(
+                {
+                  treinoId: treino.id_treino,
+                  data_treino: data || treino.data_treino.slice(0, 10),
+                  horario: horario || (treino.horario ?? "").slice(0, 5),
+                },
+                { onSuccess: onClose },
+              );
+            }}
+          >
+            Adiar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

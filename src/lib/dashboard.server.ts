@@ -86,9 +86,10 @@ export async function loadMembros(): Promise<Membro[]> {
     const treino = Array.isArray(p.treinos) ? p.treinos[0] : p.treinos;
     if (!treino) continue;
     const s = bucket(p.membro_id);
-    if (treino.tipo === "Interno") s.internos += 1;
     if (treino.tipo === "Amistoso") s.amistosos += 1;
+    else s.internos += 1;
   }
+
 
   try {
     const guerras = unwrap(
@@ -107,11 +108,25 @@ export async function loadMembros(): Promise<Membro[]> {
   }));
 }
 
+/** Marcador de adiamento guardado no fim da descrição (o banco não tem coluna própria). */
+const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*$/;
+
+function separarAdiamento(descricao: string | null) {
+  if (!descricao) return { descricao: null, adiamento: null };
+  const m = descricao.match(MARCA_ADIAMENTO);
+  if (!m) return { descricao, adiamento: null };
+  const limpa = descricao.replace(MARCA_ADIAMENTO, "").trim();
+  return {
+    descricao: limpa || null,
+    adiamento: { por: m[1] || null, em: m[2] || null, antes: m[3] || null },
+  };
+}
+
 export async function loadTreinos(): Promise<Treino[]> {
   const db = getDb();
   const treinos = unwrap(
     await db.from("treinos").select("*").order("data_treino", { ascending: false }),
-  ) as Omit<Treino, "inscritos">[];
+  ) as Omit<Treino, "inscritos" | "adiamento">[];
 
   const inscricoes = unwrap(
     await db.from("presencas_treino").select("treino_id, inscricao"),
@@ -124,8 +139,12 @@ export async function loadTreinos(): Promise<Treino[]> {
     }
   }
 
-  return treinos.map((t) => ({ ...t, inscritos: contagem.get(t.id_treino) ?? 0 }));
+  return treinos.map((t) => {
+    const { descricao, adiamento } = separarAdiamento(t.descricao);
+    return { ...t, descricao, adiamento, inscritos: contagem.get(t.id_treino) ?? 0 };
+  });
 }
+
 
 export async function loadDivisoes(): Promise<Divisao[]> {
   const db = getDb();
@@ -232,13 +251,14 @@ export async function advertirMembro(
     motivo: input.motivo || null,
   };
 
-  // Algumas bases não têm a coluna de autoria; tenta com ela e recua se não existir.
-  const { error } = await db.from("punicoes").insert({ ...base, aplicado_por: user.id });
+  // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
+  const { error } = await db.from("punicoes").insert({ ...base, staff_id: user.id });
   if (!error) return { ok: true };
-  if (!/aplicado_por/i.test(error.message)) throw new Error(error.message);
+  if (!/staff_id/i.test(error.message)) throw new Error(error.message);
 
   const { error: err2 } = await db.from("punicoes").insert(base);
   if (err2) throw new Error(err2.message);
+
   return { ok: true };
 }
 
@@ -302,22 +322,90 @@ export async function criarTreino(
     tipo: input.tipo,
     local: input.local || null,
     divisao_responsavel: input.divisao_responsavel || null,
+    status: "Aberto",
     criado_por: user.id,
   });
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
+/** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
+async function requireDonoTreino(user: SessionUser, treinoId: number) {
+  const db = getDb();
+  const { data, error } = await db
+    .from("treinos")
+    .select("id_treino, descricao, data_treino, horario, criado_por, status")
+    .eq("id_treino", treinoId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Treino não encontrado.");
+  if (!user.isOwner && data.criado_por !== user.id) {
+    throw new Error("Apenas quem criou o treino pode gerenciá-lo.");
+  }
+  return data as {
+    id_treino: number;
+    descricao: string | null;
+    data_treino: string;
+    horario: string | null;
+    criado_por: string | null;
+    status: string | null;
+  };
+}
+
 export async function deletarTreino(user: SessionUser, input: { treinoId: number }) {
   assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const { error } = await db.from("treinos").delete().eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
+export async function encerrarTreino(user: SessionUser, input: { treinoId: number }) {
+  assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
+  const db = getDb();
+  const { error } = await db
+    .from("treinos")
+    .update({ status: "Encerrado" })
+    .eq("id_treino", input.treinoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function adiarTreino(
+  user: SessionUser,
+  input: { treinoId: number; data_treino: string; horario: string },
+) {
+  assert(podeGerenciarTreinos(user));
+  const treino = await requireDonoTreino(user, input.treinoId);
+  const db = getDb();
+  const antes = `${treino.data_treino}${treino.horario ? ` ${treino.horario}` : ""}`;
+  const limpa = (treino.descricao ?? "").replace(MARCA_ADIAMENTO, "").trim();
+  const marca = `[ADIADO|${user.id}|${new Date().toISOString()}|${antes}]`;
+  const { error } = await db
+    .from("treinos")
+    .update({
+      data_treino: input.data_treino,
+      horario: input.horario || null,
+      descricao: `${limpa ? `${limpa}\n` : ""}${marca}`,
+    })
+    .eq("id_treino", input.treinoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
 export async function inscreverSe(user: SessionUser, input: { treinoId: number }) {
   const db = getDb();
+  const { data: treino } = await db
+    .from("treinos")
+    .select("status")
+    .eq("id_treino", input.treinoId)
+    .maybeSingle();
+  if (treino && treino.status && treino.status !== "Aberto") {
+    throw new Error("Este treino não está mais aberto para inscrições.");
+  }
+
 
   // Sem depender de constraint única: verifica e então atualiza ou insere.
   const { data: existente, error: errSel } = await db
@@ -364,6 +452,7 @@ export async function atualizarPresenca(
   input: { treinoId: number; membroId: string; presenca: string },
 ) {
   assert(podeGerenciarTreinos(user));
+  await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const { error } = await db
     .from("presencas_treino")
