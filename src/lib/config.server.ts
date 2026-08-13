@@ -48,7 +48,6 @@ export function getConfig(): AppConfig {
     "discordClientId",
     "discordClientSecret",
     "discordBotToken",
-    "discordGuildId",
     "sessionSecret",
   ];
 

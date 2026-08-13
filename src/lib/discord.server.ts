@@ -1,4 +1,5 @@
 import { getConfig } from "./config.server";
+import { guildIdAtivo } from "./settings.server";
 
 type GuildMember = { roles: string[]; nick?: string | null };
 type GuildRole = { id: string; name: string };
@@ -17,7 +18,7 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
 
   try {
     const memberRes = await fetch(
-      `https://discord.com/api/v10/guilds/${config.discordGuildId}/members/${discordId}`,
+      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
       { headers: { Authorization: `Bot ${config.discordBotToken}` } },
     );
     if (memberRes.status === 404) return [];
@@ -25,7 +26,7 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
     const member = (await memberRes.json()) as GuildMember;
 
     const rolesRes = await fetch(
-      `https://discord.com/api/v10/guilds/${config.discordGuildId}/roles`,
+      `https://discord.com/api/v10/guilds/${guildId}/roles`,
       { headers: { Authorization: `Bot ${config.discordBotToken}` } },
     );
     if (!rolesRes.ok) return null;
@@ -39,7 +40,7 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
 
 async function buscarRoleId(nome: string): Promise<string | null> {
   const config = getConfig();
-  const res = await fetch(`https://discord.com/api/v10/guilds/${config.discordGuildId}/roles`, {
+  const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
     headers: { Authorization: `Bot ${config.discordBotToken}` },
   });
   if (!res.ok) return null;
@@ -67,7 +68,7 @@ export async function ajustarCargoPorId(
     const id = roleId.trim().replace(/\D/g, "");
     if (!id) return;
     await fetch(
-      `https://discord.com/api/v10/guilds/${config.discordGuildId}/members/${discordId}/roles/${id}`,
+      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`,
       {
         method: acao === "add" ? "PUT" : "DELETE",
         headers: { Authorization: `Bot ${config.discordBotToken}` },
@@ -145,10 +146,10 @@ export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null
   try {
     const headers = { Authorization: `Bot ${config.discordBotToken}` };
     const [membersRes, rolesRes] = await Promise.all([
-      fetch(`https://discord.com/api/v10/guilds/${config.discordGuildId}/members?limit=1000`, {
+      fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
         headers,
       }),
-      fetch(`https://discord.com/api/v10/guilds/${config.discordGuildId}/roles`, { headers }),
+      fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, { headers }),
     ]);
     if (!membersRes.ok || !rolesRes.ok) return null;
     const members = (await membersRes.json()) as { user?: { id: string }; roles: string[] }[];
