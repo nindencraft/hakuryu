@@ -5,22 +5,21 @@
 **1. Renomear a aba**
 "Parcerias" vira "Alianças" em toda a interface (menu lateral, título da página, textos e título da guia do navegador). O endereço da página continua o mesmo para não quebrar links.
 
-**2. Adicionar aliança pelo link do servidor**
-Botão "Adicionar aliança" abre um formulário onde basta colar o **link de convite do Discord** da gang aliada (ex.: `discord.gg/abc123`). O sistema consulta o Discord e preenche automaticamente:
+**2. Adicionar aliança pelo link do servidor + ID do representante**
+Botão "Adicionar aliança" abre um formulário com dois campos principais:
 
-- Ícone/foto do servidor aliado
-- Nome do servidor
-- Link de contato (o próprio convite)
+- **Link de convite do Discord** da gang aliada (ex.: `discord.gg/abc123`) — o sistema consulta o Discord e preenche automaticamente ícone do servidor, nome do servidor e o link de contato.
+- **ID do Discord do representante** — o sistema busca automaticamente foto de perfil, nome de usuário e nome de exibição dele.
 
 Campos preenchidos à mão:
 
-- Representante deles (nome/usuário do contato)
 - Status da aliança (Ativa, Em negociação, Pausada, Encerrada)
 - Observações
 
 Quem fechou a aliança e a data são gravados automaticamente com base em quem está logado.
 
-Se o link estiver inválido ou expirado, aparece um aviso e dá para preencher nome e ícone manualmente.
+Se o link ou o ID não puder ser resolvido, aparece um aviso e dá para preencher nome/foto manualmente. Observação: o nome e ícone da guild vêm do convite (buscar por ID de servidor só funcionaria se nosso bot estivesse dentro dele); o representante é resolvido só pelo ID mesmo.
+
 
 **3. Lista em formato de cards, no estilo da lista de membros**
 Cada aliança mostra: avatar redondo do servidor (com moldura dourada), nome do servidor, tag/representante, status como badge, quem fechou a aliança e desde quando, botão "Abrir servidor" e um **X no canto superior direito** para deletar (com confirmação).
