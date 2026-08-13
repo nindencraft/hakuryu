@@ -15,6 +15,7 @@ import {
 } from "./session.server";
 import { cargoPrimario } from "./permissions";
 import type {
+  AliadoResolvido,
   Divisao,
   Membro,
   Parceria,
@@ -22,6 +23,7 @@ import type {
   Punicao,
   Treino,
 } from "./types";
+
 
 /* ========== Sessão / guardas ========== */
 
