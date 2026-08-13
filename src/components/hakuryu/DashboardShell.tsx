@@ -29,7 +29,7 @@ const NAV = [
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
   { to: "/divisoes", label: "Divisões", icon: Shield },
-  { to: "/parcerias", label: "Parcerias", icon: Handshake },
+  { to: "/parcerias", label: "Alianças", icon: Handshake },
 ];
 
 function Brand() {
