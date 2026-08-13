@@ -1,69 +1,71 @@
-# Plano: Dashboard Web da Gang (ex-Streamlit)
+# Hakuryū Dashboard — versão web (migração do Streamlit)
 
-## Visão geral
-Recriar o dashboard atual do Streamlit como um site web moderno (React + TypeScript + Tailwind CSS), conectado ao mesmo banco de dados Supabase que o bot do Discord já utiliza. O acesso será via login do Discord e só permitirá usuários que estejam no servidor da gang com o cargo de "membro oficial". O visual seguirá a identidade da gang: dragão branco com detalhes dourados, estética japonês/dracônica.
+Recriar o painel `dashboard.py` como site moderno em React + TypeScript + Tailwind, conectado ao mesmo banco Supabase/Postgres que o bot do Discord já usa. Nenhuma funcionalidade atual será removida — tudo que existe hoje será replicado e melhorado.
 
-## Fases do projeto
+## Identidade visual
+Dragão branco (白竜) com detalhes dourados, estética japonesa.
 
-### 1. Entrega e análise do dashboard Streamlit
-- O usuário envia o arquivo/código do dashboard Streamlit.
-- Mapear todas as telas, formulários, tabelas e comandos disponíveis hoje.
-- Identificar quais ações são apenas leitura de dados e quais disparam comandos no bot.
-- Listar as tabelas/colunas do Supabase que o dashboard já usa.
+- Paleta: branco/marfim (#fdfdf7, #f5f0e8), dourado (#d4af37, #b8860b, #8b6508), cinzas (#2a2a2a, #6b5b3e). Sem vermelho.
+- Tipografia serifada elegante para títulos (estilo japonês/editorial), sans limpa para corpo.
+- Detalhes mantidos do original: divisórias douradas em gradiente, avatares circulares com borda dourada, textura japonesa sutil no fundo, hover dourado nos botões.
+- Melhorias: layout responsivo real (funciona no celular), navegação lateral fixa com estado persistente na URL, cards com hierarquia clara, animações suaves, skeletons de carregamento e toasts em vez de recarregar a página inteira.
 
-### 2. Setup do backend
-- Habilitar Lovable Cloud (Supabase) no projeto.
-- Conectar ao projeto Supabase existente do bot usando as credenciais atuais (URL, publishable key, service role key).
-- Garantir que as tabelas do Supabase tenham as permissões (GRANTs) e políticas RLS corretas para o novo site.
-- Criar/ajustar tabela de roles (`user_roles`) se o dashboard precisar de permissões diferenciadas (ex: oficiais vs. membros).
+## Funcionalidades atuais que serão mantidas 1:1
 
-### 3. Autenticação com Discord
-- Implementar login via Discord usando o fluxo OAuth da Lovable/Supabase.
-- Após o login, verificar no servidor da gang via API do Discord se o usuário:
-  - Está no servidor correto;
-  - Possui o cargo de "membro oficial".
-- Usuários sem o cargo são bloqueados com mensagem clara.
-- Sessão persistente e logout.
+### Login e controle de acesso
+- Login com Discord (OAuth).
+- Cargos permitidos: Lider, Vice-Lider, Líder de Divisão, Staff, Recrutador, Membro, Em Analise; mais o dono. Quem não tiver cargo vê a tela de bloqueio.
+- Perfil do usuário logado na barra lateral (avatar, nome RP, usuário do Discord).
+- Permissões por ação:
+  - Gerenciar membros: Lider, Vice-Lider, dono.
+  - Gerenciar treinos/presença: Lider, Vice-Lider, Líder de Divisão, dono.
+  - Gerenciar divisões: Lider, Vice-Lider, dono.
 
-### 4. Design system
-- Definir tokens de cor: branco, dourado, cinza e tons próximos (sem vermelho).
-- Escolher tipografia com estilo japonês/dracônico (sem serif genérica, com peso e traço marcantes).
-- Criar componentes base: botões dourados, cards com bordas sutis, tabelas, formulários, modais, badges de rank.
-- Aplicar o tema no modo claro (base branca) com acentos dourados.
+### Visão Geral
+- Métricas: membros ativos, treinos cadastrados, número de divisões.
+- Lista dos próximos 5 treinos futuros.
 
-### 5. Funcionalidades principais (replicadas do Streamlit)
-Com base no código que será enviado, implementar as telas equivalentes, por exemplo:
-- **Gerenciamento de membros**: visualizar lista, alterar rank, aplicar advertências/avisos, histórico de punições.
-- **Treinos**: criar/agendar treinos, listar próximos treinos, confirmar presença/faltas.
-- **Alianças**: cadastrar novas alianças, listar alianças ativas, detalhes.
-- **Painel inicial**: estatísticas rápidas da gang (total de membros, avisos pendentes, próximos treinos, alianças).
-- Outras telas identificadas na análise do Streamlit.
+### Membros
+- Lista completa com avatar do Discord, nome RP, usuário Discord, Roblox, cargo, divisão e contagem de warns.
+- Filtros por cargo, status e divisão.
+- Detalhes expandidos: gênero, altura no jogo, estilo de luta, status, data de entrada, warns.
+- Estatísticas por membro: treinos internos, amistosos e guerras.
+- Ações da liderança: advertir, trocar cargo, ver histórico, remover membro.
 
-### 6. Integração com o bot do Discord
-- Criar server functions (`createServerFn`) para executar ações que hoje o dashboard faz no bot.
-- Onde o bot já expõe endpoints ou reage a inserções no Supabase, reutilizar esse mecanismo.
-- Onde não existir, criar novas funções seguras que escrevem no Supabase e/ou chamam a API do Discord via token do bot (armazenado como secret).
-- Validar permissões do usuário antes de executar qualquer comando administrativo.
+### Treinos
+- Mural com todos os treinos (data, horário, tipo, status, número de inscritos).
+- Criar treino: título, descrição, data, horário, tipo (Interno/Amistoso/Obrigatório/Extra), local, divisão responsável.
+- Deletar treino.
+- Inscrição/ausência do próprio usuário.
+- Marcar presença dos inscritos (Pendente / Presente / Ausente / Justificado).
 
-### 7. Testes e ajustes
-- Validar login com Discord e verificação de cargo.
-- Testar cada fluxo de leitura e escrita no Supabase.
-- Verificar responsividade em desktop e mobile.
-- Revisar permissões RLS e GRANTs.
+### Divisões
+- Criar divisão: nome, ID do cargo no Discord, logo, função principal.
+- Listagem com logo circular, líder, vice-líder e lista de membros.
+- Gerenciar: definir líder e vice, adicionar membros.
+- Deletar divisão.
 
-### 8. Publicação
-- Publicar o site.
-- Entregar URLs de preview e produção.
-- Instruir sobre como atualizar secrets/credenciais no futuro.
+### Parcerias
+- Aba existe hoje apenas como "em breve". Será entregue funcional: cadastro de aliança (nome, tag, contato, status, link do servidor, data), listagem e edição/remoção pela liderança.
+
+## Melhorias sobre o Streamlit
+- Ações "Advertir", "Trocar cargo" e "Histórico" ficam completas em modais funcionais (no código atual elas só marcam estado e não têm tela).
+- Busca por nome em Membros, além dos filtros.
+- Confirmação antes de remover membro, treino ou divisão (hoje apaga direto no clique).
+- Atualização de dados sem recarregar a página inteira; botão de atualizar continua disponível.
+- Contadores e listas atualizados na hora após cada ação.
+- Estado de "sem conexão com o banco" tratado com mensagem clara por seção.
 
 ## Detalhes técnicos
-- Framework: TanStack Start (React 19 + Vite), já presente no projeto.
-- Estilo: Tailwind CSS v4 com tokens semânticos customizados em `src/styles.css`.
-- Backend: Supabase via Lovable Cloud; server functions para lógica segura.
-- Auth: OAuth Discord através do Supabase Auth + verificação de cargo via API do Discord.
-- Dados: reutilizar o mesmo Supabase do bot; ajustar RLS/políticas conforme necessário.
+- Stack: TanStack Start (React 19, Vite), Tailwind v4 com tokens semânticos em `src/styles.css`.
+- Backend: Lovable Cloud conectado ao mesmo projeto Supabase do bot.
+- Tabelas usadas: `membros`, `divisoes`, `treinos`, `presencas_treino`, `punicoes`, `participacoes_guerra`, e uma nova para parcerias.
+- Todas as leituras/escritas passam por server functions com verificação de cargo no servidor, não só na interface.
+- Login Discord via OAuth do Supabase Auth; vínculo com a tabela `membros` pelo `discord_id`.
+- Avatares via CDN do Discord, com fallback padrão.
+- Rotas: `/` (Visão Geral), `/membros`, `/treinos`, `/divisoes`, `/parcerias`, `/auth`.
 
-## Próximos passos imediatos
-1. Enviar o arquivo/código do dashboard Streamlit para análise.
-2. Confirmar se o bot do Discord já tem um token de bot registrado e se pode ser compartilhado como secret.
-3. Aprovar este plano para iniciar a implementação.
+## O que preciso de você durante a implementação
+1. Credenciais do Supabase existente (URL e chaves) para conectar ao banco do bot.
+2. Client ID/Secret da aplicação Discord para o OAuth.
+3. ID do servidor da gang e o critério de "dono" usado hoje no `auth.py`.
