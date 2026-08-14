@@ -1057,6 +1057,7 @@ export async function salvarParceria(
     representante_id: string;
     representante_nome: string;
     representante_avatar: string;
+    relacao?: string;
   },
 ) {
   assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
