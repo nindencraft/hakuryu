@@ -1087,6 +1087,7 @@ export async function salvarParceria(
     representante_avatar: input.representante_avatar || null,
     fechado_por: fechadoPor,
     fechado_por_nome: fechadoNome,
+    relacao: input.relacao === "Inimiga" ? "Inimiga" : "Aliada",
   });
   const obs = `${input.observacoes ? `${input.observacoes.trim()}\n` : ""}${marca}`;
 
