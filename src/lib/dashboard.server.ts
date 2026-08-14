@@ -389,6 +389,7 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
     | "representante_avatar"
     | "fechado_por"
     | "fechado_por_nome"
+    | "relacao"
   > &
     Partial<Parceria>)[];
 
