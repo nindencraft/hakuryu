@@ -8,6 +8,8 @@ import type { SessionUserView } from "./permissions";
 import type {
   ConfiguracoesPainel,
   Divisao,
+  GuildAtual,
+  LogPartida,
   Membro,
   Parceria,
   PresencaTreino,
