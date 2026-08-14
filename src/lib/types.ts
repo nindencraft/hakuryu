@@ -123,6 +123,8 @@ export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"
 export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
 export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
+export const RELACAO_GANG_OPCOES = ["Aliada", "Inimiga"] as const;
+export const TIPO_LOG_OPCOES = ["Amistoso", "Guerra"] as const;
 
 
 export type ConfiguracoesPainel = {
