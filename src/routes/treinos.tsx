@@ -432,7 +432,9 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nenhuma">Nenhuma</SelectItem>
-                  {(aliancas.data?.parcerias ?? []).map((p) => (
+                  {(aliancas.data?.parcerias ?? [])
+                    .filter((p) => p.relacao !== "Inimiga")
+                    .map((p) => (
                     <SelectItem key={p.id} value={p.nome}>
                       {p.nome}
                     </SelectItem>
