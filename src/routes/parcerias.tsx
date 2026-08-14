@@ -41,7 +41,7 @@ import {
 import { parceriasQuery } from "@/lib/queries";
 import { deletarParceria, resolverAliado, salvarParceria } from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
-import { STATUS_PARCERIA_OPCOES, type Parceria } from "@/lib/types";
+import { RELACAO_GANG_OPCOES, STATUS_PARCERIA_OPCOES, type Parceria } from "@/lib/types";
 
 export const Route = createFileRoute("/parcerias")({
   head: () => ({
@@ -81,6 +81,7 @@ const VAZIA = {
   representante_id: "",
   representante_nome: "",
   representante_avatar: "",
+  relacao: "Aliada",
 };
 
 type FormAlianca = typeof VAZIA;
@@ -88,6 +89,24 @@ type FormAlianca = typeof VAZIA;
 function guildIconUrl(guildId: string | null, iconHash: string | null): string | null {
   if (!guildId || !iconHash) return null;
   return `https://cdn.discordapp.com/icons/${guildId}/${iconHash}.png?size=128`;
+}
+
+function paraForm(p: Parceria): FormAlianca {
+  return {
+    id: p.id,
+    nome: p.nome,
+    tag: p.tag ?? "",
+    contato: p.contato ?? "",
+    status: p.status,
+    link_servidor: p.link_servidor ?? "",
+    observacoes: p.observacoes ?? "",
+    data_inicio: p.data_inicio?.slice(0, 10) ?? "",
+    icon_hash: p.icon_hash ?? "",
+    representante_id: p.representante_id ?? "",
+    representante_nome: p.representante_nome ?? "",
+    representante_avatar: p.representante_avatar ?? "",
+    relacao: p.relacao || "Aliada",
+  };
 }
 
 function Aliancas() {
@@ -103,17 +122,19 @@ function Aliancas() {
   });
 
   const aliancas = data?.parcerias ?? [];
+  const aliadas = aliancas.filter((p) => p.relacao !== "Inimiga");
+  const inimigas = aliancas.filter((p) => p.relacao === "Inimiga");
 
   return (
     <>
       <PageTitle
         kanji="同盟"
         title="Alianças"
-        subtitle="Gangs e servidores aliados da Hakuryū."
+        subtitle="Gangs aliadas e inimigas da Hakuryū."
         actions={
           podeGerenciar && !data?.tabelaAusente ? (
             <Button onClick={() => setEditando({ ...VAZIA })}>
-              <Plus className="h-4 w-4" /> Adicionar aliança
+              <Plus className="h-4 w-4" /> Adicionar gang
             </Button>
           ) : null
         }
@@ -133,36 +154,38 @@ function Aliancas() {
         />
       ) : aliancas.length === 0 ? (
         <EmptyState
-          title="Nenhuma aliança fechada"
-          description="Adicione a primeira gang aliada usando o link do servidor dela."
+          title="Nenhuma gang cadastrada"
+          description="Adicione a primeira gang aliada ou inimiga usando o link do servidor dela."
         />
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
-          {aliancas.map((p) => (
-            <AliancaCard
-              key={p.id}
-              alianca={p}
-              podeGerenciar={podeGerenciar}
-              onEditar={() =>
-                setEditando({
-                  id: p.id,
-                  nome: p.nome,
-                  tag: p.tag ?? "",
-                  contato: p.contato ?? "",
-                  status: p.status,
-                  link_servidor: p.link_servidor ?? "",
-                  observacoes: p.observacoes ?? "",
-                  data_inicio: p.data_inicio?.slice(0, 10) ?? "",
-                  icon_hash: p.icon_hash ?? "",
-                  representante_id: p.representante_id ?? "",
-                  representante_nome: p.representante_nome ?? "",
-                  representante_avatar: p.representante_avatar ?? "",
-                })
-              }
-              onDeletar={() => setDeletando(p)}
-            />
-          ))}
-        </ul>
+        <div className="space-y-10">
+          {(
+            [
+              { titulo: "Gangs aliadas", kanji: "同盟", lista: aliadas },
+              { titulo: "Gangs inimigas", kanji: "敵", lista: inimigas },
+            ] as const
+          ).map((secao) =>
+            secao.lista.length === 0 ? null : (
+              <section key={secao.titulo} className="space-y-3">
+                <h2 className="font-display text-lg text-muted-foreground">
+                  <span className="font-jp mr-2 text-primary">{secao.kanji}</span>
+                  {secao.titulo}
+                </h2>
+                <ul className="grid gap-4 lg:grid-cols-2">
+                  {secao.lista.map((p) => (
+                    <AliancaCard
+                      key={p.id}
+                      alianca={p}
+                      podeGerenciar={podeGerenciar}
+                      onEditar={() => setEditando(paraForm(p))}
+                      onDeletar={() => setDeletando(p)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ),
+          )}
+        </div>
       )}
 
       <AliancaDialog valor={editando} onClose={() => setEditando(null)} />
@@ -236,9 +259,14 @@ function AliancaCard({
         <div className="min-w-0 flex-1">
           <h2 className="font-display truncate text-xl text-foreground">{p.nome}</h2>
           <p className="text-sm text-muted-foreground">Desde {formatarData(p.data_inicio)}</p>
-          <Badge variant="outline" className="mt-2 border-primary/40">
-            {p.status}
-          </Badge>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant={p.relacao === "Inimiga" ? "destructive" : "outline"} className="border-primary/40">
+              {p.relacao === "Inimiga" ? "Inimiga" : "Aliada"}
+            </Badge>
+            <Badge variant="outline" className="border-primary/40">
+              {p.status}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -332,7 +360,7 @@ function AliancaDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{form.id == null ? "Adicionar aliança" : "Editar aliança"}</DialogTitle>
+          <DialogTitle>{form.id == null ? "Adicionar gang" : "Editar gang"}</DialogTitle>
           <DialogDescription>
             Cole o link do servidor aliado e o ID do representante — o resto vem do Discord.
           </DialogDescription>
@@ -403,6 +431,21 @@ function AliancaDialog({
               />
             </div>
             <div className="space-y-2">
+              <Label>Relação</Label>
+              <Select value={form.relacao} onValueChange={(v) => setForm({ ...form, relacao: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RELACAO_GANG_OPCOES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger>
@@ -437,7 +480,7 @@ function AliancaDialog({
             disabled={!form.nome || acao.isPending}
             onClick={() => acao.mutate(form, { onSuccess: onClose })}
           >
-            Salvar aliança
+            Salvar gang
           </Button>
         </DialogFooter>
       </DialogContent>
