@@ -271,3 +271,45 @@ export const salvarConfiguracoes = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     svc.salvarConfiguracoesPainel(await svc.requireUser(getRequest()), data),
   );
+
+export const fetchLogs = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> => {
+    await svc.requireUser(getRequest());
+    return svc.loadLogs();
+  },
+);
+
+export const fetchGuildAtual = createServerFn({ method: "GET" }).handler(
+  async (): Promise<GuildAtual> => {
+    await svc.requireUser(getRequest());
+    return svc.guildAtualInfo();
+  },
+);
+
+export const salvarLog = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      tipo: string;
+      adversario_id: number | null;
+      adversario_nome: string;
+      adversario_guild_id: string | null;
+      adversario_icon_hash: string | null;
+      pontos_nos: number;
+      pontos_eles: number;
+      data_partida: string;
+      observacoes: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    await svc.salvarLog(user, data);
+    return { ok: true };
+  });
+
+export const deletarLog = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    await svc.deletarLog(user, data.id);
+    return { ok: true };
+  });
