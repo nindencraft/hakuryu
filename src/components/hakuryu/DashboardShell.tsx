@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   RefreshCw,
+  ScrollText,
   Settings,
   Shield,
   Users,
@@ -37,6 +38,7 @@ const NAV = [
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
   { to: "/divisoes", label: "Divisões", icon: Shield },
   { to: "/parcerias", label: "Alianças", icon: Handshake },
+  { to: "/logs", label: "Logs", icon: ScrollText },
 ];
 
 const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Settings }];

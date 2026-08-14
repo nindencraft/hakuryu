@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DivisoesRouteImport } from './routes/divisoes'
+import { Route as LogsRouteImport } from './routes/logs'
 import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as TreinosRouteImport } from './routes/treinos'
@@ -32,6 +33,11 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const DivisoesRoute = DivisoesRouteImport.update({
   id: '/divisoes',
   path: '/divisoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MembrosRoute = MembrosRouteImport.update({
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/logs'
     | '/membros'
     | '/parcerias'
     | '/treinos'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/logs'
     | '/membros'
     | '/parcerias'
     | '/treinos'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/logs'
     | '/membros'
     | '/parcerias'
     | '/treinos'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DivisoesRoute: typeof DivisoesRoute
+  LogsRoute: typeof LogsRoute
   MembrosRoute: typeof MembrosRoute
   ParceriasRoute: typeof ParceriasRoute
   TreinosRoute: typeof TreinosRoute
@@ -170,6 +183,13 @@ declare module '@tanstack/react-router' {
       path: '/divisoes'
       fullPath: '/divisoes'
       preLoaderRoute: typeof DivisoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/membros': {
@@ -221,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DivisoesRoute: DivisoesRoute,
+  LogsRoute: LogsRoute,
   MembrosRoute: MembrosRoute,
   ParceriasRoute: ParceriasRoute,
   TreinosRoute: TreinosRoute,
