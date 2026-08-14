@@ -17,6 +17,8 @@ import { cargoPrimario } from "./permissions";
 import type {
   AliadoResolvido,
   Divisao,
+  GuildAtual,
+  LogPartida,
   Membro,
   Parceria,
   PresencaTreino,
@@ -305,6 +307,7 @@ function montarMarcaAlianca(campos: {
   representante_avatar: string | null;
   fechado_por: string | null;
   fechado_por_nome: string | null;
+  relacao: string | null;
 }): string {
   const limpar = (v: string | null) => (v ?? "").replace(/[|\]\n]/g, " ").trim();
   return `[ALIANCA|${[
@@ -314,6 +317,7 @@ function montarMarcaAlianca(campos: {
     campos.representante_avatar,
     campos.fechado_por,
     campos.fechado_por_nome,
+    campos.relacao,
   ]
     .map(limpar)
     .join("|")}]`;
@@ -327,11 +331,14 @@ function separarAlianca(observacoes: string | null) {
     representante_avatar: null as string | null,
     fechado_por: null as string | null,
     fechado_por_nome: null as string | null,
+    relacao: null as string | null,
   };
   if (!observacoes) return { observacoes: null, extras: vazio };
   const m = observacoes.match(MARCA_ALIANCA);
   if (!m) return { observacoes, extras: vazio };
-  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome] = (m[1] ?? "").split("|");
+  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome, relacao] = (m[1] ?? "").split(
+    "|",
+  );
   const limpa = observacoes.replace(MARCA_ALIANCA, "").trim();
   return {
     observacoes: limpa || null,
@@ -342,6 +349,7 @@ function separarAlianca(observacoes: string | null) {
       representante_avatar: repAvatar || null,
       fechado_por: fechadoPor || null,
       fechado_por_nome: fechadoNome || null,
+      relacao: relacao || null,
     },
   };
 }
@@ -383,6 +391,7 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
     | "representante_avatar"
     | "fechado_por"
     | "fechado_por_nome"
+    | "relacao"
   > &
     Partial<Parceria>)[];
 
@@ -399,6 +408,8 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
       representante_avatar: row.representante_avatar ?? extras.representante_avatar,
       fechado_por: row.fechado_por ?? extras.fechado_por,
       fechado_por_nome: row.fechado_por_nome ?? extras.fechado_por_nome,
+      relacao:
+        ((row as Partial<Parceria>).relacao as string | undefined) || extras.relacao || "Aliada",
     } as Parceria;
   });
 
@@ -1048,6 +1059,7 @@ export async function salvarParceria(
     representante_id: string;
     representante_nome: string;
     representante_avatar: string;
+    relacao?: string;
   },
 ) {
   assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
@@ -1077,6 +1089,7 @@ export async function salvarParceria(
     representante_avatar: input.representante_avatar || null,
     fechado_por: fechadoPor,
     fechado_por_nome: fechadoNome,
+    relacao: input.relacao === "Inimiga" ? "Inimiga" : "Aliada",
   });
   const obs = `${input.observacoes ? `${input.observacoes.trim()}\n` : ""}${marca}`;
 
@@ -1099,7 +1112,10 @@ export async function salvarParceria(
   if (input.id == null) {
     const { enviarMensagemCanal } = await import("./discord.server");
     await enviarMensagemCanal("canal_aliancas", {
-      title: `🤝 Nova aliança: ${input.nome}`,
+      title:
+        input.relacao === "Inimiga"
+          ? `⚔️ Nova gang inimiga: ${input.nome}`
+          : `🤝 Nova aliança: ${input.nome}`,
       description: input.observacoes?.trim() || undefined,
       fields: [
         ...(input.tag ? [{ name: "Tag", value: input.tag, inline: true }] : []),
@@ -1203,4 +1219,111 @@ export async function salvarConfiguracoesPainel(
   for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
   await salvarConfiguracoes(valores);
   return { ok: true };
+}
+
+// ==================== Logs de partidas ====================
+
+function tabelaLogsAusente(msg: string, code?: string) {
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    /relation .*logs_partidas.* does not exist/i.test(msg) ||
+    /Could not find the table/i.test(msg)
+  );
+}
+
+export async function loadLogs(): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> {
+  const db = getDb();
+  const { data, error } = await db
+    .from("logs_partidas")
+    .select("*")
+    .order("data_partida", { ascending: false });
+  if (error) {
+    if (tabelaLogsAusente(error.message, error.code)) return { logs: [], tabelaAusente: true };
+    throw new Error(error.message);
+  }
+  const logs = ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: Number(row["id"] ?? 0),
+    tipo: String(row["tipo"] ?? "Amistoso"),
+    adversario_id: row["adversario_id"] == null ? null : Number(row["adversario_id"]),
+    adversario_nome: String(row["adversario_nome"] ?? "—"),
+    adversario_guild_id: (row["adversario_guild_id"] as string | null) ?? null,
+    adversario_icon_hash: (row["adversario_icon_hash"] as string | null) ?? null,
+    pontos_nos: Number(row["pontos_nos"] ?? 0),
+    pontos_eles: Number(row["pontos_eles"] ?? 0),
+    data_partida: (row["data_partida"] as string | null) ?? null,
+    observacoes: (row["observacoes"] as string | null) ?? null,
+    criado_por: (row["criado_por"] as string | null) ?? null,
+    criado_por_nome: (row["criado_por_nome"] as string | null) ?? null,
+  })) satisfies LogPartida[];
+  return { logs, tabelaAusente: false };
+}
+
+export async function salvarLog(
+  user: SessionUser,
+  input: {
+    tipo: string;
+    adversario_id: number | null;
+    adversario_nome: string;
+    adversario_guild_id: string | null;
+    adversario_icon_hash: string | null;
+    pontos_nos: number;
+    pontos_eles: number;
+    data_partida: string;
+    observacoes: string;
+  },
+) {
+  assert(podeGerenciarTreinos(user), "Sem permissão para registrar logs.");
+  const db = getDb();
+  const autor = user.nomeRp || user.globalName || user.username;
+  const { error } = await db.from("logs_partidas").insert({
+    tipo: input.tipo,
+    adversario_id: input.adversario_id,
+    adversario_nome: input.adversario_nome,
+    adversario_guild_id: input.adversario_guild_id,
+    adversario_icon_hash: input.adversario_icon_hash,
+    pontos_nos: input.pontos_nos,
+    pontos_eles: input.pontos_eles,
+    data_partida: input.data_partida || new Date().toISOString().slice(0, 10),
+    observacoes: input.observacoes.trim() || null,
+    criado_por: user.id,
+    criado_por_nome: autor,
+  });
+  if (error) {
+    if (tabelaLogsAusente(error.message, error.code)) {
+      throw new Error(
+        "A tabela `logs_partidas` não existe no banco. Rode o script schema_hakuryu.sql para criá-la.",
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  const resultado =
+    input.pontos_nos > input.pontos_eles
+      ? "Vitória"
+      : input.pontos_nos < input.pontos_eles
+        ? "Derrota"
+        : "Empate";
+  const { enviarMensagemCanal } = await import("./discord.server");
+  await enviarMensagemCanal("canal_treinos", {
+    title: `${input.tipo === "Guerra" ? "⚔️" : "🤝"} ${input.tipo}: ${input.pontos_nos} x ${input.pontos_eles} — ${input.adversario_nome}`,
+    description: input.observacoes.trim() || undefined,
+    fields: [
+      { name: "Resultado", value: resultado, inline: true },
+      { name: "Registrado por", value: autor, inline: true },
+    ],
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export async function deletarLog(user: SessionUser, id: number) {
+  assert(podeGerenciarTreinos(user), "Sem permissão para remover logs.");
+  const db = getDb();
+  const { error } = await db.from("logs_partidas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function guildAtualInfo(): Promise<GuildAtual> {
+  const { fetchGuildInfo } = await import("./discord.server");
+  return await fetchGuildInfo();
 }

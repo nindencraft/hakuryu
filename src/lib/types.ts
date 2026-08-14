@@ -88,7 +88,26 @@ export type Parceria = {
   representante_avatar: string | null;
   fechado_por: string | null;
   fechado_por_nome: string | null;
+  /** "Aliada" ou "Inimiga". */
+  relacao: string;
 };
+
+export type LogPartida = {
+  id: number;
+  tipo: string;
+  adversario_id: number | null;
+  adversario_nome: string;
+  adversario_guild_id: string | null;
+  adversario_icon_hash: string | null;
+  pontos_nos: number;
+  pontos_eles: number;
+  data_partida: string | null;
+  observacoes: string | null;
+  criado_por: string | null;
+  criado_por_nome: string | null;
+};
+
+export type GuildAtual = { id: string; nome: string; iconHash: string | null } | null;
 
 export type AliadoResolvido = {
   guild: { id: string | null; nome: string; iconHash: string | null } | null;
@@ -104,6 +123,8 @@ export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"
 export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
 export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
+export const RELACAO_GANG_OPCOES = ["Aliada", "Inimiga"] as const;
+export const TIPO_LOG_OPCOES = ["Amistoso", "Guerra"] as const;
 
 
 export type ConfiguracoesPainel = {

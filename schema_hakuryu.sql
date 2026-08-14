@@ -199,5 +199,34 @@ CREATE POLICY "Usuarios autenticados podem atualizar participacoes"
 CREATE POLICY "Usuarios autenticados podem deletar participacoes"
   ON public.participacoes_guerra FOR DELETE TO authenticated USING (true);
 
+-- Tabela de logs de partidas (amistosos e guerras)
+CREATE TABLE IF NOT EXISTS public.logs_partidas (
+  id SERIAL PRIMARY KEY,
+  tipo TEXT NOT NULL DEFAULT 'Amistoso',
+  adversario_id INTEGER,
+  adversario_nome TEXT NOT NULL,
+  adversario_guild_id TEXT,
+  adversario_icon_hash TEXT,
+  pontos_nos INTEGER NOT NULL DEFAULT 0,
+  pontos_eles INTEGER NOT NULL DEFAULT 0,
+  data_partida DATE DEFAULT now(),
+  observacoes TEXT,
+  criado_por TEXT,
+  criado_por_nome TEXT
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.logs_partidas TO authenticated;
+GRANT ALL ON public.logs_partidas TO service_role;
+ALTER TABLE public.logs_partidas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios autenticados podem visualizar logs"
+  ON public.logs_partidas FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Usuarios autenticados podem criar logs"
+  ON public.logs_partidas FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Usuarios autenticados podem atualizar logs"
+  ON public.logs_partidas FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Usuarios autenticados podem deletar logs"
+  ON public.logs_partidas FOR DELETE TO authenticated USING (true);
+
 -- Recarrega o cache do schema para o PostgREST enxergar as novas tabelas
 NOTIFY pgrst, 'reload schema';

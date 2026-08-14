@@ -5,6 +5,8 @@ import {
   fetchMembros,
   fetchParcerias,
   fetchTreinos,
+  fetchLogs,
+  fetchGuildAtual,
   fetchConfiguracoes,
   getSession,
 } from "./dashboard.functions";
@@ -44,4 +46,16 @@ export const configuracoesQuery = queryOptions({
   queryKey: ["configuracoes"],
   queryFn: () => fetchConfiguracoes(),
   staleTime: 10_000,
+});
+
+export const logsQuery = queryOptions({
+  queryKey: ["logs"],
+  queryFn: () => fetchLogs(),
+  staleTime: 30_000,
+});
+
+export const guildAtualQuery = queryOptions({
+  queryKey: ["guild-atual"],
+  queryFn: () => fetchGuildAtual(),
+  staleTime: 300_000,
 });
