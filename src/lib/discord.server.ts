@@ -245,3 +245,27 @@ export async function fetchUsuarioDiscord(id: string): Promise<UsuarioDiscord | 
     return null;
   }
 }
+
+export type GuildInfo = { id: string; nome: string; iconHash: string | null };
+
+/** Informações do servidor da própria gang (nome + ícone), usando o token do bot. */
+export async function fetchGuildInfo(guildId?: string): Promise<GuildInfo | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const id = (guildId ?? (await guildIdAtivo())).replace(/\D/g, "");
+    if (!id) return null;
+    const res = await fetch(`https://discord.com/api/v10/guilds/${id}`, {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
+    if (!res.ok) return null;
+    const g = (await res.json()) as { id: string; name: string; icon?: string | null };
+    return { id: g.id, nome: g.name, iconHash: g.icon ?? null };
+  } catch {
+    return null;
+  }
+}
