@@ -406,6 +406,8 @@ export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAu
       representante_avatar: row.representante_avatar ?? extras.representante_avatar,
       fechado_por: row.fechado_por ?? extras.fechado_por,
       fechado_por_nome: row.fechado_por_nome ?? extras.fechado_por_nome,
+      relacao:
+        ((row as Partial<Parceria>).relacao as string | undefined) || extras.relacao || "Aliada",
     } as Parceria;
   });
 
