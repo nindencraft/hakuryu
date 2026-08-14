@@ -305,6 +305,7 @@ function montarMarcaAlianca(campos: {
   representante_avatar: string | null;
   fechado_por: string | null;
   fechado_por_nome: string | null;
+  relacao: string | null;
 }): string {
   const limpar = (v: string | null) => (v ?? "").replace(/[|\]\n]/g, " ").trim();
   return `[ALIANCA|${[
@@ -314,6 +315,7 @@ function montarMarcaAlianca(campos: {
     campos.representante_avatar,
     campos.fechado_por,
     campos.fechado_por_nome,
+    campos.relacao,
   ]
     .map(limpar)
     .join("|")}]`;
@@ -327,11 +329,14 @@ function separarAlianca(observacoes: string | null) {
     representante_avatar: null as string | null,
     fechado_por: null as string | null,
     fechado_por_nome: null as string | null,
+    relacao: null as string | null,
   };
   if (!observacoes) return { observacoes: null, extras: vazio };
   const m = observacoes.match(MARCA_ALIANCA);
   if (!m) return { observacoes, extras: vazio };
-  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome] = (m[1] ?? "").split("|");
+  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome, relacao] = (m[1] ?? "").split(
+    "|",
+  );
   const limpa = observacoes.replace(MARCA_ALIANCA, "").trim();
   return {
     observacoes: limpa || null,
@@ -342,6 +347,7 @@ function separarAlianca(observacoes: string | null) {
       representante_avatar: repAvatar || null,
       fechado_por: fechadoPor || null,
       fechado_por_nome: fechadoNome || null,
+      relacao: relacao || null,
     },
   };
 }
