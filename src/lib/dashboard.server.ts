@@ -1110,7 +1110,10 @@ export async function salvarParceria(
   if (input.id == null) {
     const { enviarMensagemCanal } = await import("./discord.server");
     await enviarMensagemCanal("canal_aliancas", {
-      title: `🤝 Nova aliança: ${input.nome}`,
+      title:
+        input.relacao === "Inimiga"
+          ? `⚔️ Nova gang inimiga: ${input.nome}`
+          : `🤝 Nova aliança: ${input.nome}`,
       description: input.observacoes?.trim() || undefined,
       fields: [
         ...(input.tag ? [{ name: "Tag", value: input.tag, inline: true }] : []),
