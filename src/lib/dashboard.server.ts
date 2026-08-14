@@ -17,6 +17,8 @@ import { cargoPrimario } from "./permissions";
 import type {
   AliadoResolvido,
   Divisao,
+  GuildAtual,
+  LogPartida,
   Membro,
   Parceria,
   PresencaTreino,
