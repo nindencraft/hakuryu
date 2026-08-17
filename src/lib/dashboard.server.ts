@@ -1223,6 +1223,7 @@ export async function salvarParceria(
 ) {
   assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
   const db = getDb();
+  const g = gid(user);
 
   // Quem fechou é mantido no registro original ao editar.
   let fechadoPor = user.id;
@@ -1232,6 +1233,7 @@ export async function salvarParceria(
     const { data } = await db
       .from("parcerias")
       .select("observacoes")
+      .eq("gang_id", g)
       .eq(colunaId, input.id)
       .maybeSingle();
     const antigo = separarAlianca((data as { observacoes: string | null } | null)?.observacoes ?? null);
@@ -1263,8 +1265,8 @@ export async function salvarParceria(
   };
   const query =
     input.id == null
-      ? db.from("parcerias").insert(payload)
-      : db.from("parcerias").update(payload).eq(colunaId, input.id);
+      ? db.from("parcerias").insert({ ...payload, gang_id: g })
+      : db.from("parcerias").update(payload).eq("gang_id", g).eq(colunaId, input.id);
   const { error } = await query;
   if (error) throw new Error(error.message);
 
@@ -1306,7 +1308,11 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   assert(podeGerenciarParcerias(user));
   const db = getDb();
   const coluna = await colunaIdParcerias();
-  const { error } = await db.from("parcerias").delete().eq(coluna, input.id);
+  const { error } = await db
+    .from("parcerias")
+    .delete()
+    .eq("gang_id", gid(user))
+    .eq(coluna, input.id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -1337,9 +1343,11 @@ async function podeEditarAtributosMembro(user: SessionUser, membroId: string): P
   if (podeGerenciarMembros(user)) return true;
 
   const db = getDb();
+  const g = gid(user);
   const { data: alvo, error: alvoError } = await db
     .from("membros")
     .select("divisao_id")
+    .eq("gang_id", g)
     .eq("discord_id", membroId)
     .maybeSingle();
   if (alvoError) throw new Error(alvoError.message);
@@ -1348,6 +1356,7 @@ async function podeEditarAtributosMembro(user: SessionUser, membroId: string): P
   const { data: divisao, error: divisaoError } = await db
     .from("divisoes")
     .select("lider_id, vice_lider_id")
+    .eq("gang_id", g)
     .eq("id", alvo.divisao_id)
     .maybeSingle();
   if (divisaoError) throw new Error(divisaoError.message);
@@ -1371,16 +1380,18 @@ export async function salvarAtributosMembro(
   const { error: upsertError } = await db.from("membro_atributos").upsert(
     {
       membro_id: input.membroId,
+      gang_id: gid(user),
       ...valores,
       atualizado_em: new Date().toISOString(),
       atualizado_por: user.id,
     },
-    { onConflict: "membro_id" },
+    { onConflict: "membro_id,gang_id" },
   );
   if (upsertError) throw new Error(upsertError.message);
 
   const { error: historicoError } = await db.from("historico_atributos_membro").insert({
     membro_id: input.membroId,
+    gang_id: gid(user),
     ...valores,
     avaliado_por: user.id,
   });
@@ -1394,6 +1405,7 @@ export async function loadHistoricoAtributos(
   membroId: string,
 ): Promise<HistoricoAtributosMembro[]> {
   const db = getDb();
+  const g = gid(user);
   if (membroId !== user.id) {
     assert(await podeEditarAtributosMembro(user, membroId), "Você não pode ver este histórico.");
   }
@@ -1404,6 +1416,7 @@ export async function loadHistoricoAtributos(
       .select(
         "id, membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, avaliado_em, avaliado_por",
       )
+      .eq("gang_id", g)
       .eq("membro_id", membroId)
       .order("avaliado_em", { ascending: false }),
   ) as Omit<HistoricoAtributosMembro, "avaliado_por_nome">[];
@@ -1415,6 +1428,7 @@ export async function loadHistoricoAtributos(
     await db
       .from("membros")
       .select("discord_id, nome_rp, discord_username")
+      .eq("gang_id", g)
       .in("discord_id", autores),
   ) as { discord_id: string; nome_rp: string | null; discord_username: string | null }[];
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
@@ -1460,6 +1474,7 @@ export async function atualizarDadosMembro(
       altura_jogo: Number.isFinite(alturaNum) && input.altura?.trim() ? alturaNum : null,
       estilo_luta_principal: limpo(input.estilo_luta_principal),
     })
+    .eq("gang_id", gid(user))
     .eq("discord_id", alvo);
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -1473,7 +1488,7 @@ export async function loadConfiguracoesPainel(user: SessionUser) {
     "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
   );
   const { loadConfiguracoes } = await import("./settings.server");
-  return loadConfiguracoes([...CARGOS_PERMITIDOS]);
+  return loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
 }
 
 export async function salvarConfiguracoesPainel(
@@ -1486,14 +1501,11 @@ export async function salvarConfiguracoesPainel(
   },
 ) {
   assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
-  const { salvarConfiguracoes, chaveCargo, CHAVE_GUILD } = await import("./settings.server");
-  const valores: Record<string, string> = {
-    owner_ids: input.owners,
-    [CHAVE_GUILD]: (input.guildId ?? "").replace(/\D/g, ""),
-  };
+  const { salvarConfiguracoesDaGang, chaveCargo } = await import("./settings.server");
+  const valores: Record<string, string> = { owner_ids: input.owners };
   for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
   for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
-  await salvarConfiguracoes(valores);
+  await salvarConfiguracoesDaGang(gid(user), valores);
   return { ok: true };
 }
 
@@ -1508,11 +1520,14 @@ function tabelaLogsAusente(msg: string, code?: string) {
   );
 }
 
-export async function loadLogs(): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> {
+export async function loadLogs(
+  user: SessionUser,
+): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db
     .from("logs_partidas")
     .select("*")
+    .eq("gang_id", gid(user))
     .order("data_partida", { ascending: false });
   if (error) {
     if (tabelaLogsAusente(error.message, error.code)) return { logs: [], tabelaAusente: true };
@@ -1564,6 +1579,7 @@ export async function salvarLog(
     observacoes: input.observacoes.trim() || null,
     criado_por: user.id,
     criado_por_nome: autor,
+    gang_id: gid(user),
   });
   if (error) {
     if (tabelaLogsAusente(error.message, error.code)) {
@@ -1595,11 +1611,15 @@ export async function salvarLog(
 export async function deletarLog(user: SessionUser, id: number) {
   assert(podeGerenciarTreinos(user), "Sem permissão para remover logs.");
   const db = getDb();
-  const { error } = await db.from("logs_partidas").delete().eq("id", id);
+  const { error } = await db
+    .from("logs_partidas")
+    .delete()
+    .eq("gang_id", gid(user))
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
-export async function guildAtualInfo(): Promise<GuildAtual> {
+export async function guildAtualInfo(user: SessionUser): Promise<GuildAtual> {
   const { fetchGuildInfo } = await import("./discord.server");
-  return await fetchGuildInfo();
+  return await fetchGuildInfo(user.guildId ?? undefined);
 }
