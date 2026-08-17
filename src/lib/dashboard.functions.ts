@@ -19,11 +19,20 @@ import type {
   Treino,
 } from "./types";
 
+export type GangDisponivel = {
+  id: number;
+  nome: string;
+  guildId: string;
+  iconHash: string | null;
+};
+
 export type SessionPayload = {
   configurado: boolean;
   faltando: string[];
   user: SessionUserView | null;
   permitido: boolean;
+  gangId: number | null;
+  gangNome: string | null;
 };
 
 export const getSession = createServerFn({ method: "GET" }).handler(
@@ -36,12 +45,27 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       } catch (error) {
         if (error instanceof ConfigError) faltando = error.missing;
       }
-      return { configurado: false, faltando, user: null, permitido: false };
+      return {
+        configurado: false,
+        faltando,
+        user: null,
+        permitido: false,
+        gangId: null,
+        gangNome: null,
+      };
     }
 
     const request = getRequest();
     const user = await currentUser(request);
-    if (!user) return { configurado: true, faltando: [], user: null, permitido: false };
+    if (!user)
+      return {
+        configurado: true,
+        faltando: [],
+        user: null,
+        permitido: false,
+        gangId: null,
+        gangNome: null,
+      };
 
     const { podeAcessar } = await import("./session.server");
 
@@ -55,9 +79,17 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       if (await ehDono(user.id)) user.isOwner = true;
     }
 
+    let gangNome: string | null = null;
+    if (user.gangId != null) {
+      const { buscarGangPorId } = await import("./gangs.server");
+      gangNome = (await buscarGangPorId(user.gangId))?.nome ?? null;
+    }
+
     return {
       configurado: true,
       faltando: [],
+      gangId: user.gangId,
+      gangNome,
       permitido: podeAcessar(user),
       user: {
         id: user.id,
@@ -72,39 +104,48 @@ export const getSession = createServerFn({ method: "GET" }).handler(
   },
 );
 
+/** Gangs que o usuário da sessão pode acessar (Super Owner vê todas). */
+export const fetchGangsDisponiveis = createServerFn({ method: "GET" }).handler(
+  async (): Promise<GangDisponivel[]> => {
+    const user = await svc.requireUserSemGang(getRequest());
+    const { gangsDoUsuario } = await import("./gangs-acesso.server");
+    return gangsDoUsuario(user);
+  },
+);
+
 export const fetchMembros = createServerFn({ method: "GET" }).handler(
   async (): Promise<Membro[]> => {
-    await svc.requireUser(getRequest());
-    return svc.loadMembros();
+    const user = await svc.requireUser(getRequest());
+    return svc.loadMembros(user);
   },
 );
 
 export const fetchTreinos = createServerFn({ method: "GET" }).handler(
   async (): Promise<Treino[]> => {
-    await svc.requireUser(getRequest());
-    return svc.loadTreinos();
+    const user = await svc.requireUser(getRequest());
+    return svc.loadTreinos(user);
   },
 );
 
 export const fetchDivisoes = createServerFn({ method: "GET" }).handler(
   async (): Promise<Divisao[]> => {
-    await svc.requireUser(getRequest());
-    return svc.loadDivisoes();
+    const user = await svc.requireUser(getRequest());
+    return svc.loadDivisoes(user);
   },
 );
 
 export const fetchParcerias = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> => {
-    await svc.requireUser(getRequest());
-    return svc.loadParcerias();
+    const user = await svc.requireUser(getRequest());
+    return svc.loadParcerias(user);
   },
 );
 
 export const fetchPresencas = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
   .handler(async ({ data }): Promise<PresencaTreino[]> => {
-    await svc.requireUser(getRequest());
-    return svc.loadPresencas(data.treinoId);
+    const user = await svc.requireUser(getRequest());
+    return svc.loadPresencas(user, data.treinoId);
   });
 
 export const fetchHistorico = createServerFn({ method: "POST" })
@@ -113,7 +154,7 @@ export const fetchHistorico = createServerFn({ method: "POST" })
     const user = await svc.requireUser(getRequest());
     const { podeAdvertir } = await import("./session.server");
     if (!podeAdvertir(user)) throw new Error("Você não pode ver o registro de punições.");
-    return svc.loadHistorico(data.membroId);
+    return svc.loadHistorico(user, data.membroId);
   });
 
 export const fetchHistoricoAtributos = createServerFn({ method: "POST" })
@@ -291,15 +332,15 @@ export const salvarConfiguracoes = createServerFn({ method: "POST" })
 
 export const fetchLogs = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> => {
-    await svc.requireUser(getRequest());
-    return svc.loadLogs();
+    const user = await svc.requireUser(getRequest());
+    return svc.loadLogs(user);
   },
 );
 
 export const fetchGuildAtual = createServerFn({ method: "GET" }).handler(
   async (): Promise<GuildAtual> => {
-    await svc.requireUser(getRequest());
-    return svc.guildAtualInfo();
+    const user = await svc.requireUser(getRequest());
+    return svc.guildAtualInfo(user);
   },
 );
 
