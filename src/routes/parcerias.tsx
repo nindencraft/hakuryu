@@ -38,8 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GangsRegistradas } from "@/components/hakuryu/diplomacia";
-import { parceriasQuery } from "@/lib/queries";
+import { GangDiplomaticaCard, GangsRegistradas } from "@/components/hakuryu/diplomacia";
+import { gangsRegistradasQuery, parceriasQuery } from "@/lib/queries";
 import { deletarParceria, resolverAliado, salvarParceria } from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
 import { RELACAO_GANG_OPCOES, STATUS_PARCERIA_OPCOES, type Parceria } from "@/lib/types";
@@ -125,6 +125,10 @@ function Aliancas() {
   const aliancas = data?.parcerias ?? [];
   const aliadas = aliancas.filter((p) => p.relacao !== "Inimiga");
   const inimigas = aliancas.filter((p) => p.relacao === "Inimiga");
+
+  const { data: registradas } = useQuery(gangsRegistradasQuery);
+  const diploAliadas = (registradas?.gangs ?? []).filter((g) => g.relacao === "Aliada");
+  const diploInimigas = (registradas?.gangs ?? []).filter((g) => g.relacao === "Inimiga");
 
   return (
     <>
