@@ -64,6 +64,11 @@ export function gid(user: SessionUser): number {
   return user.gangId;
 }
 
+/** Contexto do Discord da gang da sessão (servidor + configurações). */
+export function ctxDiscord(user: SessionUser) {
+  return { guildId: user.guildId, gangId: user.gangId };
+}
+
 function assert(condition: boolean, message = "Você não tem permissão para esta ação.") {
   if (!condition) throw new Error(message);
 }
@@ -573,7 +578,7 @@ async function anunciarPunicao(
   const alvo = (data as { nome_rp: string | null; discord_username: string | null } | null) ?? null;
   const nome = alvo?.nome_rp || alvo?.discord_username || input.membroId;
   const { enviarMensagemCanal } = await import("./discord.server");
-  await enviarMensagemCanal("canal_advertencias", {
+  await enviarMensagemCanal("canal_advertencias", ctxDiscord(user), {
     title: `⚠️ ${input.tipo} aplicado`,
     description: `<@${input.membroId}>`,
     fields: [
@@ -704,7 +709,7 @@ export async function criarTreino(
   if (error) throw new Error(error.message);
 
   const { enviarMensagemCanal } = await import("./discord.server");
-  await enviarMensagemCanal("canal_treinos", {
+  await enviarMensagemCanal("canal_treinos", ctxDiscord(user), {
     title: `🐉 Novo treino: ${input.titulo}`,
     description: input.descricao?.trim() || undefined,
     fields: [
@@ -894,11 +899,15 @@ export async function minhaInscricao(
 
 type LiderancaDivisao = { id: number; lider_id: string | null; vice_lider_id: string | null };
 
-async function carregarLideranca(divisaoId: number): Promise<LiderancaDivisao> {
+async function carregarLideranca(
+  user: SessionUser,
+  divisaoId: number,
+): Promise<LiderancaDivisao> {
   const db = getDb();
   const { data, error } = await db
     .from("divisoes")
     .select("id, lider_id, vice_lider_id")
+    .eq("gang_id", gid(user))
     .eq("id", divisaoId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -910,11 +919,12 @@ export const CARGO_LIDER_DIVISAO = "Líder de Divisão";
 export const CARGO_VICE_LIDER_DIVISAO = "Vice-Líder de Divisão";
 
 /** Divisão à qual o usuário pertence (tabela membros). */
-async function divisaoDoUsuario(discordId: string): Promise<number | null> {
+async function divisaoDoUsuario(gangId: number, discordId: string): Promise<number | null> {
   const db = getDb();
   const { data } = await db
     .from("membros")
     .select("divisao_id")
+    .eq("gang_id", gangId)
     .eq("discord_id", discordId)
     .maybeSingle();
   return (data as { divisao_id: number | null } | null)?.divisao_id ?? null;
@@ -925,18 +935,19 @@ async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): P
   if (podeCriarDivisao(user)) return true;
   if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
   if (temCargo(user, CARGO_LIDER_DIVISAO) || temCargo(user, CARGO_VICE_LIDER_DIVISAO)) {
-    return (await divisaoDoUsuario(user.id)) === divisao.id;
+    return (await divisaoDoUsuario(gid(user), user.id)) === divisao.id;
   }
   return false;
 }
 
 /** ID do cargo do Discord associado a uma divisão. */
-async function roleIdDaDivisao(divisaoId: number | null): Promise<string | null> {
+async function roleIdDaDivisao(gangId: number, divisaoId: number | null): Promise<string | null> {
   if (divisaoId == null) return null;
   const db = getDb();
   const { data } = await db
     .from("divisoes")
     .select("discord_role_id")
+    .eq("gang_id", gangId)
     .eq("id", divisaoId)
     .maybeSingle();
   const id = (data as { discord_role_id: string | null } | null)?.discord_role_id ?? null;
@@ -948,20 +959,22 @@ async function roleIdDaDivisao(divisaoId: number | null): Promise<string | null>
  * Vale para líder, vice e membros comuns.
  */
 async function trocarCargoDivisaoDiscord(
+  user: SessionUser,
   membroId: string,
   antiga: number | null,
   nova: number | null,
 ) {
   if (antiga === nova) return;
+  const g = gid(user);
   const { ajustarCargoPorId } = await import("./discord.server");
   const [roleAntigo, roleNovo] = await Promise.all([
-    roleIdDaDivisao(antiga),
-    roleIdDaDivisao(nova),
+    roleIdDaDivisao(g, antiga),
+    roleIdDaDivisao(g, nova),
   ]);
   if (roleAntigo && roleAntigo !== roleNovo) {
-    await ajustarCargoPorId(membroId, roleAntigo, "remove");
+    await ajustarCargoPorId(membroId, roleAntigo, "remove", user.guildId);
   }
-  if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add");
+  if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add", user.guildId);
 }
 
 
@@ -981,6 +994,7 @@ export async function criarDivisao(
     logo_url: input.logo_url || null,
     discord_role_id: input.discord_role_id || null,
     funcao_principal: input.funcao_principal || null,
+    gang_id: gid(user),
   });
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -995,7 +1009,8 @@ export async function atualizarDivisao(
     novosMembros: string[];
   },
 ) {
-  const divisao = await carregarLideranca(input.divisaoId);
+  const g = gid(user);
+  const divisao = await carregarLideranca(user, input.divisaoId);
   assert(await podeGerirDivisao(user, divisao), "Você não gerencia esta divisão.");
   const db = getDb();
 
@@ -1004,12 +1019,14 @@ export async function atualizarDivisao(
   const podeDefinirVice =
     podeCriarDivisao(user) ||
     user.id === divisao.lider_id ||
-    (temCargo(user, CARGO_LIDER_DIVISAO) && (await divisaoDoUsuario(user.id)) === divisao.id);
+    (temCargo(user, CARGO_LIDER_DIVISAO) &&
+      (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
   const viceLiderId = podeDefinirVice ? input.viceLiderId : divisao.vice_lider_id;
 
   const { error } = await db
     .from("divisoes")
     .update({ lider_id: liderId, vice_lider_id: viceLiderId })
+    .eq("gang_id", g)
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
 
@@ -1025,6 +1042,7 @@ export async function atualizarDivisao(
     const { data: antesData } = await db
       .from("membros")
       .select("discord_id, divisao_id")
+      .eq("gang_id", g)
       .in("discord_id", entrando);
     const anteriores = new Map(
       ((antesData ?? []) as { discord_id: string; divisao_id: number | null }[]).map((m) => [
@@ -1036,23 +1054,24 @@ export async function atualizarDivisao(
     const { error: err2 } = await db
       .from("membros")
       .update({ divisao_id: input.divisaoId })
+      .eq("gang_id", g)
       .in("discord_id", entrando);
     if (err2) throw new Error(err2.message);
 
     for (const id of entrando) {
-      await trocarCargoDivisaoDiscord(id, anteriores.get(id) ?? null, input.divisaoId);
+      await trocarCargoDivisaoDiscord(user, id, anteriores.get(id) ?? null, input.divisaoId);
     }
   }
 
   // Quem deixou a liderança e não faz mais parte da divisão perde o cargo dela.
   for (const antigo of [divisao.lider_id, divisao.vice_lider_id]) {
     if (!antigo || entrando.includes(antigo)) continue;
-    if ((await divisaoDoUsuario(antigo)) !== input.divisaoId) {
-      await trocarCargoDivisaoDiscord(antigo, input.divisaoId, null);
+    if ((await divisaoDoUsuario(gid(user), antigo)) !== input.divisaoId) {
+      await trocarCargoDivisaoDiscord(user, antigo, input.divisaoId, null);
     }
   }
 
-  await sincronizarCargosLideranca(db, divisao, liderId, viceLiderId);
+  await sincronizarCargosLideranca(db, user, divisao, liderId, viceLiderId);
   return { ok: true };
 }
 
@@ -1060,10 +1079,12 @@ export async function atualizarDivisao(
 /** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
 async function sincronizarCargosLideranca(
   db: ReturnType<typeof getDb>,
+  user: SessionUser,
   antes: LiderancaDivisao,
   liderId: string | null,
   viceLiderId: string | null,
 ) {
+  const g = gid(user);
   const { ajustarCargoDiscord } = await import("./discord.server");
 
   const pares: { antigo: string | null; novo: string | null; cargo: string }[] = [
@@ -1072,7 +1093,12 @@ async function sincronizarCargosLideranca(
   ];
 
   const lerCargos = async (id: string): Promise<string[]> => {
-    const { data } = await db.from("membros").select("cargo").eq("discord_id", id).maybeSingle();
+    const { data } = await db
+      .from("membros")
+      .select("cargo")
+      .eq("gang_id", g)
+      .eq("discord_id", id)
+      .maybeSingle();
     return ((data as { cargo: string | null } | null)?.cargo ?? "")
       .split(",")
       .map((c) => c.trim())
@@ -1082,17 +1108,18 @@ async function sincronizarCargosLideranca(
     await db
       .from("membros")
       .update({ cargo: cargoPrimario(cargos.length ? cargos : ["Membro"]) })
+      .eq("gang_id", g)
       .eq("discord_id", id);
   };
 
   for (const { antigo, novo, cargo } of pares) {
     if (antigo === novo) continue;
     if (antigo) {
-      await ajustarCargoDiscord(antigo, cargo, "remove");
+      await ajustarCargoDiscord(antigo, cargo, "remove", ctxDiscord(user));
       await gravar(antigo, (await lerCargos(antigo)).filter((c) => c !== cargo));
     }
     if (novo) {
-      await ajustarCargoDiscord(novo, cargo, "add");
+      await ajustarCargoDiscord(novo, cargo, "add", ctxDiscord(user));
       const atuais = await lerCargos(novo);
       await gravar(novo, atuais.includes(cargo) ? atuais : [...atuais, cargo]);
     }
@@ -1105,56 +1132,70 @@ export async function removerMembroDivisao(
   input: { membroId: string },
 ) {
   const db = getDb();
+  const g = gid(user);
   const { data: membro, error: errMembro } = await db
     .from("membros")
     .select("divisao_id")
+    .eq("gang_id", g)
     .eq("discord_id", input.membroId)
     .maybeSingle();
   if (errMembro) throw new Error(errMembro.message);
   const divisaoId = (membro as { divisao_id: number | null } | null)?.divisao_id ?? null;
   if (divisaoId == null) return { ok: true };
   assert(
-    await podeGerirDivisao(user, await carregarLideranca(divisaoId)),
+    await podeGerirDivisao(user, await carregarLideranca(user, divisaoId)),
     "Você não gerencia esta divisão.",
   );
-  const lideranca = await carregarLideranca(divisaoId);
+  const lideranca = await carregarLideranca(user, divisaoId);
   const novoLider = lideranca.lider_id === input.membroId ? null : lideranca.lider_id;
   const novoVice = lideranca.vice_lider_id === input.membroId ? null : lideranca.vice_lider_id;
   if (novoLider !== lideranca.lider_id || novoVice !== lideranca.vice_lider_id) {
     await db
       .from("divisoes")
       .update({ lider_id: novoLider, vice_lider_id: novoVice })
+      .eq("gang_id", g)
       .eq("id", divisaoId);
-    await sincronizarCargosLideranca(db, lideranca, novoLider, novoVice);
+    await sincronizarCargosLideranca(db, user, lideranca, novoLider, novoVice);
   }
 
   const { error } = await db
     .from("membros")
     .update({ divisao_id: null })
+    .eq("gang_id", g)
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
-  await trocarCargoDivisaoDiscord(input.membroId, divisaoId, null);
+  await trocarCargoDivisaoDiscord(user, input.membroId, divisaoId, null);
   return { ok: true };
 }
 
 export async function deletarDivisao(user: SessionUser, input: { divisaoId: number }) {
   assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem deletar divisões.");
   const db = getDb();
+  const g = gid(user);
   // Liderança perde o cargo de capitão junto com a divisão.
-  const lideranca = await carregarLideranca(input.divisaoId);
-  await sincronizarCargosLideranca(db, lideranca, null, null);
+  const lideranca = await carregarLideranca(user, input.divisaoId);
+  await sincronizarCargosLideranca(db, user, lideranca, null, null);
 
   // Todos os integrantes perdem o cargo do Discord da divisão.
   const { data: integrantes } = await db
     .from("membros")
     .select("discord_id")
+    .eq("gang_id", g)
     .eq("divisao_id", input.divisaoId);
   for (const m of (integrantes ?? []) as { discord_id: string }[]) {
-    await trocarCargoDivisaoDiscord(m.discord_id, input.divisaoId, null);
+    await trocarCargoDivisaoDiscord(user, m.discord_id, input.divisaoId, null);
   }
 
-  await db.from("membros").update({ divisao_id: null }).eq("divisao_id", input.divisaoId);
-  const { error } = await db.from("divisoes").delete().eq("id", input.divisaoId);
+  await db
+    .from("membros")
+    .update({ divisao_id: null })
+    .eq("gang_id", g)
+    .eq("divisao_id", input.divisaoId);
+  const { error } = await db
+    .from("divisoes")
+    .delete()
+    .eq("gang_id", g)
+    .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -1229,7 +1270,7 @@ export async function salvarParceria(
 
   if (input.id == null) {
     const { enviarMensagemCanal } = await import("./discord.server");
-    await enviarMensagemCanal("canal_aliancas", {
+    await enviarMensagemCanal("canal_aliancas", ctxDiscord(user), {
       title:
         input.relacao === "Inimiga"
           ? `⚔️ Nova gang inimiga: ${input.nome}`
@@ -1540,7 +1581,7 @@ export async function salvarLog(
         ? "Derrota"
         : "Empate";
   const { enviarMensagemCanal } = await import("./discord.server");
-  await enviarMensagemCanal("canal_treinos", {
+  await enviarMensagemCanal("canal_treinos", ctxDiscord(user), {
     title: `${input.tipo === "Guerra" ? "⚔️" : "🤝"} ${input.tipo}: ${input.pontos_nos} x ${input.pontos_eles} — ${input.adversario_nome}`,
     description: input.observacoes.trim() || undefined,
     fields: [
