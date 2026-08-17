@@ -401,13 +401,30 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
         </div>
       </div>
 
+      {g.pedimos_encerrar || g.eles_pediram_encerrar ? (
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {g.pedimos_encerrar
+            ? `Vocês pediram o encerramento — aguardando ${g.eles.nome}.`
+            : `${g.eles.nome} pediu o encerramento — confirme para encerrar a guerra.`}
+        </p>
+      ) : null}
+
       <div className="mt-4 flex justify-center gap-2">
         <Button size="sm" variant="outline" onClick={() => setAberto((v) => !v)}>
           {aberto ? "Ocultar" : "Detalhes"}
         </Button>
         {podeGerenciarParcerias(user) ? (
-          <Button size="sm" variant="ghost" onClick={() => encerrar.mutate({ id: g.id })}>
-            Encerrar guerra
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={g.pedimos_encerrar || encerrar.isPending}
+            onClick={() => encerrar.mutate({ id: g.id })}
+          >
+            {g.pedimos_encerrar
+              ? "Aguardando a outra gang"
+              : g.eles_pediram_encerrar
+                ? "Confirmar encerramento"
+                : "Encerrar guerra"}
           </Button>
         ) : null}
       </div>
