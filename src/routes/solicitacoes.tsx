@@ -42,11 +42,16 @@ function SolicitacoesPage() {
   );
 }
 
+const GRUPOS = [
+  { tipo: "Alianca", titulo: "🤝 Alianças", kanji: "同盟" },
+  { tipo: "Guerra", titulo: "⚔️ Guerras", kanji: "戦" },
+  { tipo: "Treino", titulo: "🏋️ Treinos amistosos", kanji: "稽古" },
+] as const;
+
 function Solicitacoes() {
   const { data, isPending, error } = useQuery(solicitacoesQuery);
   const lista = data?.solicitacoes ?? [];
-  const recebidas = lista.filter((s) => s.direcao === "recebida");
-  const enviadas = lista.filter((s) => s.direcao === "enviada");
+
 
   return (
     <>
