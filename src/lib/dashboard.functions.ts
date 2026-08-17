@@ -76,13 +76,19 @@ export const getSession = createServerFn({ method: "GET" }).handler(
 
     if (!user.isOwner) {
       const { ehDono } = await import("./settings.server");
-      if (await ehDono(user.id)) user.isOwner = true;
+      if (await ehDono(user.id, user.gangId)) user.isOwner = true;
     }
 
     let gangNome: string | null = null;
     if (user.gangId != null) {
       const { buscarGangPorId } = await import("./gangs.server");
-      gangNome = (await buscarGangPorId(user.gangId))?.nome ?? null;
+      const gang = await buscarGangPorId(user.gangId);
+      gangNome = gang?.nome ?? null;
+      // Líder registrado da gang recebe o cargo "Lider" no painel.
+      const { temCargo } = await import("./session.server");
+      if (gang?.lider_id === user.id && !temCargo(user, "Lider")) {
+        user.roles = [...user.roles, "Lider"];
+      }
     }
 
     return {
@@ -90,7 +96,8 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       faltando: [],
       gangId: user.gangId,
       gangNome,
-      permitido: podeAcessar(user),
+      // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
+      permitido: user.gangId == null ? true : podeAcessar(user),
       user: {
         id: user.id,
         username: user.username,
