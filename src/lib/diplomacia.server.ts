@@ -179,6 +179,8 @@ type SolicitacaoLinha = {
   respondido_por_nome: string | null;
   respondido_em: string | null;
   criado_em: string | null;
+  encerrar_origem?: boolean | null;
+  encerrar_destino?: boolean | null;
 };
 
 export async function listarSolicitacoes(
@@ -272,6 +274,8 @@ export async function listarGuerrasAtivas(
       solicitante_nome: s.criado_por_nome,
       aceito_por_nome: s.respondido_por_nome,
       criado_em: s.criado_em,
+      pedimos_encerrar: !!(souOrigem ? s.encerrar_origem : s.encerrar_destino),
+      eles_pediram_encerrar: !!(souOrigem ? s.encerrar_destino : s.encerrar_origem),
       nos: info(minha),
       eles: info(souOrigem ? s.gang_destino_id : s.gang_origem_id),
     };
@@ -533,6 +537,25 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
     throw new Error("Esta guerra não é da sua gang.");
   }
 
+  const souOrigem = sol.gang_origem_id === minha;
+  const meuCampo = souOrigem ? "encerrar_origem" : "encerrar_destino";
+  const outroJaPediu = !!(souOrigem ? sol.encerrar_destino : sol.encerrar_origem);
+
+  // Marca o pedido do meu lado; a guerra só encerra quando os dois lados pedem.
+  const { error: marcaErr } = await db
+    .from("gang_solicitacoes")
+    .update({ [meuCampo]: true })
+    .eq("id", sol.id);
+  const colunaAusente =
+    !!marcaErr && /encerrar_(origem|destino)|column .* does not exist|PGRST204/i.test(
+      `${marcaErr.code ?? ""} ${marcaErr.message ?? ""}`,
+    );
+  if (marcaErr && !colunaAusente) throw new Error(marcaErr.message);
+
+  if (!outroJaPediu && !colunaAusente) {
+    return { ok: true, encerrada: false };
+  }
+
   const { error: upErr } = await db
     .from("gang_solicitacoes")
     .update({ status: "Encerrada" })
@@ -541,7 +564,7 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
 
   const outra = sol.gang_origem_id === minha ? sol.gang_destino_id : sol.gang_origem_id;
   await limparRelacao(minha, outra);
-  return { ok: true };
+  return { ok: true, encerrada: true };
 }
 
 export async function cancelarSolicitacao(user: SessionUser, input: { id: number }) {

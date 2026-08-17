@@ -64,18 +64,25 @@ export function GangAvatar({
   );
 }
 
+/** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
+export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
+  return (
+    <li className="card-gold flex items-center gap-4 p-5">
+      <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
+      <div className="min-w-0 flex-1">
+        <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
+        <p className="text-sm text-muted-foreground">👥 {gang.membros} membros</p>
+      </div>
+      {badgeRelacao(gang.relacao)}
+    </li>
+  );
+}
+
 function badgeRelacao(relacao: RelacaoGang) {
   if (relacao === "Aliada") return <Badge className="bg-primary/20 text-primary">🤝 Aliada</Badge>;
   if (relacao === "Inimiga") return <Badge variant="destructive">⚔️ Inimiga</Badge>;
   return <Badge variant="secondary">🟢 Neutra</Badge>;
 }
-
-const FILTROS = [
-  { chave: "todas", rotulo: "Todas" },
-  { chave: "Neutra", rotulo: "🟢 Neutras" },
-  { chave: "Aliada", rotulo: "🤝 Aliadas" },
-  { chave: "Inimiga", rotulo: "⚔️ Inimigas" },
-] as const;
 
 /* ================= Gangs registradas ================= */
 
@@ -84,20 +91,18 @@ export function GangsRegistradas() {
   const podeAgir = podeGerenciarParcerias(user);
   const { data, isPending, error } = useQuery(gangsRegistradasQuery);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["chave"]>("todas");
   const [selecionada, setSelecionada] = useState<GangRegistrada | null>(null);
   const [solicitando, setSolicitando] = useState<{ gang: GangRegistrada; tipo: string } | null>(
     null,
   );
 
+  // Aliadas e inimigas já aparecem nas seções de cima; aqui só ficam as neutras.
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data?.gangs ?? []).filter(
-      (g) =>
-        (filtro === "todas" || g.relacao === filtro) &&
-        (!termo || g.nome.toLowerCase().includes(termo)),
+      (g) => g.relacao === "Neutra" && (!termo || g.nome.toLowerCase().includes(termo)),
     );
-  }, [data, busca, filtro]);
+  }, [data, busca]);
 
   return (
     <section className="space-y-4" aria-labelledby="gangs-registradas">
@@ -105,6 +110,9 @@ export function GangsRegistradas() {
         <span className="font-jp mr-2 text-primary">組</span>
         Gangs registradas
       </h2>
+      <p className="text-sm text-muted-foreground">
+        Gangs neutras. Ao virar aliada ou inimiga, a gang passa para as seções acima.
+      </p>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
@@ -116,18 +124,6 @@ export function GangsRegistradas() {
             className="pl-9"
             aria-label="Pesquisar gang"
           />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {FILTROS.map((f) => (
-            <Button
-              key={f.chave}
-              size="sm"
-              variant={filtro === f.chave ? "default" : "outline"}
-              onClick={() => setFiltro(f.chave)}
-            >
-              {f.rotulo}
-            </Button>
-          ))}
         </div>
       </div>
 
@@ -142,8 +138,8 @@ export function GangsRegistradas() {
         />
       ) : lista.length === 0 ? (
         <EmptyState
-          title="Nenhuma gang encontrada"
-          description="Ajuste a busca ou os filtros para ver outras gangs registradas."
+          title="Nenhuma gang neutra"
+          description="Todas as gangs registradas já são aliadas ou inimigas da sua gang."
         />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
@@ -391,7 +387,7 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
   const user = useSessionUser();
   const [aberto, setAberto] = useState(false);
   const encerrar = useAcao<{ id: number }>(encerrarGuerra, {
-    sucesso: "Guerra encerrada.",
+    sucesso: "Pedido de encerramento registrado. A guerra encerra quando as duas gangs confirmarem.",
     invalidar: [["guerras"], ["gangs-registradas"], ["solicitacoes"]],
   });
 
@@ -419,13 +415,30 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
         </div>
       </div>
 
+      {g.pedimos_encerrar || g.eles_pediram_encerrar ? (
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {g.pedimos_encerrar
+            ? `Vocês pediram o encerramento — aguardando ${g.eles.nome}.`
+            : `${g.eles.nome} pediu o encerramento — confirme para encerrar a guerra.`}
+        </p>
+      ) : null}
+
       <div className="mt-4 flex justify-center gap-2">
         <Button size="sm" variant="outline" onClick={() => setAberto((v) => !v)}>
           {aberto ? "Ocultar" : "Detalhes"}
         </Button>
         {podeGerenciarParcerias(user) ? (
-          <Button size="sm" variant="ghost" onClick={() => encerrar.mutate({ id: g.id })}>
-            Encerrar guerra
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={g.pedimos_encerrar || encerrar.isPending}
+            onClick={() => encerrar.mutate({ id: g.id })}
+          >
+            {g.pedimos_encerrar
+              ? "Aguardando a outra gang"
+              : g.eles_pediram_encerrar
+                ? "Confirmar encerramento"
+                : "Encerrar guerra"}
           </Button>
         ) : null}
       </div>

@@ -42,11 +42,16 @@ function SolicitacoesPage() {
   );
 }
 
+const GRUPOS = [
+  { tipo: "Alianca", titulo: "🤝 Alianças", kanji: "同盟" },
+  { tipo: "Guerra", titulo: "⚔️ Guerras", kanji: "戦" },
+  { tipo: "Treino", titulo: "🏋️ Treinos amistosos", kanji: "稽古" },
+] as const;
+
 function Solicitacoes() {
   const { data, isPending, error } = useQuery(solicitacoesQuery);
   const lista = data?.solicitacoes ?? [];
-  const recebidas = lista.filter((s) => s.direcao === "recebida");
-  const enviadas = lista.filter((s) => s.direcao === "enviada");
+
 
   return (
     <>
@@ -74,9 +79,24 @@ function Solicitacoes() {
           description="Abra a aba Alianças, escolha uma gang registrada e envie a primeira proposta."
         />
       ) : (
-        <div className="space-y-10">
-          <Secao titulo="Recebidas" lista={recebidas} />
-          <Secao titulo="Enviadas" lista={enviadas} />
+        <div className="space-y-12">
+          {GRUPOS.map((grupo) => {
+            const doTipo = lista.filter((s) => s.tipo === grupo.tipo);
+            if (doTipo.length === 0) return null;
+            return (
+              <section key={grupo.tipo} className="space-y-5">
+                <h2 className="font-display text-xl text-foreground">
+                  <span className="font-jp mr-2 text-primary">{grupo.kanji}</span>
+                  {grupo.titulo}
+                </h2>
+                <Secao
+                  titulo="Recebidas"
+                  lista={doTipo.filter((s) => s.direcao === "recebida")}
+                />
+                <Secao titulo="Enviadas" lista={doTipo.filter((s) => s.direcao === "enviada")} />
+              </section>
+            );
+          })}
         </div>
       )}
     </>
@@ -87,7 +107,7 @@ function Secao({ titulo, lista }: { titulo: string; lista: SolicitacaoGang[] }) 
   if (lista.length === 0) return null;
   return (
     <section className="space-y-3">
-      <h2 className="font-display text-lg text-muted-foreground">{titulo}</h2>
+      <h3 className="text-sm tracking-wide text-muted-foreground uppercase">{titulo}</h3>
       <ul className="grid gap-3 lg:grid-cols-2">
         {lista.map((s) => (
           <CardSolicitacao key={s.id} solicitacao={s} />
