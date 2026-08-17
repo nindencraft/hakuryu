@@ -179,6 +179,8 @@ type SolicitacaoLinha = {
   respondido_por_nome: string | null;
   respondido_em: string | null;
   criado_em: string | null;
+  encerrar_origem?: boolean | null;
+  encerrar_destino?: boolean | null;
 };
 
 export async function listarSolicitacoes(
@@ -272,6 +274,8 @@ export async function listarGuerrasAtivas(
       solicitante_nome: s.criado_por_nome,
       aceito_por_nome: s.respondido_por_nome,
       criado_em: s.criado_em,
+      pedimos_encerrar: !!(souOrigem ? s.encerrar_origem : s.encerrar_destino),
+      eles_pediram_encerrar: !!(souOrigem ? s.encerrar_destino : s.encerrar_origem),
       nos: info(minha),
       eles: info(souOrigem ? s.gang_destino_id : s.gang_origem_id),
     };
