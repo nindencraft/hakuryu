@@ -305,7 +305,7 @@ export function DashboardShell({
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
-  if (data.gangId == null) return <SemGangScreen />;
+  if (data.gangId == null && !(permitirSemGang && data.user.isOwner)) return <SemGangScreen />;
 
   const user = data.user;
 
