@@ -1,62 +1,112 @@
-# Multi-gang: avaliação e plano de migração
+# Etapa 1 — Terminar a migração do banco (multi-gang)
 
-## O que eu encontrei
+Objetivo: toda tabela de dados passar a ter `gang_id`, os dados atuais irem para a gang existente, e as configurações antigas (`dashboard_config`) virarem `gang_config`.
 
-Comparei o projeto que está aqui na Lovable com o ZIP que você mandou e com o novo `schema_database.txt`.
+## O que já está pronto no seu banco
+`gangs`, `gang_config`, e `gang_id` em: `membros` (PK composta), `divisoes`, `punicoes`, `presencas_treino`, `participacoes_guerra`, `membro_atributos`, `historico_atributos_membro`, `avaliacoes_treino`, `avaliacoes_lideranca`, `votos_recrutamento`.
 
-**O código da Lovable está desatualizado.** O ZIP tem coisas que não existem aqui: `src/lib/gangs.server.ts`, `MemberAttributeRadar.tsx` (stats), sessão com `gangId`/`guildId`, `settings.server.ts` com `gang_config` e o callback do Discord já listando as gangs do usuário. Então o passo zero é trazer o ZIP para o projeto (sem `.git`, sem `.output`/`.wrangler`).
+## O que ainda falta
+Sem `gang_id` (vão misturar dados entre gangs): `treinos`, `parcerias`, `logs_partidas`, `guerras`, `inimigos`, `config_cargos`, `treinos_internos`, `treinos_amistosos`.
+Além disso, várias colunas `gang_id` estão como NULL-ável e sem índice.
 
-**O que você já fez (e está certo):**
-- Banco: tabela `gangs` (id, nome, guild_id, ativo, lider_id) e `gang_config` (por gang), `gang_id` espalhado em `membros`, `divisoes`, `punicoes`, `presencas_treino`, `membro_atributos`, etc. PK composta `membros(discord_id, gang_id)`.
-- `gangs.server.ts` completo: criar/atualizar/desativar gang, `listarGangsDoUsuario(guildIds)`, `gangDoServidor`.
-- Sessão já carrega `gangId` + `guildId` com compatibilidade retroativa.
-- Callback já pede scope `guilds`, lista as guilds do usuário e cruza com `gangs`.
-- Stats/atributos (radar, histórico) já implementados.
+## Passo a passo no SQL Editor do Supabase
 
-**Os buracos que faltam fechar:**
-1. `dashboard.server.ts` (1487 linhas) e `dashboard.functions.ts` **não filtram por `gang_id` em lugar nenhum** — todo `select/insert/update/delete` ainda é global. Hoje, com duas gangs no banco, uma veria os dados da outra.
-2. Não existe tela de seleção de gang. O callback só resolve automaticamente quando o usuário tem exatamente 1 gang; com 2+ ele entra sem gang e o painel quebra silenciosamente.
-3. Super Owner ainda não consegue escolher gang nem cadastrar gang — não há UI nem server functions para isso.
-4. `discord.server.ts` e várias partes ainda usam `guildIdAtivo()` (guild única vinda de `dashboard_config`/env) em vez da guild da gang ativa na sessão.
-5. Tabelas que ainda **não** têm `gang_id`: `parcerias`, `logs_partidas`, `treinos`, `treinos_internos`, `treinos_amistosos`, `guerras`, `inimigos`, `config_cargos`. Alianças e logs vão misturar entre gangs.
-6. `SUPER_OWNER_IDS` está fixo no código; o gate "bot está no servidor" ainda não é verificado (hoje se usa a lista de guilds do usuário, o que não permite o Super Owner entrar num server onde ele não está).
+### 1. Garantir que a sua gang atual existe
+```sql
+insert into public.gangs (nome, guild_id, ativo, lider_id)
+values ('Hakuryū', 'SEU_GUILD_ID_AQUI', true, 'SEU_DISCORD_ID')
+on conflict (guild_id) do nothing;
 
-## Plano por etapa
+select id, nome, guild_id from public.gangs;  -- anote o id (ex.: 1)
+```
 
-### Etapa 0 — Sincronizar o código
-Copiar o ZIP por cima de `src/` (exceto `.git`, `.output`, `.wrangler`, `node_modules`) para o projeto passar a refletir o que você já fez.
+### 2. Adicionar `gang_id` nas tabelas que faltam
+```sql
+alter table public.treinos            add column if not exists gang_id bigint;
+alter table public.parcerias          add column if not exists gang_id bigint;
+alter table public.logs_partidas      add column if not exists gang_id bigint;
+alter table public.guerras            add column if not exists gang_id bigint;
+alter table public.inimigos           add column if not exists gang_id bigint;
+alter table public.config_cargos      add column if not exists gang_id bigint;
+alter table public.treinos_internos   add column if not exists gang_id bigint;
+alter table public.treinos_amistosos  add column if not exists gang_id bigint;
+```
 
-### Etapa 1 — Fechar o banco
-Migração SQL adicionando `gang_id bigint NOT NULL REFERENCES gangs(id)` em `parcerias`, `logs_partidas`, `treinos`, `guerras`, `inimigos`, `config_cargos` (+ backfill para a gang existente e índices por `gang_id`).
+### 3. Backfill: mandar tudo que já existe para a gang atual
+Troque `1` pelo id anotado no passo 1.
+```sql
+update public.treinos            set gang_id = 1 where gang_id is null;
+update public.parcerias          set gang_id = 1 where gang_id is null;
+update public.logs_partidas      set gang_id = 1 where gang_id is null;
+update public.guerras            set gang_id = 1 where gang_id is null;
+update public.inimigos           set gang_id = 1 where gang_id is null;
+update public.config_cargos      set gang_id = 1 where gang_id is null;
+update public.treinos_internos   set gang_id = 1 where gang_id is null;
+update public.treinos_amistosos  set gang_id = 1 where gang_id is null;
 
-### Etapa 2 — Contexto de gang no servidor
-- `requireUser(request)` passa a devolver `{ user, gang }` e a validar que a gang existe/está ativa.
-- Toda função de `dashboard.server.ts` recebe `gangId` e aplica `.eq("gang_id", gangId)` em leitura e escrita. Isso é o grosso do trabalho.
-- `discord.server.ts` passa a receber a `guild_id` da gang ativa em vez de `guildIdAtivo()`.
-- `settings.server.ts`: `loadConfiguracoes`/`salvar` só por `gang_config`; `dashboard_config` fica só para coisas globais (super owners).
+-- tabelas que já tinham a coluna, mas com linhas antigas em NULL
+update public.membros                     set gang_id = 1 where gang_id is null;
+update public.divisoes                    set gang_id = 1 where gang_id is null;
+update public.punicoes                    set gang_id = 1 where gang_id is null;
+update public.presencas_treino            set gang_id = 1 where gang_id is null;
+update public.participacoes_guerra        set gang_id = 1 where gang_id is null;
+update public.membro_atributos            set gang_id = 1 where gang_id is null;
+update public.historico_atributos_membro  set gang_id = 1 where gang_id is null;
+update public.avaliacoes_treino           set gang_id = 1 where gang_id is null;
+update public.avaliacoes_lideranca        set gang_id = 1 where gang_id is null;
+update public.votos_recrutamento          set gang_id = 1 where gang_id is null;
+```
 
-### Etapa 3 — Login e troca de gang
-- Callback: com o token do usuário lista as guilds dele; cruza com `gangs` ativas **e** com a lista de guilds onde o bot está (`GET /users/@me/guilds` com o token do bot). Para Super Owner, o conjunto passa a ser "todas as gangs onde o bot está", ignorando se ele é membro.
-- Nova tela `/gangs` (seletor): cards com ícone/nome do servidor; escolher grava `gangId` na sessão (novo endpoint `POST /api/public/gang/selecionar`). Se só houver uma, entra direto.
-- Header/sidebar ganha um botão "Trocar de gang".
-- Se o usuário não tem nenhuma gang, tela explicando que o bot precisa ser adicionado.
+### 4. Tornar obrigatório + chave estrangeira
+```sql
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'treinos','parcerias','logs_partidas','guerras','inimigos','config_cargos',
+    'treinos_internos','treinos_amistosos','punicoes','presencas_treino',
+    'participacoes_guerra','historico_atributos_membro','avaliacoes_treino',
+    'avaliacoes_lideranca','votos_recrutamento'
+  ] loop
+    execute format('alter table public.%I alter column gang_id set not null', t);
+    execute format(
+      'alter table public.%I add constraint %I foreign key (gang_id) references public.gangs(id) on delete cascade',
+      t, t || '_gang_id_fkey');
+    execute format('create index if not exists %I on public.%I (gang_id)', 'idx_' || t || '_gang', t);
+  end loop;
+end $$;
+```
+(Se alguma constraint já existir, o erro é só de duplicidade — pode ignorar rodando as linhas uma a uma.)
 
-### Etapa 4 — Painel do Super Owner
-Nova aba `/admin` (visível só para Super Owner):
-- Lista de gangs registradas com nome, servidor, líder, ativo, nº de membros, data de criação.
-- Registrar gang: nome + guild ID (valida que o bot está no servidor) + escolher o líder (busca membro do servidor pelo Discord) → grava em `gangs` e dá o cargo de Líder.
-- Ações: renomear, trocar líder, ativar/desativar, entrar na gang (impersonar contexto para administrar).
+### 5. Chaves únicas que precisam virar "por gang"
+`config_cargos` hoje tem PK só em `funcao`, então duas gangs não conseguem ter cargos diferentes:
+```sql
+alter table public.config_cargos drop constraint config_cargos_pkey;
+alter table public.config_cargos add primary key (gang_id, funcao);
+```
+Divisões: evitar nomes repetidos dentro da mesma gang.
+```sql
+create unique index if not exists uq_divisoes_gang_nome
+  on public.divisoes (gang_id, nome_divisao);
+```
 
-### Etapa 5 — Permissões
-`permissions.ts`/`session.server.ts` ganham `ehSuperOwner` acima de tudo, e `podeAdministrarGangs()`. Cargos continuam lidos do Discord da guild da gang ativa.
+### 6. Migrar as configurações antigas para `gang_config`
+```sql
+insert into public.gang_config (gang_id, chave, valor)
+select 1, chave, valor from public.dashboard_config
+where chave <> 'guild_id'
+on conflict (gang_id, chave) do update set valor = excluded.valor;
+```
+`dashboard_config` fica só para coisas globais (lista de super owners). Não apague ainda.
 
-### Etapa 6 — Ajustes de UI
-Todas as páginas (`membros`, `treinos`, `divisoes`, `parcerias`, `logs`, `configuracoes`) passam a exibir a gang ativa no topo e invalidar as queries do TanStack Query quando a gang muda (chave de query com `gangId`).
+### 7. Recarregar o cache do PostgREST
+```sql
+notify pgrst, 'reload schema';
+```
 
-## Ordem sugerida
-0 → 1 → 2 → 3 → 4 → 5 → 6. As etapas 1 e 2 são as críticas: sem elas, o multi-gang vaza dados entre servidores.
+## Depois disso
+O banco fica pronto, mas o código ainda lê tudo sem filtrar por gang. A etapa seguinte (código) é passar `gangId` para todas as funções de `dashboard.server.ts` e aplicar `.eq("gang_id", gangId)` — sem isso uma gang continua vendo os dados da outra.
 
-## Decisões que preciso de você
-- Confirmar que posso sobrescrever o código atual do projeto com o do ZIP.
-- Super Owner: manter fixo no código, ou migrar para uma tabela `super_owners` no banco?
-- Alianças/logs: cada gang tem as suas (recomendado) ou continuam globais?
+## Duas confirmações antes de eu mexer no código
+- Posso sobrescrever o projeto aqui na Lovable com o código do ZIP que você mandou (ele está mais novo que o daqui)?
+- Alianças e logs passam a ser por gang (é o que o SQL acima faz) — confirma?
