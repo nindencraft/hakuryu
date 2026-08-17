@@ -378,3 +378,66 @@ export const deletarLog = createServerFn({ method: "POST" })
     await svc.deletarLog(user, data.id);
     return { ok: true };
   });
+
+/* ========== Diplomacia entre gangs ========== */
+
+export const fetchGangsRegistradas = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await svc.requireUser(getRequest());
+  const { listarGangsRegistradas } = await import("./diplomacia.server");
+  return listarGangsRegistradas(user);
+});
+
+export const fetchSolicitacoes = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await svc.requireUser(getRequest());
+  const { listarSolicitacoes } = await import("./diplomacia.server");
+  return listarSolicitacoes(user);
+});
+
+export const fetchGuerras = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await svc.requireUser(getRequest());
+  const { listarGuerrasAtivas } = await import("./diplomacia.server");
+  return listarGuerrasAtivas(user);
+});
+
+export const criarSolicitacao = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      gangId: number;
+      tipo: string;
+      motivo: string;
+      data_evento: string;
+      horario: string;
+      local: string;
+      membros_origem: string;
+      membros_destino: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { criarSolicitacao: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
+
+export const responderSolicitacao = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number; aceitar: boolean }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { responderSolicitacao: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
+
+export const cancelarSolicitacao = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { cancelarSolicitacao: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
+
+export const encerrarGuerra = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { encerrarGuerra: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
