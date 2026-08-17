@@ -410,6 +410,7 @@ export const criarSolicitacao = createServerFn({ method: "POST" })
       local: string;
       membros_origem: string;
       membros_destino: string;
+      representante_id?: string;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -431,6 +432,14 @@ export const cancelarSolicitacao = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await svc.requireUser(getRequest());
     const { cancelarSolicitacao: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
+
+export const excluirSolicitacao = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { excluirSolicitacao: fn } = await import("./diplomacia.server");
     return fn(user, data);
   });
 
