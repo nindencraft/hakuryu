@@ -40,7 +40,7 @@ export const Route = createFileRoute("/admin/gangs")({
 
 function AdminGangsPage() {
   return (
-    <DashboardShell>
+    <DashboardShell permitirSemGang>
       <AdminGangs />
     </DashboardShell>
   );
