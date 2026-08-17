@@ -36,7 +36,7 @@ async function iconeDoServidor(guildId: string): Promise<string | null> {
 export async function gangsDoUsuario(user: SessionUser): Promise<GangDisponivelServer[]> {
   const ativas = await listarGangsAtivas();
 
-  const permitidas: Gang[] = user.isOwner
+  const permitidas: Gang[] = user.isSuperOwner
     ? ativas
     : (
         await Promise.all(
@@ -60,6 +60,6 @@ export async function gangsDoUsuario(user: SessionUser): Promise<GangDisponivelS
 export async function podeAcessarGang(user: SessionUser, gangId: number): Promise<Gang | null> {
   const gang = await buscarGangPorId(gangId);
   if (!gang || !gang.ativo) return null;
-  if (user.isOwner) return gang;
+  if (user.isSuperOwner) return gang;
   return (await ehMembroDoServidor(user.id, gang.guild_id)) ? gang : null;
 }

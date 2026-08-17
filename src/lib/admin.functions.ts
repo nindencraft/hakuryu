@@ -16,7 +16,7 @@ export type GuildBot = { id: string; nome: string; iconHash: string | null; regi
 
 async function requireSuperOwner() {
   const user = await svc.requireUserSemGang(getRequest());
-  if (!user.isOwner) throw new Error("Apenas o Super Owner acessa esta área.");
+  if (!user.isSuperOwner) throw new Error("Apenas o Super Owner acessa esta área.");
   return user;
 }
 

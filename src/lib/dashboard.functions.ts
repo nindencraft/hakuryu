@@ -74,10 +74,9 @@ export const getSession = createServerFn({ method: "GET" }).handler(
     const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
     if (cargosAtuais) user.roles = cargosAtuais;
 
-    if (!user.isOwner) {
-      const { ehDono } = await import("./settings.server");
-      if (await ehDono(user.id, user.gangId)) user.isOwner = true;
-    }
+    const { ehDono, ehSuperOwner } = await import("./settings.server");
+    user.isSuperOwner = ehSuperOwner(user.id);
+    user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
     let gangNome: string | null = null;
     if (user.gangId != null) {
@@ -105,6 +104,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         avatarUrl: user.avatarUrl,
         roles: user.roles,
         isOwner: user.isOwner,
+        isSuperOwner: user.isSuperOwner,
         nomeRp: user.nomeRp,
       },
     };
