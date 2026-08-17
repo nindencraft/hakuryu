@@ -138,6 +138,23 @@ export function podeGerenciarParcerias(user: SessionUserView | null): boolean {
   return podeGerenciarMembros(user);
 }
 
+/**
+ * Pode editar os atributos de combate de um membro.
+ * A cúpula pode avaliar qualquer membro; liderança de divisão só avalia a própria divisão.
+ * A checagem final de liderança (lider_id/vice_lider_id) acontece no servidor.
+ */
+export function podeAvaliarAtributos(
+  user: SessionUserView | null,
+  alvoDivisaoId: number | null,
+  minhaDivisaoId: number | null,
+): boolean {
+  if (!user) return false;
+  if (podeGerenciarMembros(user)) return true;
+  const lideraDivisao =
+    temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lideraDivisao && alvoDivisaoId != null && alvoDivisaoId === minhaDivisaoId;
+}
+
 export function nomeExibicao(user: SessionUserView): string {
   return user.nomeRp || user.globalName || user.username;
 }

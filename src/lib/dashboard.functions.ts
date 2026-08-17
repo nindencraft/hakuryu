@@ -9,8 +9,10 @@ import type {
   ConfiguracoesPainel,
   Divisao,
   GuildAtual,
+  HistoricoAtributosMembro,
   LogPartida,
   Membro,
+  AtributosMembroValores,
   Parceria,
   PresencaTreino,
   Punicao,
@@ -113,6 +115,19 @@ export const fetchHistorico = createServerFn({ method: "POST" })
     if (!podeAdvertir(user)) throw new Error("Você não pode ver o registro de punições.");
     return svc.loadHistorico(data.membroId);
   });
+
+export const fetchHistoricoAtributos = createServerFn({ method: "POST" })
+  .inputValidator((data: { membroId: string }) => data)
+  .handler(async ({ data }): Promise<HistoricoAtributosMembro[]> => {
+    const user = await svc.requireUser(getRequest());
+    return svc.loadHistoricoAtributos(user, data.membroId);
+  });
+
+export const salvarAtributosMembro = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { membroId: string; valores: AtributosMembroValores }) => data,
+  )
+  .handler(async ({ data }) => svc.salvarAtributosMembro(await svc.requireUser(getRequest()), data));
 
 export const fetchMinhaInscricao = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
