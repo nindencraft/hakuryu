@@ -96,6 +96,9 @@ export function GangsRegistradas() {
         <span className="font-jp mr-2 text-primary">組</span>
         Gangs registradas
       </h2>
+      <p className="text-sm text-muted-foreground">
+        Gangs neutras. Ao virar aliada ou inimiga, a gang passa para as seções acima.
+      </p>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
@@ -107,18 +110,6 @@ export function GangsRegistradas() {
             className="pl-9"
             aria-label="Pesquisar gang"
           />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {FILTROS.map((f) => (
-            <Button
-              key={f.chave}
-              size="sm"
-              variant={filtro === f.chave ? "default" : "outline"}
-              onClick={() => setFiltro(f.chave)}
-            >
-              {f.rotulo}
-            </Button>
-          ))}
         </div>
       </div>
 
@@ -133,8 +124,8 @@ export function GangsRegistradas() {
         />
       ) : lista.length === 0 ? (
         <EmptyState
-          title="Nenhuma gang encontrada"
-          description="Ajuste a busca ou os filtros para ver outras gangs registradas."
+          title="Nenhuma gang neutra"
+          description="Todas as gangs registradas já são aliadas ou inimigas da sua gang."
         />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
