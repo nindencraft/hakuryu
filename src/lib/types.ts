@@ -234,6 +234,8 @@ export type GuerraAtiva = {
   solicitante_nome: string | null;
   aceito_por_nome: string | null;
   criado_em: string | null;
+  pedimos_encerrar: boolean;
+  eles_pediram_encerrar: boolean;
   nos: { nome: string; guild_id: string | null; icon_hash: string | null };
   eles: { nome: string; guild_id: string | null; icon_hash: string | null };
 };

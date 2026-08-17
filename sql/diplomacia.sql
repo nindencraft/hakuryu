@@ -68,3 +68,11 @@ CREATE POLICY "Solicitacoes gravaveis" ON public.gang_solicitacoes
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 NOTIFY pgrst, 'reload schema';
+
+-- Encerramento de guerra em duas mãos: só encerra quando as duas gangs pedem.
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS encerrar_origem BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS encerrar_destino BOOLEAN NOT NULL DEFAULT false;
+
+NOTIFY pgrst, 'reload schema';
