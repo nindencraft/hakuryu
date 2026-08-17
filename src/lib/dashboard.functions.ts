@@ -71,7 +71,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
 
     // Cargos são revalidados no Discord a cada carregamento para nunca ficarem defasados.
     const { fetchCargosAtuais } = await import("./discord.server");
-    const cargosAtuais = await fetchCargosAtuais(user.id);
+    const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
     if (cargosAtuais) user.roles = cargosAtuais;
 
     if (!user.isOwner) {
