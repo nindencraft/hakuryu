@@ -11,6 +11,8 @@ import {
   Settings,
   Shield,
   Users,
+  Crown,
+  Repeat,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -43,6 +45,8 @@ const NAV = [
 
 const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Settings }];
 
+const NAV_OWNER = [{ to: "/admin/gangs", label: "Gangs registradas", icon: Crown }];
+
 function Brand() {
   return (
     <div className="flex items-center gap-3 px-2 py-4">
@@ -66,7 +70,8 @@ function Brand() {
 function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useQuery(sessionQuery);
-  const itens = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
+  const base = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
+  const itens = data?.user?.isOwner ? [...base, ...NAV_OWNER] : base;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Navegação principal">
@@ -111,7 +116,15 @@ function UserCard({ user }: { user: SessionUserView }) {
   );
 }
 
-function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?: (() => void) | undefined }) {
+function SidebarBody({
+  user,
+  gangNome,
+  onNavigate,
+}: {
+  user: SessionUserView;
+  gangNome?: string | null | undefined;
+  onNavigate?: (() => void) | undefined;
+}) {
   const queryClient = useQueryClient();
 
   return (
@@ -129,6 +142,12 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
           ) : null}
         </div>
       ) : null}
+      {gangNome ? (
+        <div className="rounded-md border border-primary/30 bg-sidebar-accent/40 px-3 py-2">
+          <p className="text-xs text-muted-foreground">Gang ativa</p>
+          <p className="truncate text-sm font-semibold">{gangNome}</p>
+        </div>
+      ) : null}
       <div className="rule-gold" aria-hidden />
       <NavLinks onNavigate={onNavigate} />
       <div className="mt-auto flex flex-col gap-2 pb-2">
@@ -140,6 +159,11 @@ function SidebarBody({ user, onNavigate }: { user: SessionUserView; onNavigate?:
           }}
         >
           <RefreshCw className="h-4 w-4" /> Atualizar dados
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/selecionar-gang" onClick={onNavigate}>
+            <Repeat className="h-4 w-4" /> Trocar de gang
+          </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>
           <a href="/api/public/auth/logout">
@@ -239,6 +263,22 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
   );
 }
 
+function SemGangScreen() {
+  return (
+    <CenteredCard>
+      <h1 className="text-gold-gradient font-display text-2xl font-semibold">Escolha uma gang</h1>
+      <div className="rule-gold my-5" aria-hidden />
+      <p className="text-sm text-muted-foreground">
+        Sua sessão ainda não está vinculada a nenhuma gang. Selecione qual servidor você quer
+        administrar.
+      </p>
+      <Button className="mt-6" asChild>
+        <Link to="/selecionar-gang">Selecionar gang</Link>
+      </Button>
+    </CenteredCard>
+  );
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { data, isPending } = useQuery(sessionQuery);
@@ -259,6 +299,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
+  if (data.gangId == null) return <SemGangScreen />;
 
   const user = data.user;
 
@@ -271,7 +312,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         >
           <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
           <div className="relative z-10 flex h-full flex-col">
-            <SidebarBody user={user} />
+            <SidebarBody user={user} gangNome={data.gangNome} />
           </div>
         </aside>
 
@@ -300,7 +341,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   />
                   <div className="relative z-10 flex min-h-full flex-col">
                     <SheetTitle className="sr-only">Navegação</SheetTitle>
-                    <SidebarBody user={user} onNavigate={() => setOpen(false)} />
+                    <SidebarBody
+                      user={user}
+                      gangNome={data.gangNome}
+                      onNavigate={() => setOpen(false)}
+                    />
                   </div>
                 </SheetContent>
               </Sheet>
