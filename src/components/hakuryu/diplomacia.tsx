@@ -64,6 +64,20 @@ export function GangAvatar({
   );
 }
 
+/** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
+export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
+  return (
+    <li className="card-gold flex items-center gap-4 p-5">
+      <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
+      <div className="min-w-0 flex-1">
+        <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
+        <p className="text-sm text-muted-foreground">👥 {gang.membros} membros</p>
+      </div>
+      {badgeRelacao(gang.relacao)}
+    </li>
+  );
+}
+
 function badgeRelacao(relacao: RelacaoGang) {
   if (relacao === "Aliada") return <Badge className="bg-primary/20 text-primary">🤝 Aliada</Badge>;
   if (relacao === "Inimiga") return <Badge variant="destructive">⚔️ Inimiga</Badge>;
