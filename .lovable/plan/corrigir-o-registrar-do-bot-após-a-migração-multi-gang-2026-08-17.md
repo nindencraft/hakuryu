@@ -19,9 +19,9 @@ Entrego uma versão corrigida do `membros.py` para você substituir no projeto d
 1. **Resolver a gang pelo servidor**: helper que busca `gangs` pelo `guild_id` da interação (ativa). Se o servidor não tiver gang registrada, o comando responde com uma mensagem clara em vez de travar.
 2. **Escopo por gang em tudo**: `config_cargos`, `membros` (SELECT/INSERT/UPDATE/DELETE) passam a filtrar e gravar `gang_id`.
 3. **Nunca mais "pensando" infinito**: todo comando é envolvido em `try/except`, e qualquer erro vira um `followup` com a mensagem do erro (além do log no console).
-4. **Remover a opção "divisão" do `/registrar`**: sai o parâmetro, sai o campo do embed. A divisão continua sendo definida pelo dashboard.
-5. **Corrigir `/ficha`**: passa a ler o nome da divisão via `divisao_id` (join com `divisoes`), com "Nenhuma" quando não houver.
-6. **Registrar como "Em Analise"**: alinhado com o dashboard, o novo membro entra com cargo/status "Em Analise" em vez de "Recruta"/"Ativo" — confirme se prefere manter "Recruta".
+4. **Remover a opção "divisão" do `/registrar**`: sai o parâmetro, sai o campo do embed. A divisão continua sendo definida pelo dashboard.
+5. **Corrigir `/ficha**`: passa a ler o nome da divisão via `divisao_id` (join com `divisoes`), com "Nenhuma" quando não houver.
+6. **Registrar como "Em Analise"**: alinhado com o dashboard, o novo membro entra com cargo/status "Em Analise" em vez de "Recruta"/"Ativo".
 
 ## Detalhes técnicos
 
