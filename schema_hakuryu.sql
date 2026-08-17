@@ -272,6 +272,9 @@ CREATE TABLE IF NOT EXISTS public.gang_solicitacoes (
   treino_destino_id INTEGER,
   encerrar_origem BOOLEAN NOT NULL DEFAULT false,
   encerrar_destino BOOLEAN NOT NULL DEFAULT false,
+  representante_id TEXT,
+  representante_nome TEXT,
+  representante_avatar TEXT,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
