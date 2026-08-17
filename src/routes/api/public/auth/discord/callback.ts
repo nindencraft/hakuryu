@@ -150,7 +150,7 @@ export const Route = createFileRoute(
         const { ehDono } =
           await import("@/lib/settings.server");
 
-        const isOwner =
+        let isOwner =
           (!!config.discordOwnerId &&
             config.discordOwnerId === discordUser.id) ||
           (await ehDono(discordUser.id));
@@ -317,6 +317,11 @@ export const Route = createFileRoute(
         let nomeRp: string | null = null;
 
         if (gang) {
+          // Donos e líder cadastrados na gang escolhida.
+          if (!isOwner && (await ehDono(discordUser.id, gang.id))) isOwner = true;
+          if (gang.lider_id === discordUser.id && !roleNames.includes("Lider")) {
+            roleNames.push("Lider");
+          }
           try {
             const db = getDb();
 

@@ -39,11 +39,19 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   const { fetchCargosAtuais } = await import("./discord.server");
   const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
   if (cargosAtuais) user.roles = cargosAtuais;
-  // Donos extras podem ser cadastrados nas Configurações.
+  // Donos extras podem ser cadastrados nas Configurações (da gang ou global).
   if (!user.isOwner) {
     const { ehDono } = await import("./settings.server");
-    if (await ehDono(user.id)) user.isOwner = true;
+    if (await ehDono(user.id, user.gangId)) user.isOwner = true;
   }
+  // Líder registrado da gang sempre tem o cargo "Lider" no painel.
+  if (user.gangId != null && !temCargo(user, "Lider")) {
+    const { buscarGangPorId } = await import("./gangs.server");
+    const gang = await buscarGangPorId(user.gangId);
+    if (gang?.lider_id && gang.lider_id === user.id) user.roles = [...user.roles, "Lider"];
+  }
+  // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
+  if (user.gangId == null) return user;
   if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
