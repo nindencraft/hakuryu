@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { sessionQuery } from "@/lib/queries";
+import { gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
 import {
   cargoPrincipal,
   nomeExibicao,
@@ -71,7 +71,7 @@ function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useQuery(sessionQuery);
   const base = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
-  const itens = data?.user?.isOwner ? [...base, ...NAV_OWNER] : base;
+  const itens = data?.user?.isSuperOwner ? [...base, ...NAV_OWNER] : base;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Navegação principal">
@@ -116,13 +116,88 @@ function UserCard({ user }: { user: SessionUserView }) {
   );
 }
 
+function iconeGuild(guildId: string, hash: string | null): string | null {
+  return hash ? `https://cdn.discordapp.com/icons/${guildId}/${hash}.png?size=64` : null;
+}
+
+/** Servidores registrados em que o usuário está: troca rápida de painel. */
+function GangsRail({
+  gangAtivaId,
+  onNavigate,
+}: {
+  gangAtivaId: number | null;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const { data } = useQuery(gangsDisponiveisQuery);
+  const [trocando, setTrocando] = useState<number | null>(null);
+  const gangs = data ?? [];
+
+  if (gangs.length < 2) return null;
+
+  async function escolher(gangId: number) {
+    if (gangId === gangAtivaId) return;
+    setTrocando(gangId);
+    try {
+      const res = await fetch("/api/public/gangs/selecionar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gangId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await queryClient.invalidateQueries();
+      await router.navigate({ to: "/" });
+      onNavigate?.();
+    } finally {
+      setTrocando(null);
+    }
+  }
+
+  return (
+    <div>
+      <p className="mb-2 px-1 text-xs text-muted-foreground">Seus painéis</p>
+      <div className="flex flex-wrap gap-2">
+        {gangs.map((g) => {
+          const icone = iconeGuild(g.guildId, g.iconHash);
+          const ativa = g.id === gangAtivaId;
+          return (
+            <button
+              key={g.id}
+              type="button"
+              title={g.nome}
+              aria-label={`Abrir painel de ${g.nome}`}
+              disabled={trocando != null}
+              onClick={() => void escolher(g.id)}
+              className={cn(
+                "h-11 w-11 overflow-hidden rounded-full border-2 bg-sidebar-accent/60 text-xs font-semibold transition-all",
+                ativa
+                  ? "border-primary shadow-[var(--shadow-gold)]"
+                  : "border-transparent opacity-70 hover:-translate-y-px hover:border-primary/50 hover:opacity-100",
+              )}
+            >
+              {icone ? (
+                <img src={icone} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span>{g.nome.slice(0, 2).toUpperCase()}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SidebarBody({
   user,
   gangNome,
+  gangId,
   onNavigate,
 }: {
   user: SessionUserView;
   gangNome?: string | null | undefined;
+  gangId: number | null;
   onNavigate?: (() => void) | undefined;
 }) {
   const queryClient = useQueryClient();
@@ -148,6 +223,7 @@ function SidebarBody({
           <p className="truncate text-sm font-semibold">{gangNome}</p>
         </div>
       ) : null}
+      <GangsRail gangAtivaId={gangId} onNavigate={onNavigate} />
       <div className="rule-gold" aria-hidden />
       <NavLinks onNavigate={onNavigate} />
       <div className="mt-auto flex flex-col gap-2 pb-2">
@@ -160,11 +236,13 @@ function SidebarBody({
         >
           <RefreshCw className="h-4 w-4" /> Atualizar dados
         </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/selecionar-gang" onClick={onNavigate}>
-            <Repeat className="h-4 w-4" /> Trocar de gang
-          </Link>
-        </Button>
+        {user.isSuperOwner ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/selecionar-gang" onClick={onNavigate}>
+              <Repeat className="h-4 w-4" /> Trocar de gang
+            </Link>
+          </Button>
+        ) : null}
         <Button variant="ghost" size="sm" asChild>
           <a href="/api/public/auth/logout">
             <LogOut className="h-4 w-4" /> Sair
@@ -174,6 +252,7 @@ function SidebarBody({
     </div>
   );
 }
+
 
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
@@ -305,7 +384,7 @@ export function DashboardShell({
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
-  if (data.gangId == null && !(permitirSemGang && data.user.isOwner)) return <SemGangScreen />;
+  if (data.gangId == null && !(permitirSemGang && data.user.isSuperOwner)) return <SemGangScreen />;
 
   const user = data.user;
 
@@ -318,7 +397,7 @@ export function DashboardShell({
         >
           <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
           <div className="relative z-10 flex h-full flex-col">
-            <SidebarBody user={user} gangNome={data.gangNome} />
+            <SidebarBody user={user} gangNome={data.gangNome} gangId={data.gangId} />
           </div>
         </aside>
 
@@ -350,6 +429,7 @@ export function DashboardShell({
                     <SidebarBody
                       user={user}
                       gangNome={data.gangNome}
+                      gangId={data.gangId}
                       onNavigate={() => setOpen(false)}
                     />
                   </div>

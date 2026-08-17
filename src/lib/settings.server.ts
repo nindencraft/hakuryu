@@ -402,26 +402,19 @@ export async function salvarConfiguracoes(
 
 /**
  * IDs de Super Owner + owners configurados.
+ *
+ * IMPORTANTE: quando a gang é informada, os donos extras vêm APENAS da
+ * configuração daquela gang. Donos de uma gang nunca herdam poder em outra.
  */
 export async function ownerIds(gangId?: number | null): Promise<string[]> {
-  const ids: string[] = [...SUPER_OWNER_IDS];
+  const ids: string[] = [...superOwnerIds()];
 
-  try {
-    const envOwner = getConfig().discordOwnerId.trim();
+  const extras =
+    gangId != null
+      ? await lerConfigGang(gangId, "owner_ids")
+      : await lerConfig("owner_ids");
 
-    if (envOwner) {
-      ids.push(envOwner);
-    }
-  } catch {
-    // Sem configuração.
-  }
-
-  // Donos cadastrados na aba Configurações da gang (gang_config) + legado global.
-  const fontes = [await lerConfig("owner_ids")];
-  if (gangId != null) fontes.push(await lerConfigGang(gangId, "owner_ids"));
-
-  for (const extras of fontes) {
-    if (!extras) continue;
+  if (extras) {
     ids.push(
       ...extras
         .split(/[,\s]+/)
@@ -440,6 +433,18 @@ export async function ehDono(discordId: string, gangId?: number | null): Promise
   return (await ownerIds(gangId)).includes(discordId);
 }
 
+/** Super Owners: lista fixa + owner definido no .env. */
+export function superOwnerIds(): string[] {
+  const ids = [...SUPER_OWNER_IDS];
+  try {
+    const envOwner = getConfig().discordOwnerId.trim();
+    if (envOwner) ids.push(envOwner);
+  } catch {
+    // Sem configuração.
+  }
+  return ids;
+}
+
 /**
  * Verifica especificamente o Super Owner.
  *
@@ -447,5 +452,5 @@ export async function ehDono(discordId: string, gangId?: number | null): Promise
  * cadastrados em uma gang.
  */
 export function ehSuperOwner(discordId: string): boolean {
-  return SUPER_OWNER_IDS.includes(discordId);
+  return superOwnerIds().includes(discordId);
 }

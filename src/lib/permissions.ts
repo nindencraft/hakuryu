@@ -7,6 +7,7 @@ export type SessionUserView = {
   avatarUrl: string;
   roles: string[];
   isOwner: boolean;
+  isSuperOwner: boolean;
   nomeRp: string | null;
 };
 

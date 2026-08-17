@@ -14,6 +14,9 @@ export const Route = createFileRoute("/api/public/gangs/selecionar")({
         const user = await currentUser(request);
         if (!user) return new Response("Não autenticado", { status: 401 });
 
+        const { ehSuperOwner } = await import("@/lib/settings.server");
+        user.isSuperOwner = ehSuperOwner(user.id);
+
         let gangId: number;
         try {
           const body = (await request.json()) as { gangId?: unknown };
@@ -51,7 +54,8 @@ export const Route = createFileRoute("/api/public/gangs/selecionar")({
           globalName: user.globalName,
           avatarUrl: user.avatarUrl,
           roles,
-          isOwner: user.isOwner,
+          isOwner: user.isSuperOwner,
+          isSuperOwner: user.isSuperOwner,
           nomeRp,
           guildId: gang.guild_id,
           gangId: gang.id,

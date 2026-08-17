@@ -141,7 +141,7 @@ function SelecionarGangPage() {
           </ul>
         )}
 
-        {sessao.data?.user?.isOwner ? (
+        {sessao.data?.user?.isSuperOwner ? (
           <div className="mt-6 text-center">
             <p className="text-xs text-muted-foreground">
               Você é Super Owner: todas as gangs ativas aparecem aqui.

@@ -39,11 +39,11 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   const { fetchCargosAtuais } = await import("./discord.server");
   const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
   if (cargosAtuais) user.roles = cargosAtuais;
-  // Donos extras podem ser cadastrados nas Configurações (da gang ou global).
-  if (!user.isOwner) {
-    const { ehDono } = await import("./settings.server");
-    if (await ehDono(user.id, user.gangId)) user.isOwner = true;
-  }
+  // Dono é recalculado a cada requisição no escopo da gang ativa:
+  // ser dono de uma gang NÃO dá poder em outra.
+  const { ehDono, ehSuperOwner } = await import("./settings.server");
+  user.isSuperOwner = ehSuperOwner(user.id);
+  user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
   // Líder registrado da gang sempre tem o cargo "Lider" no painel.
   if (user.gangId != null && !temCargo(user, "Lider")) {
     const { buscarGangPorId } = await import("./gangs.server");

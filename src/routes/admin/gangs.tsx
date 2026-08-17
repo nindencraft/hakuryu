@@ -57,13 +57,13 @@ function AdminGangs() {
   const gangs = useQuery({
     queryKey: ["admin-gangs"],
     queryFn: () => fetchGangsAdmin(),
-    enabled: sessao.data?.user?.isOwner === true,
+    enabled: sessao.data?.user?.isSuperOwner === true,
   });
 
   const guilds = useQuery({
     queryKey: ["admin-guilds-bot"],
     queryFn: () => fetchGuildsDoBotAdmin(),
-    enabled: sessao.data?.user?.isOwner === true,
+    enabled: sessao.data?.user?.isSuperOwner === true,
     staleTime: 60_000,
   });
 
@@ -91,7 +91,7 @@ function AdminGangs() {
     onError: (e: Error) => setErro(e.message),
   });
 
-  if (sessao.data && sessao.data.user && !sessao.data.user.isOwner) {
+  if (sessao.data && sessao.data.user && !sessao.data.user.isSuperOwner) {
     return (
       <EmptyState
         title="Área restrita"

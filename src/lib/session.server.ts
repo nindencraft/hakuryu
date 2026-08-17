@@ -10,6 +10,8 @@ export type SessionUser = {
   avatarUrl: string;
   roles: string[];
   isOwner: boolean;
+  /** Super Owner global (lista fixa + .env). Só ele administra gangs registradas. */
+  isSuperOwner: boolean;
   nomeRp: string | null;
 
   /** Servidor Discord ao qual a sessão está vinculada. */
@@ -123,6 +125,7 @@ export async function verifySession(
       avatarUrl: user.avatarUrl ?? "",
       roles: Array.isArray(user.roles) ? user.roles : [],
       isOwner: user.isOwner === true,
+      isSuperOwner: user.isSuperOwner === true,
       nomeRp: user.nomeRp ?? null,
 
       // Compatibilidade com sessões antigas.

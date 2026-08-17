@@ -199,9 +199,10 @@ function Membros() {
                 {expandido ? (
                   <>
                     <GoldRule className="my-4" />
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-                      <div>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                      <div className="flex h-full flex-col">
+                        <div className="grid gap-4 sm:grid-cols-2">
+
                           <Info label="Gênero" value={m.genero ?? "—"} />
                           <Info
                             label="Altura"
@@ -215,7 +216,7 @@ function Membros() {
                             value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
                           />
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 flex flex-wrap gap-2 lg:mt-auto lg:pt-4">
                           {m.discord_id === user?.id || podeGerenciar ? (
                             <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
                               Editar dados
