@@ -270,6 +270,8 @@ CREATE TABLE IF NOT EXISTS public.gang_solicitacoes (
   respondido_em TIMESTAMPTZ,
   treino_origem_id INTEGER,
   treino_destino_id INTEGER,
+  encerrar_origem BOOLEAN NOT NULL DEFAULT false,
+  encerrar_destino BOOLEAN NOT NULL DEFAULT false,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
