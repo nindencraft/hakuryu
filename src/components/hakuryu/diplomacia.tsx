@@ -373,7 +373,7 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
   const user = useSessionUser();
   const [aberto, setAberto] = useState(false);
   const encerrar = useAcao<{ id: number }>(encerrarGuerra, {
-    sucesso: "Guerra encerrada.",
+    sucesso: "Pedido de encerramento registrado. A guerra encerra quando as duas gangs confirmarem.",
     invalidar: [["guerras"], ["gangs-registradas"], ["solicitacoes"]],
   });
 
