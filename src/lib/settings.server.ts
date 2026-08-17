@@ -403,7 +403,7 @@ export async function salvarConfiguracoes(
 /**
  * IDs de Super Owner + owners configurados.
  */
-export async function ownerIds(): Promise<string[]> {
+export async function ownerIds(gangId?: number | null): Promise<string[]> {
   const ids: string[] = [...SUPER_OWNER_IDS];
 
   try {
@@ -416,9 +416,12 @@ export async function ownerIds(): Promise<string[]> {
     // Sem configuração.
   }
 
-  const extras = await lerConfig("owner_ids");
+  // Donos cadastrados na aba Configurações da gang (gang_config) + legado global.
+  const fontes = [await lerConfig("owner_ids")];
+  if (gangId != null) fontes.push(await lerConfigGang(gangId, "owner_ids"));
 
-  if (extras) {
+  for (const extras of fontes) {
+    if (!extras) continue;
     ids.push(
       ...extras
         .split(/[,\s]+/)
@@ -431,10 +434,10 @@ export async function ownerIds(): Promise<string[]> {
 }
 
 /**
- * Verifica se o Discord ID é Super Owner.
+ * Verifica se o Discord ID é dono do painel (global ou da gang informada).
  */
-export async function ehDono(discordId: string): Promise<boolean> {
-  return (await ownerIds()).includes(discordId);
+export async function ehDono(discordId: string, gangId?: number | null): Promise<boolean> {
+  return (await ownerIds(gangId)).includes(discordId);
 }
 
 /**
