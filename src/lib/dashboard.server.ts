@@ -32,12 +32,12 @@ import type {
 
 /* ========== Sessão / guardas ========== */
 
-export async function requireUser(request: Request): Promise<SessionUser> {
+export async function requireUserSemGang(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
   // Revalida os cargos direto no Discord (a sessão pode estar defasada).
   const { fetchCargosAtuais } = await import("./discord.server");
-  const cargosAtuais = await fetchCargosAtuais(user.id);
+  const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
   if (cargosAtuais) user.roles = cargosAtuais;
   // Donos extras podem ser cadastrados nas Configurações.
   if (!user.isOwner) {
@@ -46,6 +46,22 @@ export async function requireUser(request: Request): Promise<SessionUser> {
   }
   if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
+}
+
+/**
+ * Sessão válida COM gang resolvida. Toda rota de dados usa esta guarda:
+ * sem gang na sessão o front manda o usuário escolher uma.
+ */
+export async function requireUser(request: Request): Promise<SessionUser> {
+  const user = await requireUserSemGang(request);
+  if (user.gangId == null) throw new Error("SEM_GANG");
+  return user;
+}
+
+/** Gang da sessão — nunca vem do cliente. */
+export function gid(user: SessionUser): number {
+  if (user.gangId == null) throw new Error("SEM_GANG");
+  return user.gangId;
 }
 
 function assert(condition: boolean, message = "Você não tem permissão para esta ação.") {
@@ -59,8 +75,9 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 
 /* ========== Leitura ========== */
 
-export async function loadMembros(): Promise<Membro[]> {
+export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   const db = getDb();
+  const g = gid(user);
 
   const membros = unwrap(
     await db
@@ -68,6 +85,7 @@ export async function loadMembros(): Promise<Membro[]> {
       .select(
         "discord_id, discord_username, nome_roblox, nome_rp, genero, altura_jogo, estilo_luta_principal, cargo, status, data_entrada, avatar_hash, divisao_id",
       )
+      .eq("gang_id", g)
       .order("data_entrada", { ascending: false }),
   ) as Omit<Membro, "divisao" | "warns" | "stats" | "atributos">[];
 
@@ -76,7 +94,8 @@ export async function loadMembros(): Promise<Membro[]> {
       .from("membro_atributos")
       .select(
         "membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, atualizado_em, atualizado_por",
-      ),
+      )
+      .eq("gang_id", g),
   ) as ({
     membro_id: string;
     movimentacao: number;
@@ -90,7 +109,9 @@ export async function loadMembros(): Promise<Membro[]> {
   })[];
   const atributosPorMembro = new Map(atributosRows.map((a) => [a.membro_id, a]));
 
-  const divisoes = unwrap(await db.from("divisoes").select("id, nome_divisao")) as {
+  const divisoes = unwrap(
+    await db.from("divisoes").select("id, nome_divisao").eq("gang_id", g),
+  ) as {
     id: number;
     nome_divisao: string;
   }[];
@@ -116,7 +137,7 @@ export async function loadMembros(): Promise<Membro[]> {
   };
 
   const punicoes = unwrap(
-    await db.from("punicoes").select("membro_id, tipo"),
+    await db.from("punicoes").select("membro_id, tipo").eq("gang_id", g),
   ) as { membro_id: string; tipo: string }[];
   const warns = new Map<string, number>();
   for (const p of punicoes) {
@@ -127,7 +148,8 @@ export async function loadMembros(): Promise<Membro[]> {
     await db
       .from("presencas_treino")
       .select("membro_id, presenca, treinos!inner(tipo)")
-      .eq("presenca", "Presente"),
+      .eq("presenca", "Presente")
+      .eq("gang_id", g),
   ) as { membro_id: string; treinos: { tipo: string } | { tipo: string }[] }[];
 
   const stats = new Map<string, { internos: number; amistosos: number; guerras: number }>();
@@ -150,7 +172,7 @@ export async function loadMembros(): Promise<Membro[]> {
 
   try {
     const guerras = unwrap(
-      await db.from("participacoes_guerra").select("membro_id"),
+      await db.from("participacoes_guerra").select("membro_id").eq("gang_id", g),
     ) as { membro_id: string }[];
     for (const g of guerras) bucket(g.membro_id).guerras += 1;
   } catch {
@@ -159,7 +181,7 @@ export async function loadMembros(): Promise<Membro[]> {
 
   // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
   const { fetchCargosDeTodos } = await import("./discord.server");
-  const cargosDiscord = await fetchCargosDeTodos();
+  const cargosDiscord = await fetchCargosDeTodos(user.guildId);
   const canonizar = (nomes: string[]) => {
     const norm = (v: string) =>
       v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -201,14 +223,19 @@ function separarAdiamento(descricao: string | null) {
   };
 }
 
-export async function loadTreinos(): Promise<Treino[]> {
+export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
   const db = getDb();
+  const g = gid(user);
   const treinos = unwrap(
-    await db.from("treinos").select("*").order("data_treino", { ascending: false }),
+    await db
+      .from("treinos")
+      .select("*")
+      .eq("gang_id", g)
+      .order("data_treino", { ascending: false }),
   ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
 
   const inscricoes = unwrap(
-    await db.from("presencas_treino").select("treino_id, inscricao"),
+    await db.from("presencas_treino").select("treino_id, inscricao").eq("gang_id", g),
   ) as { treino_id: number; inscricao: string | null }[];
 
   const contagem = new Map<number, number>();
@@ -226,14 +253,18 @@ export async function loadTreinos(): Promise<Treino[]> {
 
 
 
-export async function loadDivisoes(): Promise<Divisao[]> {
+export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
   const db = getDb();
+  const g = gid(user);
   const divisoes = unwrap(
-    await db.from("divisoes").select("*").order("nome_divisao"),
+    await db.from("divisoes").select("*").eq("gang_id", g).order("nome_divisao"),
   ) as Omit<Divisao, "lider_nome" | "lider_discord" | "vice_nome" | "vice_discord" | "membros">[];
 
   const membros = unwrap(
-    await db.from("membros").select("discord_id, discord_username, nome_rp, avatar_hash, divisao_id"),
+    await db
+      .from("membros")
+      .select("discord_id, discord_username, nome_rp, avatar_hash, divisao_id")
+      .eq("gang_id", g),
   ) as {
     discord_id: string;
     discord_username: string | null;
@@ -269,12 +300,17 @@ export async function loadDivisoes(): Promise<Divisao[]> {
   });
 }
 
-export async function loadPresencas(treinoId: number): Promise<PresencaTreino[]> {
+export async function loadPresencas(
+  user: SessionUser,
+  treinoId: number,
+): Promise<PresencaTreino[]> {
   const db = getDb();
+  const g = gid(user);
   const presencas = unwrap(
     await db
       .from("presencas_treino")
       .select("membro_id, inscricao, presenca")
+      .eq("gang_id", g)
       .eq("treino_id", treinoId),
   ) as { membro_id: string; inscricao: string | null; presenca: string | null }[];
 
@@ -284,6 +320,7 @@ export async function loadPresencas(treinoId: number): Promise<PresencaTreino[]>
     await db
       .from("membros")
       .select("discord_id, discord_username, nome_rp, avatar_hash")
+      .eq("gang_id", g)
       .in(
         "discord_id",
         presencas.map((p) => p.membro_id),
@@ -302,10 +339,14 @@ export async function loadPresencas(treinoId: number): Promise<PresencaTreino[]>
   }));
 }
 
-export async function loadHistorico(membroId: string): Promise<Punicao[]> {
+export async function loadHistorico(
+  user: SessionUser,
+  membroId: string,
+): Promise<Punicao[]> {
   const db = getDb();
+  const g = gid(user);
   const punicoes = unwrap(
-    await db.from("punicoes").select("*").eq("membro_id", membroId),
+    await db.from("punicoes").select("*").eq("gang_id", g).eq("membro_id", membroId),
   ) as Punicao[];
 
   const autores = Array.from(
@@ -317,6 +358,7 @@ export async function loadHistorico(membroId: string): Promise<Punicao[]> {
     await db
       .from("membros")
       .select("discord_id, discord_username, nome_rp")
+      .eq("gang_id", g)
       .in("discord_id", autores),
   ) as { discord_id: string; discord_username: string | null; nome_rp: string | null }[];
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
@@ -333,7 +375,11 @@ export async function loadHistorico(membroId: string): Promise<Punicao[]> {
 export async function revogarPunicao(user: SessionUser, input: { punicaoId: number }) {
   assert(podeRevogarPunicao(user), "Apenas Dono, Líder e Vice-Líder podem revogar advertências.");
   const db = getDb();
-  const { error } = await db.from("punicoes").delete().eq("id_punicao", input.punicaoId);
+  const { error } = await db
+    .from("punicoes")
+    .delete()
+    .eq("gang_id", gid(user))
+    .eq("id_punicao", input.punicaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -410,9 +456,15 @@ export async function colunaIdParcerias(): Promise<string> {
   return idParceriasCache;
 }
 
-export async function loadParcerias(): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
+export async function loadParcerias(
+  user: SessionUser,
+): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
-  const { data, error } = await db.from("parcerias").select("*").order("nome");
+  const { data, error } = await db
+    .from("parcerias")
+    .select("*")
+    .eq("gang_id", gid(user))
+    .order("nome");
   if (error) {
     const code = (error as { code?: string }).code ?? "";
     const msg = error.message ?? "";
