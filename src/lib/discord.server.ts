@@ -1,14 +1,30 @@
 import { getConfig } from "./config.server";
-import { guildIdAtivo } from "./settings.server";
+import { guildIdAtivo, lerConfigEscopo, chaveCargo } from "./settings.server";
 
 type GuildMember = { roles: string[]; nick?: string | null };
 type GuildRole = { id: string; name: string };
+
+/** Contexto da gang usada na chamada (servidor Discord + configurações). */
+export type CtxDiscord = {
+  guildId?: string | null | undefined;
+  gangId?: number | null | undefined;
+};
+
+/** Servidor alvo: o da sessão quando informado, senão o legado das configurações. */
+async function resolverGuild(guildId?: string | null): Promise<string> {
+  const limpo = (guildId ?? "").replace(/\D/g, "");
+  if (limpo) return limpo;
+  return (await guildIdAtivo()).replace(/\D/g, "");
+}
 
 /**
  * Busca os cargos atuais do usuário no servidor do Discord.
  * Retorna null quando não foi possível consultar (mantém os cargos da sessão).
  */
-export async function fetchCargosAtuais(discordId: string): Promise<string[] | null> {
+export async function fetchCargosAtuais(
+  discordId: string,
+  guildIdSessao?: string | null,
+): Promise<string[] | null> {
   let config;
   try {
     config = getConfig();
@@ -17,7 +33,7 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
   }
 
   try {
-    const guildId = await guildIdAtivo();
+    const guildId = await resolverGuild(guildIdSessao);
     if (!guildId) return null;
     const memberRes = await fetch(
       `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
@@ -27,10 +43,9 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
     if (!memberRes.ok) return null;
     const member = (await memberRes.json()) as GuildMember;
 
-    const rolesRes = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/roles`,
-      { headers: { Authorization: `Bot ${config.discordBotToken}` } },
-    );
+    const rolesRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
     if (!rolesRes.ok) return null;
     const allRoles = (await rolesRes.json()) as GuildRole[];
 
@@ -40,9 +55,9 @@ export async function fetchCargosAtuais(discordId: string): Promise<string[] | n
   }
 }
 
-async function buscarRoleId(nome: string): Promise<string | null> {
+async function buscarRoleId(nome: string, guildIdSessao?: string | null): Promise<string | null> {
   const config = getConfig();
-  const guildId = await guildIdAtivo();
+  const guildId = await resolverGuild(guildIdSessao);
   if (!guildId) return null;
   const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
     headers: { Authorization: `Bot ${config.discordBotToken}` },
@@ -66,11 +81,12 @@ export async function ajustarCargoPorId(
   discordId: string,
   roleId: string,
   acao: "add" | "remove",
+  guildIdSessao?: string | null,
 ): Promise<void> {
   try {
     const config = getConfig();
     const id = roleId.trim().replace(/\D/g, "");
-    const guildId = await guildIdAtivo();
+    const guildId = await resolverGuild(guildIdSessao);
     if (!id || !guildId) return;
     await fetch(
       `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`,
@@ -86,19 +102,19 @@ export async function ajustarCargoPorId(
 
 /**
  * Adiciona ou remove um cargo do Discord pelo nome.
- * Usa o ID cadastrado nas Configurações quando existir; senão procura pelo nome.
+ * Usa o ID cadastrado nas Configurações da gang quando existir; senão procura pelo nome.
  */
 export async function ajustarCargoDiscord(
   discordId: string,
   nomeCargo: string,
   acao: "add" | "remove",
+  ctx: CtxDiscord = {},
 ): Promise<void> {
   try {
-    const { lerConfig, chaveCargo } = await import("./settings.server");
-    const configurado = await lerConfig(chaveCargo(nomeCargo));
-    const roleId = configurado ?? (await buscarRoleId(nomeCargo));
+    const configurado = await lerConfigEscopo(ctx.gangId ?? null, chaveCargo(nomeCargo));
+    const roleId = configurado ?? (await buscarRoleId(nomeCargo, ctx.guildId));
     if (!roleId) return;
-    await ajustarCargoPorId(discordId, roleId, acao);
+    await ajustarCargoPorId(discordId, roleId, acao, ctx.guildId);
   } catch {
     /* best-effort */
   }
@@ -113,14 +129,14 @@ export type EmbedDiscord = {
   timestamp?: string | undefined;
 };
 
-/** Publica um embed em um canal do servidor. Best-effort. */
+/** Publica um embed no canal configurado para a gang. Best-effort. */
 export async function enviarMensagemCanal(
   chaveCanal: string,
+  ctx: CtxDiscord,
   embed: EmbedDiscord,
 ): Promise<void> {
   try {
-    const { lerConfig } = await import("./settings.server");
-    const canalId = (await lerConfig(chaveCanal))?.replace(/\D/g, "");
+    const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
     if (!canalId) return;
     const config = getConfig();
     await fetch(`https://discord.com/api/v10/channels/${canalId}/messages`, {
@@ -136,12 +152,13 @@ export async function enviarMensagemCanal(
   }
 }
 
-
 /**
  * Cargos de todos os membros do servidor (1 chamada), para usar o Discord
  * como fonte da verdade na listagem de membros.
  */
-export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null> {
+export async function fetchCargosDeTodos(
+  guildIdSessao?: string | null,
+): Promise<Map<string, string[]> | null> {
   let config;
   try {
     config = getConfig();
@@ -149,13 +166,11 @@ export async function fetchCargosDeTodos(): Promise<Map<string, string[]> | null
     return null;
   }
   try {
-    const guildId = await guildIdAtivo();
+    const guildId = await resolverGuild(guildIdSessao);
     if (!guildId) return null;
     const headers = { Authorization: `Bot ${config.discordBotToken}` };
     const [membersRes, rolesRes] = await Promise.all([
-      fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
-        headers,
-      }),
+      fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, { headers }),
       fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, { headers }),
     ]);
     if (!membersRes.ok || !rolesRes.ok) return null;
@@ -248,7 +263,7 @@ export async function fetchUsuarioDiscord(id: string): Promise<UsuarioDiscord | 
 
 export type GuildInfo = { id: string; nome: string; iconHash: string | null };
 
-/** Informações do servidor da própria gang (nome + ícone), usando o token do bot. */
+/** Informações de um servidor (nome + ícone), usando o token do bot. */
 export async function fetchGuildInfo(guildId?: string): Promise<GuildInfo | null> {
   let config;
   try {
@@ -257,7 +272,7 @@ export async function fetchGuildInfo(guildId?: string): Promise<GuildInfo | null
     return null;
   }
   try {
-    const id = (guildId ?? (await guildIdAtivo())).replace(/\D/g, "");
+    const id = await resolverGuild(guildId);
     if (!id) return null;
     const res = await fetch(`https://discord.com/api/v10/guilds/${id}`, {
       headers: { Authorization: `Bot ${config.discordBotToken}` },
@@ -267,5 +282,25 @@ export async function fetchGuildInfo(guildId?: string): Promise<GuildInfo | null
     return { id: g.id, nome: g.name, iconHash: g.icon ?? null };
   } catch {
     return null;
+  }
+}
+
+/** Servidores em que o bot está instalado (para o painel do Super Owner). */
+export async function fetchGuildsDoBot(): Promise<GuildInfo[]> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return [];
+  }
+  try {
+    const res = await fetch("https://discord.com/api/v10/users/@me/guilds?limit=200", {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
+    if (!res.ok) return [];
+    const guilds = (await res.json()) as { id: string; name: string; icon?: string | null }[];
+    return guilds.map((g) => ({ id: g.id, nome: g.name, iconHash: g.icon ?? null }));
+  } catch {
+    return [];
   }
 }
