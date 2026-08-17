@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { GangsRegistradas } from "@/components/hakuryu/diplomacia";
 import { parceriasQuery } from "@/lib/queries";
 import { deletarParceria, resolverAliado, salvarParceria } from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
@@ -187,6 +188,10 @@ function Aliancas() {
           )}
         </div>
       )}
+
+      <div className="mt-10">
+        <GangsRegistradas />
+      </div>
 
       <AliancaDialog valor={editando} onClose={() => setEditando(null)} />
 

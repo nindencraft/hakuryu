@@ -13,6 +13,7 @@ import {
   Users,
   Crown,
   Repeat,
+  Mails,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -40,6 +41,7 @@ const NAV = [
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
   { to: "/divisoes", label: "Divisões", icon: Shield },
   { to: "/parcerias", label: "Alianças", icon: Handshake },
+  { to: "/solicitacoes", label: "Solicitações", icon: Mails },
   { to: "/logs", label: "Logs", icon: ScrollText },
 ];
 

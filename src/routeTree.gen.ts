@@ -16,6 +16,7 @@ import { Route as LogsRouteImport } from './routes/logs'
 import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as SelecionarGangRouteImport } from './routes/selecionar-gang'
+import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
 import { Route as TreinosRouteImport } from './routes/treinos'
 import { Route as AdminGangsRouteImport } from './routes/admin/gangs'
 import { Route as ApiPublicAuthLogoutRouteImport } from './routes/api/public/auth/logout'
@@ -56,6 +57,11 @@ const ParceriasRoute = ParceriasRouteImport.update({
 const SelecionarGangRoute = SelecionarGangRouteImport.update({
   id: '/selecionar-gang',
   path: '/selecionar-gang',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolicitacoesRoute = SolicitacoesRouteImport.update({
+  id: '/solicitacoes',
+  path: '/solicitacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TreinosRoute = TreinosRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/membros': typeof MembrosRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/membros'
     | '/parcerias'
     | '/selecionar-gang'
+    | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
     | '/api/public/auth/logout'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/membros'
     | '/parcerias'
     | '/selecionar-gang'
+    | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
     | '/api/public/auth/logout'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/membros'
     | '/parcerias'
     | '/selecionar-gang'
+    | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
     | '/api/public/auth/logout'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   MembrosRoute: typeof MembrosRoute
   ParceriasRoute: typeof ParceriasRoute
   SelecionarGangRoute: typeof SelecionarGangRoute
+  SolicitacoesRoute: typeof SolicitacoesRoute
   TreinosRoute: typeof TreinosRoute
   AdminGangsRoute: typeof AdminGangsRoute
   ApiPublicAuthLogoutRoute: typeof ApiPublicAuthLogoutRoute
@@ -253,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SelecionarGangRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/solicitacoes': {
+      id: '/solicitacoes'
+      path: '/solicitacoes'
+      fullPath: '/solicitacoes'
+      preLoaderRoute: typeof SolicitacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/treinos': {
       id: '/treinos'
       path: '/treinos'
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   MembrosRoute: MembrosRoute,
   ParceriasRoute: ParceriasRoute,
   SelecionarGangRoute: SelecionarGangRoute,
+  SolicitacoesRoute: SolicitacoesRoute,
   TreinosRoute: TreinosRoute,
   AdminGangsRoute: AdminGangsRoute,
   ApiPublicAuthLogoutRoute: ApiPublicAuthLogoutRoute,

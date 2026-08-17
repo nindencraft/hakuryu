@@ -189,3 +189,59 @@ export const CANAIS_CONFIG = [
   { chave: "canal_aliancas", rotulo: "Canal de alianças" },
   { chave: "canal_advertencias", rotulo: "Canal de advertências" },
 ] as const;
+
+/* ========== Diplomacia entre gangs ========== */
+
+export type RelacaoGang = "Neutra" | "Aliada" | "Inimiga";
+
+export type GangRegistrada = {
+  id: number;
+  nome: string;
+  guild_id: string;
+  icon_hash: string | null;
+  membros: number;
+  relacao: RelacaoGang;
+  pendencias: { tipo: string; direcao: "enviada" | "recebida" }[];
+};
+
+export type SolicitacaoGang = {
+  id: number;
+  tipo: string;
+  status: string;
+  motivo: string | null;
+  data_evento: string | null;
+  horario: string | null;
+  local: string | null;
+  membros_origem: number | null;
+  membros_destino: number | null;
+  criado_por: string | null;
+  criado_por_nome: string | null;
+  respondido_por_nome: string | null;
+  respondido_em: string | null;
+  criado_em: string | null;
+  direcao: "enviada" | "recebida";
+  gang: { id: number; nome: string; guild_id: string | null; icon_hash: string | null };
+};
+
+export type GuerraAtiva = {
+  id: number;
+  motivo: string | null;
+  data_evento: string | null;
+  horario: string | null;
+  local: string | null;
+  membros_nos: number | null;
+  membros_eles: number | null;
+  solicitante_nome: string | null;
+  aceito_por_nome: string | null;
+  criado_em: string | null;
+  nos: { nome: string; guild_id: string | null; icon_hash: string | null };
+  eles: { nome: string; guild_id: string | null; icon_hash: string | null };
+};
+
+export const TIPO_SOLICITACAO_OPCOES = ["Alianca", "Guerra", "Treino"] as const;
+
+export const ROTULO_SOLICITACAO: Record<string, string> = {
+  Alianca: "Aliança",
+  Guerra: "Guerra",
+  Treino: "Treino amistoso",
+};

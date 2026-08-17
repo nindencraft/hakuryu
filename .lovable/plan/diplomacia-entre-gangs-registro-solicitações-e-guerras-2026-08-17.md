@@ -33,10 +33,10 @@ Aba própria na barra lateral, com contador de pendências. Dois grupos: **Receb
 
 - Recebidas pendentes têm [Aceitar] [Recusar].
 - Aceitar **aliança** → as duas gangs viram Aliadas (relação simétrica) e a gang entra
-  automaticamente na lista de Gangs Aliadas dos dois painéis.
+automaticamente na lista de Gangs Aliadas dos dois painéis.
 - Aceitar **treino** → cria automaticamente um treino do tipo **Amistoso** nas duas gangs,
-  com a gang adversária marcada, na data/horário/local combinados. Aparece na aba Treinos
-  normalmente.
+com a gang adversária marcada, na data/horário/local combinados. Aparece na aba Treinos
+normalmente.
 - Aceitar **guerra** → as duas gangs viram Inimigas e a guerra fica **ativa**.
 - Recusar apenas encerra a solicitação (fica no histórico).
 
@@ -61,12 +61,12 @@ Gero `sql/diplomacia.sql` (e adiciono ao `schema_hakuryu.sql`) com duas tabelas 
 já usado (GRANTs + RLS + políticas):
 
 - `gang_relacoes` — par de gangs (sempre gravado com o menor id primeiro para garantir
-  unicidade), `tipo` (`Aliada` | `Inimiga`), quem definiu e quando.
+unicidade), `tipo` (`Aliada` | `Inimiga`), quem definiu e quando.
 - `gang_solicitacoes` — `gang_origem_id`, `gang_destino_id`, `tipo`
-  (`Alianca` | `Guerra` | `Treino`), `motivo`, `status`
-  (`Pendente` | `Aceita` | `Recusada` | `Encerrada`), `data_evento`, `horario`, `local`,
-  `membros_origem`, `membros_destino`, `criado_por`/`_nome`, `respondido_por`/`_nome`,
-  `respondido_em`, `treino_origem_id`, `treino_destino_id`.
+(`Alianca` | `Guerra` | `Treino`), `motivo`, `status`
+(`Pendente` | `Aceita` | `Recusada` | `Encerrada`), `data_evento`, `horario`, `local`,
+`membros_origem`, `membros_destino`, `criado_por`/`_nome`, `respondido_por`/`_nome`,
+`respondido_em`, `treino_origem_id`, `treino_destino_id`.
 
 Enquanto o SQL não for rodado, as novas seções mostram o mesmo aviso amigável de
 "tabela não encontrada" já usado em Alianças e Logs.
@@ -74,20 +74,20 @@ Enquanto o SQL não for rodado, as novas seções mostram o mesmo aviso amigáve
 ## 5. Detalhes técnicos
 
 - `src/lib/diplomacia.server.ts`: `listarGangsRegistradas` (com relação + contagem de
-  membros por gang), `criarSolicitacao`, `responderSolicitacao`, `listarSolicitacoes`,
-  `listarGuerrasAtivas`, `encerrarGuerra` — todas com `assert` de permissão e escopo por
-  `gang_id`. Aceite de treino reaproveita a criação de treino existente.
+membros por gang), `criarSolicitacao`, `responderSolicitacao`, `listarSolicitacoes`,
+`listarGuerrasAtivas`, `encerrarGuerra` — todas com `assert` de permissão e escopo por
+`gang_id`. Aceite de treino reaproveita a criação de treino existente.
 - `src/lib/dashboard.functions.ts` + `queries.ts`: server fns e query options novos.
 - `src/lib/types.ts`: `GangRegistrada`, `SolicitacaoGang`, `GuerraAtiva` e as constantes
-  de tipo/status.
+de tipo/status.
 - Novo `src/routes/solicitacoes.tsx`; alterações em `src/routes/parcerias.tsx`,
-  `src/routes/index.tsx` (ou a Visão Geral do painel) e `DashboardShell.tsx` (link + badge).
+`src/routes/index.tsx` (ou a Visão Geral do painel) e `DashboardShell.tsx` (link + badge).
 - Ícones das gangs vêm do Discord pelo `guild_id` já salvo em `gangs`, com fallback na
-  inicial do nome.
+inicial do nome.
 - Embeds no Discord: aviso no canal de alianças configurado ao receber/aceitar uma
-  solicitação, reaproveitando `discord.server.ts`.
+solicitação, reaproveitando `discord.server.ts`.
 
-## Sugestões incluídas
+## Sugestões incluídas (Todas Aprovadas)
 
 - Guerra com estado "ativa/encerrada" para o placar da aba Logs poder ser vinculado depois.
 - Solicitação pendente bloqueia duplicatas do mesmo tipo entre as mesmas gangs.

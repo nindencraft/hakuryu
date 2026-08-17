@@ -9,6 +9,9 @@ import {
   fetchGuildAtual,
   fetchGangsDisponiveis,
   fetchConfiguracoes,
+  fetchGangsRegistradas,
+  fetchSolicitacoes,
+  fetchGuerras,
   getSession,
 } from "./dashboard.functions";
 
@@ -65,4 +68,22 @@ export const guildAtualQuery = queryOptions({
   queryKey: ["guild-atual"],
   queryFn: () => fetchGuildAtual(),
   staleTime: 300_000,
+});
+
+export const gangsRegistradasQuery = queryOptions({
+  queryKey: ["gangs-registradas"],
+  queryFn: () => fetchGangsRegistradas(),
+  staleTime: 30_000,
+});
+
+export const solicitacoesQuery = queryOptions({
+  queryKey: ["solicitacoes"],
+  queryFn: () => fetchSolicitacoes(),
+  staleTime: 15_000,
+});
+
+export const guerrasQuery = queryOptions({
+  queryKey: ["guerras"],
+  queryFn: () => fetchGuerras(),
+  staleTime: 30_000,
 });

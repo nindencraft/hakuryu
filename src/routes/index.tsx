@@ -7,6 +7,7 @@ import { EmptyState, GoldRule, PageTitle, StatCard } from "@/components/hakuryu/
 import { formatarData, formatarHorario } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AvisosDeGuerra } from "@/components/hakuryu/diplomacia";
 import { divisoesQuery, membrosQuery, treinosQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/")({
@@ -62,6 +63,8 @@ function VisaoGeral() {
         title="Visão Geral"
         subtitle="Resumo da gang: membros, treinos e atividade recente."
       />
+
+      <AvisosDeGuerra />
 
       {erro ? (
         <EmptyState
