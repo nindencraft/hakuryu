@@ -537,6 +537,25 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
     throw new Error("Esta guerra não é da sua gang.");
   }
 
+  const souOrigem = sol.gang_origem_id === minha;
+  const meuCampo = souOrigem ? "encerrar_origem" : "encerrar_destino";
+  const outroJaPediu = !!(souOrigem ? sol.encerrar_destino : sol.encerrar_origem);
+
+  // Marca o pedido do meu lado; a guerra só encerra quando os dois lados pedem.
+  const { error: marcaErr } = await db
+    .from("gang_solicitacoes")
+    .update({ [meuCampo]: true })
+    .eq("id", sol.id);
+  const colunaAusente =
+    !!marcaErr && /encerrar_(origem|destino)|column .* does not exist|PGRST204/i.test(
+      `${marcaErr.code ?? ""} ${marcaErr.message ?? ""}`,
+    );
+  if (marcaErr && !colunaAusente) throw new Error(marcaErr.message);
+
+  if (!outroJaPediu && !colunaAusente) {
+    return { ok: true, encerrada: false };
+  }
+
   const { error: upErr } = await db
     .from("gang_solicitacoes")
     .update({ status: "Encerrada" })
