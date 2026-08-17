@@ -5,11 +5,17 @@ import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
 import { GangAvatar } from "@/components/hakuryu/diplomacia";
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
+import { X } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { solicitacoesQuery } from "@/lib/queries";
-import { cancelarSolicitacao, responderSolicitacao } from "@/lib/dashboard.functions";
+import {
+  cancelarSolicitacao,
+  excluirSolicitacao,
+  responderSolicitacao,
+} from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
 import { ROTULO_SOLICITACAO, type SolicitacaoGang } from "@/lib/types";
 
@@ -136,11 +142,28 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
     sucesso: "Solicitação cancelada.",
     invalidar: [["solicitacoes"], ["gangs-registradas"]],
   });
+  const excluir = useAcao<{ id: number }>(excluirSolicitacao, {
+    sucesso: "Solicitação apagada.",
+    invalidar: [["solicitacoes"], ["gangs-registradas"]],
+  });
+  const podeExcluir = podeAgir && !(s.tipo === "Guerra" && s.status === "Aceita");
 
   const comEvento = s.tipo !== "Alianca";
 
   return (
-    <li className="card-gold flex flex-col gap-3 p-5">
+    <li className="card-gold relative flex flex-col gap-3 p-5">
+      {podeExcluir ? (
+        <button
+          type="button"
+          aria-label="Apagar solicitação"
+          disabled={excluir.isPending}
+          onClick={() => excluir.mutate({ id: s.id })}
+          className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+
       <div className="flex items-start gap-3">
         <GangAvatar nome={s.gang.nome} guildId={s.gang.guild_id} iconHash={s.gang.icon_hash} size={44} />
         <div className="min-w-0 flex-1">
@@ -149,7 +172,7 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
             {ROTULO_SOLICITACAO[s.tipo] ?? s.tipo} · {formatarData(s.criado_em)}
           </p>
         </div>
-        {statusBadge(s.status)}
+        <span className="mr-7">{statusBadge(s.status)}</span>
       </div>
 
       {s.motivo ? <p className="text-sm">{s.motivo}</p> : null}
@@ -164,6 +187,12 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
             valor={`${s.membros_origem ?? "—"} × ${s.membros_destino ?? "—"}`}
           />
         </dl>
+      ) : null}
+
+      {s.representante_nome ? (
+        <p className="text-sm">
+          <span className="text-muted-foreground">Representante:</span> {s.representante_nome}
+        </p>
       ) : null}
 
       <p className="text-xs text-muted-foreground">
