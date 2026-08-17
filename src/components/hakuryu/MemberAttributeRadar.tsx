@@ -44,9 +44,9 @@ export function MemberAttributeRadar({ atributos }: { atributos: MembroAtributos
               fill={corGeral}
               fillOpacity={0.22}
               strokeWidth={2}
-              dot={(props) => {
+              dot={(props: any) => {
                 const { cx, cy, payload } = props as { cx?: number; cy?: number; payload?: { value: number } };
-                if (typeof cx !== "number" || typeof cy !== "number") return null;
+                if (typeof cx !== "number" || typeof cy !== "number") return <g />;
                 return <circle cx={cx} cy={cy} r={4} fill={corDoNivel(payload?.value ?? 3)} stroke="var(--background)" strokeWidth={2} />;
               }}
             />
