@@ -543,6 +543,7 @@ export async function advertirMembro(
     membro_id: input.membroId,
     tipo: input.tipo,
     motivo: input.motivo || null,
+    gang_id: gid(user),
   };
 
   // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
@@ -566,6 +567,7 @@ async function anunciarPunicao(
   const { data } = await db
     .from("membros")
     .select("nome_rp, discord_username")
+    .eq("gang_id", gid(user))
     .eq("discord_id", input.membroId)
     .maybeSingle();
   const alvo = (data as { nome_rp: string | null; discord_username: string | null } | null) ?? null;
@@ -601,8 +603,9 @@ export async function trocarCargo(
   );
 
   const db = getDb();
+  const g = gid(user);
   const { fetchCargosAtuais } = await import("./discord.server");
-  const doDiscord = await fetchCargosAtuais(input.membroId);
+  const doDiscord = await fetchCargosAtuais(input.membroId, user.guildId);
 
   const norm = (v: string) =>
     v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -621,6 +624,7 @@ export async function trocarCargo(
   const { error } = await db
     .from("membros")
     .update({ cargo: cargoPrimario(finais) })
+    .eq("gang_id", g)
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
 
@@ -630,7 +634,7 @@ export async function trocarCargo(
     const tinha = antigos.includes(cargo);
     const tem = finais.includes(cargo);
     if (tinha === tem) continue;
-    await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove");
+    await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove", ctxDiscord(user));
   }
 
   return { ok: true };
@@ -645,6 +649,7 @@ export async function alterarStatusMembro(
   const { error } = await db
     .from("membros")
     .update({ status: input.status })
+    .eq("gang_id", gid(user))
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -653,7 +658,11 @@ export async function alterarStatusMembro(
 export async function removerMembro(user: SessionUser, input: { membroId: string }) {
   assert(podeGerenciarMembros(user));
   const db = getDb();
-  const { error } = await db.from("membros").delete().eq("discord_id", input.membroId);
+  const { error } = await db
+    .from("membros")
+    .delete()
+    .eq("gang_id", gid(user))
+    .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -690,6 +699,7 @@ export async function criarTreino(
     divisao_responsavel: input.divisao_responsavel || null,
     status: "Aberto",
     criado_por: user.id,
+    gang_id: gid(user),
   });
   if (error) throw new Error(error.message);
 
@@ -722,6 +732,7 @@ async function requireDonoTreino(user: SessionUser, treinoId: number) {
   const { data, error } = await db
     .from("treinos")
     .select("id_treino, descricao, data_treino, horario, criado_por, status")
+    .eq("gang_id", gid(user))
     .eq("id_treino", treinoId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -743,7 +754,11 @@ export async function deletarTreino(user: SessionUser, input: { treinoId: number
   assert(podeGerenciarTreinos(user));
   await requireDonoTreino(user, input.treinoId);
   const db = getDb();
-  const { error } = await db.from("treinos").delete().eq("id_treino", input.treinoId);
+  const { error } = await db
+    .from("treinos")
+    .delete()
+    .eq("gang_id", gid(user))
+    .eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -755,6 +770,7 @@ export async function encerrarTreino(user: SessionUser, input: { treinoId: numbe
   const { error } = await db
     .from("treinos")
     .update({ status: "Encerrado" })
+    .eq("gang_id", gid(user))
     .eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -777,6 +793,7 @@ export async function adiarTreino(
       horario: input.horario || null,
       descricao: `${limpa ? `${limpa}\n` : ""}${marca}`,
     })
+    .eq("gang_id", gid(user))
     .eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -784,9 +801,11 @@ export async function adiarTreino(
 
 export async function inscreverSe(user: SessionUser, input: { treinoId: number }) {
   const db = getDb();
+  const g = gid(user);
   const { data: treino } = await db
     .from("treinos")
     .select("status")
+    .eq("gang_id", g)
     .eq("id_treino", input.treinoId)
     .maybeSingle();
   if (treino && treino.status && treino.status !== "Aberto") {
@@ -798,6 +817,7 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
   const { data: existente, error: errSel } = await db
     .from("presencas_treino")
     .select("membro_id")
+    .eq("gang_id", g)
     .eq("treino_id", input.treinoId)
     .eq("membro_id", user.id)
     .maybeSingle();
@@ -807,6 +827,7 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
     const { error } = await db
       .from("presencas_treino")
       .update({ inscricao: "Confirmado" })
+      .eq("gang_id", g)
       .eq("treino_id", input.treinoId)
       .eq("membro_id", user.id);
     if (error) throw new Error(error.message);
@@ -818,6 +839,7 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
     membro_id: user.id,
     inscricao: "Confirmado",
     presenca: "Pendente",
+    gang_id: g,
   });
   if (error) throw new Error(error.message);
   return { ok: true };
@@ -828,6 +850,7 @@ export async function ausentarSe(user: SessionUser, input: { treinoId: number })
   const { error } = await db
     .from("presencas_treino")
     .delete()
+    .eq("gang_id", gid(user))
     .eq("treino_id", input.treinoId)
     .eq("membro_id", user.id);
   if (error) throw new Error(error.message);
@@ -844,6 +867,7 @@ export async function atualizarPresenca(
   const { error } = await db
     .from("presencas_treino")
     .update({ presenca: input.presenca })
+    .eq("gang_id", gid(user))
     .eq("treino_id", input.treinoId)
     .eq("membro_id", input.membroId);
   if (error) throw new Error(error.message);
@@ -858,6 +882,7 @@ export async function minhaInscricao(
   const { data, error } = await db
     .from("presencas_treino")
     .select("inscricao")
+    .eq("gang_id", gid(user))
     .eq("treino_id", input.treinoId)
     .eq("membro_id", user.id)
     .maybeSingle();
