@@ -17,6 +17,7 @@ import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as TreinosRouteImport } from './routes/treinos'
 import { Route as ApiPublicAuthLogoutRouteImport } from './routes/api/public/auth/logout'
+import { Route as ApiPublicGangsSelecionarRouteImport } from './routes/api/public/gangs/selecionar'
 import { Route as ApiPublicAuthDiscordCallbackRouteImport } from './routes/api/public/auth/discord/callback'
 import { Route as ApiPublicAuthDiscordLoginRouteImport } from './routes/api/public/auth/discord/login'
 
@@ -60,6 +61,12 @@ const ApiPublicAuthLogoutRoute = ApiPublicAuthLogoutRouteImport.update({
   path: '/api/public/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGangsSelecionarRoute =
+  ApiPublicGangsSelecionarRouteImport.update({
+    id: '/api/public/gangs/selecionar',
+    path: '/api/public/gangs/selecionar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAuthDiscordCallbackRoute =
   ApiPublicAuthDiscordCallbackRouteImport.update({
     id: '/api/public/auth/discord/callback',
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
   '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
@@ -94,6 +102,7 @@ export interface FileRoutesByTo {
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
   '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
@@ -107,6 +116,7 @@ export interface FileRoutesById {
   '/parcerias': typeof ParceriasRoute
   '/treinos': typeof TreinosRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
+  '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
   '/api/public/auth/discord/login': typeof ApiPublicAuthDiscordLoginRoute
 }
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/parcerias'
     | '/treinos'
     | '/api/public/auth/logout'
+    | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
     | '/api/public/auth/discord/login'
   fileRoutesByTo: FileRoutesByTo
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/parcerias'
     | '/treinos'
     | '/api/public/auth/logout'
+    | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
     | '/api/public/auth/discord/login'
   id:
@@ -145,6 +157,7 @@ export interface FileRouteTypes {
     | '/parcerias'
     | '/treinos'
     | '/api/public/auth/logout'
+    | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
     | '/api/public/auth/discord/login'
   fileRoutesById: FileRoutesById
@@ -158,6 +171,7 @@ export interface RootRouteChildren {
   ParceriasRoute: typeof ParceriasRoute
   TreinosRoute: typeof TreinosRoute
   ApiPublicAuthLogoutRoute: typeof ApiPublicAuthLogoutRoute
+  ApiPublicGangsSelecionarRoute: typeof ApiPublicGangsSelecionarRoute
   ApiPublicAuthDiscordCallbackRoute: typeof ApiPublicAuthDiscordCallbackRoute
   ApiPublicAuthDiscordLoginRoute: typeof ApiPublicAuthDiscordLoginRoute
 }
@@ -220,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/gangs/selecionar': {
+      id: '/api/public/gangs/selecionar'
+      path: '/api/public/gangs/selecionar'
+      fullPath: '/api/public/gangs/selecionar'
+      preLoaderRoute: typeof ApiPublicGangsSelecionarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/auth/discord/callback': {
       id: '/api/public/auth/discord/callback'
       path: '/api/public/auth/discord/callback'
@@ -246,6 +267,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParceriasRoute: ParceriasRoute,
   TreinosRoute: TreinosRoute,
   ApiPublicAuthLogoutRoute: ApiPublicAuthLogoutRoute,
+  ApiPublicGangsSelecionarRoute: ApiPublicGangsSelecionarRoute,
   ApiPublicAuthDiscordCallbackRoute: ApiPublicAuthDiscordCallbackRoute,
   ApiPublicAuthDiscordLoginRoute: ApiPublicAuthDiscordLoginRoute,
 }
