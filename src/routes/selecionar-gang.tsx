@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -142,9 +142,14 @@ function SelecionarGangPage() {
         )}
 
         {sessao.data?.user?.isOwner ? (
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Você é Super Owner: todas as gangs ativas aparecem aqui.
-          </p>
+          <div className="mt-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              Você é Super Owner: todas as gangs ativas aparecem aqui.
+            </p>
+            <Button className="mt-3" asChild>
+              <Link to="/admin/gangs">+ Registrar gang</Link>
+            </Button>
+          </div>
         ) : null}
 
         <div className="mt-6 text-center">

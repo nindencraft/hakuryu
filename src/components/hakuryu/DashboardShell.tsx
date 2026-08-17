@@ -279,7 +279,13 @@ function SemGangScreen() {
   );
 }
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  permitirSemGang = false,
+}: {
+  children: ReactNode;
+  permitirSemGang?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { data, isPending } = useQuery(sessionQuery);
   const search = useRouterState({ select: (s) => s.location.search }) as { erro?: string };
@@ -299,7 +305,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
-  if (data.gangId == null) return <SemGangScreen />;
+  if (data.gangId == null && !(permitirSemGang && data.user.isOwner)) return <SemGangScreen />;
 
   const user = data.user;
 
