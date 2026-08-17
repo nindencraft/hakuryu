@@ -70,13 +70,6 @@ function badgeRelacao(relacao: RelacaoGang) {
   return <Badge variant="secondary">🟢 Neutra</Badge>;
 }
 
-const FILTROS = [
-  { chave: "todas", rotulo: "Todas" },
-  { chave: "Neutra", rotulo: "🟢 Neutras" },
-  { chave: "Aliada", rotulo: "🤝 Aliadas" },
-  { chave: "Inimiga", rotulo: "⚔️ Inimigas" },
-] as const;
-
 /* ================= Gangs registradas ================= */
 
 export function GangsRegistradas() {
@@ -84,20 +77,18 @@ export function GangsRegistradas() {
   const podeAgir = podeGerenciarParcerias(user);
   const { data, isPending, error } = useQuery(gangsRegistradasQuery);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["chave"]>("todas");
   const [selecionada, setSelecionada] = useState<GangRegistrada | null>(null);
   const [solicitando, setSolicitando] = useState<{ gang: GangRegistrada; tipo: string } | null>(
     null,
   );
 
+  // Aliadas e inimigas já aparecem nas seções de cima; aqui só ficam as neutras.
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data?.gangs ?? []).filter(
-      (g) =>
-        (filtro === "todas" || g.relacao === filtro) &&
-        (!termo || g.nome.toLowerCase().includes(termo)),
+      (g) => g.relacao === "Neutra" && (!termo || g.nome.toLowerCase().includes(termo)),
     );
-  }, [data, busca, filtro]);
+  }, [data, busca]);
 
   return (
     <section className="space-y-4" aria-labelledby="gangs-registradas">
