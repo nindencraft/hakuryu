@@ -28,9 +28,9 @@ export function MemberAttributeRadar({ atributos }: { atributos: MembroAtributos
         </Badge>
       </div>
 
-      <div className="mt-2 h-[300px] w-full">
+      <div className="mt-2 h-[210px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={dados} cx="50%" cy="50%" outerRadius="68%">
+          <RadarChart data={dados} cx="50%" cy="50%" outerRadius="72%">
             <PolarGrid stroke="rgba(180, 135, 35, 0.35)" />
             <PolarAngleAxis
               dataKey="subject"
@@ -60,7 +60,7 @@ export function MemberAttributeRadar({ atributos }: { atributos: MembroAtributos
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/60 pt-3">
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-3">
         {ATRIBUTOS_MEMBRO.map(({ chave, rotulo }) => {
           const valor = atributos[chave];
           return (
