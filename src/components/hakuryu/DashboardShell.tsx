@@ -279,7 +279,13 @@ function SemGangScreen() {
   );
 }
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  permitirSemGang = false,
+}: {
+  children: ReactNode;
+  permitirSemGang?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { data, isPending } = useQuery(sessionQuery);
   const search = useRouterState({ select: (s) => s.location.search }) as { erro?: string };
