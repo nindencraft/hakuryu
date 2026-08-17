@@ -153,7 +153,7 @@ function Aliancas() {
           title="Tabela de alianças não encontrada"
           description="Crie a tabela `parcerias` no banco da gang (colunas: id, nome, tag, contato, status, link_servidor, observacoes, data_inicio) para habilitar esta aba."
         />
-      ) : aliancas.length === 0 ? (
+      ) : aliancas.length === 0 && diploAliadas.length === 0 && diploInimigas.length === 0 ? (
         <EmptyState
           title="Nenhuma gang cadastrada"
           description="Adicione a primeira gang aliada ou inimiga usando o link do servidor dela."
@@ -162,17 +162,20 @@ function Aliancas() {
         <div className="space-y-10">
           {(
             [
-              { titulo: "Gangs aliadas", kanji: "同盟", lista: aliadas },
-              { titulo: "Gangs inimigas", kanji: "敵", lista: inimigas },
+              { titulo: "Gangs aliadas", kanji: "同盟", lista: aliadas, diplo: diploAliadas },
+              { titulo: "Gangs inimigas", kanji: "敵", lista: inimigas, diplo: diploInimigas },
             ] as const
           ).map((secao) =>
-            secao.lista.length === 0 ? null : (
+            secao.lista.length === 0 && secao.diplo.length === 0 ? null : (
               <section key={secao.titulo} className="space-y-3">
                 <h2 className="font-display text-lg text-muted-foreground">
                   <span className="font-jp mr-2 text-primary">{secao.kanji}</span>
                   {secao.titulo}
                 </h2>
                 <ul className="grid gap-4 lg:grid-cols-2">
+                  {secao.diplo.map((g) => (
+                    <GangDiplomaticaCard key={`diplo-${g.id}`} gang={g} />
+                  ))}
                   {secao.lista.map((p) => (
                     <AliancaCard
                       key={p.id}
