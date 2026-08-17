@@ -564,7 +564,7 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
 
   const outra = sol.gang_origem_id === minha ? sol.gang_destino_id : sol.gang_origem_id;
   await limparRelacao(minha, outra);
-  return { ok: true };
+  return { ok: true, encerrada: true };
 }
 
 export async function cancelarSolicitacao(user: SessionUser, input: { id: number }) {
