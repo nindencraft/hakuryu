@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Handshake, Search, Swords, Dumbbell, ChevronDown } from "lucide-react";
 
-import { EmptyState } from "@/components/hakuryu/ui-bits";
+import { EmptyState, MemberAvatar } from "@/components/hakuryu/ui-bits";
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,13 +67,45 @@ export function GangAvatar({
 /** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
 export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
   return (
-    <li className="card-gold flex items-center gap-4 p-5">
-      <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
-      <div className="min-w-0 flex-1">
-        <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
-        <p className="text-sm text-muted-foreground">👥 {gang.membros} membros</p>
+    <li className="card-gold flex flex-col gap-3 p-5">
+      <div className="flex items-start gap-4">
+        <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
+          <p className="text-sm text-muted-foreground">
+            {gang.desde ? `Desde ${formatarData(gang.desde)}` : `👥 ${gang.membros} membros`}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {badgeRelacao(gang.relacao)}
+            <Badge variant="outline" className="border-primary/40">
+              👥 {gang.membros} membros
+            </Badge>
+          </div>
+        </div>
       </div>
-      {badgeRelacao(gang.relacao)}
+
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted-foreground uppercase">Representante</dt>
+          <dd className="mt-1 flex items-center gap-2">
+            {gang.representante_id ? (
+              <MemberAvatar
+                discordId={gang.representante_id}
+                avatarHash={gang.representante_avatar}
+                size={28}
+                alt={`Avatar de ${gang.representante_nome ?? gang.representante_id}`}
+              />
+            ) : null}
+            <span className="truncate">{gang.representante_nome || "—"}</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground uppercase">
+            {gang.relacao === "Inimiga" ? "Guerra aceita por" : "Aliança fechada por"}
+          </dt>
+          <dd className="mt-1 truncate">{gang.fechado_por_nome ?? "—"}</dd>
+        </div>
+      </dl>
     </li>
   );
 }
@@ -239,6 +271,7 @@ function SolicitacaoDialog({
   const [local, setLocal] = useState("");
   const [nos, setNos] = useState("");
   const [eles, setEles] = useState("");
+  const [representante, setRepresentante] = useState("");
 
   const acao = useAcao<{
     gangId: number;
@@ -249,6 +282,7 @@ function SolicitacaoDialog({
     local: string;
     membros_origem: string;
     membros_destino: string;
+    representante_id: string;
   }>(criarSolicitacao, {
     sucesso: "Solicitação enviada.",
     invalidar: [["gangs-registradas"], ["solicitacoes"]],
@@ -276,6 +310,7 @@ function SolicitacaoDialog({
           setLocal("");
           setNos("");
           setEles("");
+          setRepresentante("");
         }
       }}
     >
@@ -288,6 +323,22 @@ function SolicitacaoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="representante">
+              ID do representante no Discord{tipo === "Alianca" ? "" : " (opcional)"}
+            </Label>
+            <Input
+              id="representante"
+              inputMode="numeric"
+              placeholder="123456789012345678"
+              value={representante}
+              onChange={(e) => setRepresentante(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Pessoa da sua gang responsável por esse contato — aparece no card da gang.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="motivo">Motivo</Label>
             <Textarea
@@ -345,7 +396,7 @@ function SolicitacaoDialog({
             Cancelar
           </Button>
           <Button
-            disabled={acao.isPending}
+            disabled={acao.isPending || (tipo === "Alianca" && !representante.trim())}
             onClick={() => {
               if (!valor) return;
               acao.mutate({
@@ -357,6 +408,7 @@ function SolicitacaoDialog({
                 local,
                 membros_origem: nos,
                 membros_destino: eles,
+                representante_id: representante,
               });
             }}
           >

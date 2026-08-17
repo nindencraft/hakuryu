@@ -76,3 +76,13 @@ ALTER TABLE public.gang_solicitacoes
   ADD COLUMN IF NOT EXISTS encerrar_destino BOOLEAN NOT NULL DEFAULT false;
 
 NOTIFY pgrst, 'reload schema';
+
+-- Representante indicado na solicitação (aparece no card da gang aliada/inimiga).
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS representante_id TEXT;
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS representante_nome TEXT;
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS representante_avatar TEXT;
+
+NOTIFY pgrst, 'reload schema';

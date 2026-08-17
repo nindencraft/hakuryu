@@ -146,17 +146,45 @@ export async function listarGangsRegistradas(
     contagem.set(m.gang_id, (contagem.get(m.gang_id) ?? 0) + 1);
   }
 
+  // Solicitação aceita que originou cada relação (representante, datas, quem fechou).
+  const acordo = new Map<number, SolicitacaoLinha>();
+  if (relacaoDe.size > 0) {
+    const { data: aceitas } = await db
+      .from("gang_solicitacoes")
+      .select("*")
+      .eq("status", "Aceita")
+      .in("tipo", ["Alianca", "Guerra"])
+      .or(`gang_origem_id.eq.${minha},gang_destino_id.eq.${minha}`)
+      .order("respondido_em", { ascending: false });
+    for (const s of (aceitas ?? []) as SolicitacaoLinha[]) {
+      const outra = s.gang_origem_id === minha ? s.gang_destino_id : s.gang_origem_id;
+      const esperado = relacaoDe.get(outra) === "Aliada" ? "Alianca" : "Guerra";
+      if (s.tipo !== esperado) continue;
+      if (!acordo.has(outra)) acordo.set(outra, s);
+    }
+  }
+
   const gangs = todas
     .filter((g) => g.id !== minha)
-    .map<GangRegistrada>((g) => ({
-      id: g.id,
-      nome: g.nome,
-      guild_id: g.guild_id,
-      icon_hash: icones.get(g.guild_id) ?? null,
-      membros: contagem.get(g.id) ?? 0,
-      relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
-      pendencias: pendentes.get(g.id) ?? [],
-    }));
+    .map<GangRegistrada>((g) => {
+      const a = acordo.get(g.id);
+      return {
+        id: g.id,
+        nome: g.nome,
+        guild_id: g.guild_id,
+        icon_hash: icones.get(g.guild_id) ?? null,
+        membros: contagem.get(g.id) ?? 0,
+        relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
+        pendencias: pendentes.get(g.id) ?? [],
+        desde: a?.respondido_em ?? a?.criado_em ?? null,
+        representante_id: a?.representante_id ?? null,
+        representante_nome: a?.representante_nome ?? null,
+        representante_avatar: a?.representante_avatar ?? null,
+        solicitado_por_nome: a?.criado_por_nome ?? null,
+        fechado_por_nome: a?.respondido_por_nome ?? null,
+      };
+    });
+
 
   return { gangs, tabelaAusente };
 }
@@ -181,6 +209,9 @@ type SolicitacaoLinha = {
   criado_em: string | null;
   encerrar_origem?: boolean | null;
   encerrar_destino?: boolean | null;
+  representante_id?: string | null;
+  representante_nome?: string | null;
+  representante_avatar?: string | null;
 };
 
 export async function listarSolicitacoes(
@@ -220,6 +251,9 @@ export async function listarSolicitacoes(
       respondido_por_nome: s.respondido_por_nome,
       respondido_em: s.respondido_em,
       criado_em: s.criado_em,
+      representante_id: s.representante_id ?? null,
+      representante_nome: s.representante_nome ?? null,
+      representante_avatar: s.representante_avatar ?? null,
       direcao: souOrigem ? "enviada" : "recebida",
       gang: {
         id: outraId,
@@ -295,6 +329,7 @@ export type NovaSolicitacao = {
   local: string;
   membros_origem: string;
   membros_destino: string;
+  representante_id?: string;
 };
 
 export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao) {
@@ -343,6 +378,21 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
     return Number.isFinite(n) && n > 0 ? n : null;
   };
 
+  let rep: { id: string; nome: string; avatar: string | null } | null = null;
+  const repId = (input.representante_id ?? "").trim().replace(/\D/g, "");
+  if (input.tipo === "Alianca" && !repId) {
+    throw new Error("Informe o ID do representante da aliança.");
+  }
+  if (repId) {
+    const { fetchUsuarioDiscord } = await import("./discord.server");
+    const u = await fetchUsuarioDiscord(repId);
+    rep = {
+      id: repId,
+      nome: u ? (u.globalName || u.username) : repId,
+      avatar: u?.avatarHash ?? null,
+    };
+  }
+
   const { error } = await db.from("gang_solicitacoes").insert({
     gang_origem_id: minha,
     gang_destino_id: input.gangId,
@@ -356,6 +406,13 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
     membros_destino: numero(input.membros_destino),
     criado_por: user.id,
     criado_por_nome: nomeUsuario(user),
+    ...(rep
+      ? {
+          representante_id: rep.id,
+          representante_nome: rep.nome,
+          representante_avatar: rep.avatar,
+        }
+      : {}),
   });
   if (error) throw new Error(error.message);
 
@@ -578,5 +635,31 @@ export async function cancelarSolicitacao(user: SessionUser, input: { id: number
     .eq("gang_origem_id", minha)
     .eq("status", "Pendente");
   if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Apaga uma solicitação do histórico da minha gang (guerras ativas não podem sumir). */
+export async function excluirSolicitacao(user: SessionUser, input: { id: number }) {
+  assert(podeGerenciarParcerias(user));
+  const db = getDb();
+  const minha = gid(user);
+
+  const { data, error } = await db
+    .from("gang_solicitacoes")
+    .select("id, tipo, status, gang_origem_id, gang_destino_id")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const sol = data as SolicitacaoLinha | null;
+  if (!sol) return { ok: true };
+  if (sol.gang_origem_id !== minha && sol.gang_destino_id !== minha) {
+    throw new Error("Esta solicitação não é da sua gang.");
+  }
+  if (sol.tipo === "Guerra" && sol.status === "Aceita") {
+    throw new Error("Encerre a guerra antes de apagar o registro.");
+  }
+
+  const { error: delErr } = await db.from("gang_solicitacoes").delete().eq("id", sol.id);
+  if (delErr) throw new Error(delErr.message);
   return { ok: true };
 }

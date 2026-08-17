@@ -202,6 +202,12 @@ export type GangRegistrada = {
   membros: number;
   relacao: RelacaoGang;
   pendencias: { tipo: string; direcao: "enviada" | "recebida" }[];
+  desde: string | null;
+  representante_id: string | null;
+  representante_nome: string | null;
+  representante_avatar: string | null;
+  solicitado_por_nome: string | null;
+  fechado_por_nome: string | null;
 };
 
 export type SolicitacaoGang = {
@@ -219,6 +225,9 @@ export type SolicitacaoGang = {
   respondido_por_nome: string | null;
   respondido_em: string | null;
   criado_em: string | null;
+  representante_id: string | null;
+  representante_nome: string | null;
+  representante_avatar: string | null;
   direcao: "enviada" | "recebida";
   gang: { id: number; nome: string; guild_id: string | null; icon_hash: string | null };
 };
