@@ -185,6 +185,52 @@ export async function gangAtivaLegado(): Promise<Gang | null> {
   return gangPorGuildId(guildId);
 }
 
+/**
+ * Lê uma configuração no escopo da gang, com recuo para a configuração global
+ * antiga (dashboard_config) enquanto a migração não termina.
+ */
+export async function lerConfigEscopo(
+  gangId: number | null,
+  chave: string,
+): Promise<string | null> {
+  if (gangId != null) {
+    const daGang = await lerConfigGang(gangId, chave);
+    if (daGang) return daGang;
+  }
+  return lerConfig(chave);
+}
+
+/** Salva várias configurações de uma gang de uma vez. */
+export async function salvarConfiguracoesDaGang(
+  gangId: number,
+  valores: Record<string, string>,
+): Promise<void> {
+  const db = getDb();
+
+  const linhas = Object.entries(valores).map(([chave, valor]) => ({
+    gang_id: gangId,
+    chave,
+    valor: (valor ?? "").trim() || null,
+    atualizado_em: new Date().toISOString(),
+  }));
+
+  if (linhas.length === 0) return;
+
+  const { error } = await db
+    .from(TABELA_GANG_CONFIG)
+    .upsert(linhas, { onConflict: "gang_id,chave" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Guild Discord de uma gang. */
+export async function guildIdDaGang(gangId: number): Promise<string> {
+  const gang = await gangPorId(gangId);
+  return (gang?.guild_id ?? "").replace(/\D/g, "");
+}
+
 export function chaveCargo(nome: string): string {
   return `cargo_id:${nome}`;
 }
