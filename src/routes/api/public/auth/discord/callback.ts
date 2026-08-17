@@ -147,7 +147,7 @@ export const Route = createFileRoute(
          * 4. VERIFICA SE É SUPER OWNER
          * ===================================================== */
 
-        const { ehDono } =
+        const { ehDono, ehSuperOwner } =
           await import("@/lib/settings.server");
 
         let isOwner =
@@ -418,6 +418,8 @@ export const Route = createFileRoute(
           roles: roleNames,
 
           isOwner,
+
+          isSuperOwner: ehSuperOwner(discordUser.id),
 
           nomeRp,
 
