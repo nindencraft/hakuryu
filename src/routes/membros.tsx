@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, History, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
+import { MemberAttributeRadar } from "@/components/hakuryu/MemberAttributeRadar";
 import {
   EmptyState,
   GoldRule,
@@ -47,6 +48,8 @@ import {
   advertirMembro,
   alterarStatusMembro,
   fetchHistorico,
+  fetchHistoricoAtributos,
+  salvarAtributosMembro,
   atualizarMeusDados,
   removerMembro,
   revogarPunicao,
@@ -56,13 +59,14 @@ import {
   cargosAtribuiveis,
   podeAdvertir,
   podeGerenciarMembros,
+  podeAvaliarAtributos,
   podeRevogarPunicao,
   podeVerRegistroPunicoes,
   parseCargos,
   rotuloCargo,
 } from "@/lib/permissions";
-import { TIPO_PUNICAO_OPCOES } from "@/lib/types";
-import type { Membro, Punicao } from "@/lib/types";
+import { ATRIBUTOS_MEMBRO, NIVEIS_ATRIBUTO, TIPO_PUNICAO_OPCOES, type AtributosMembroValores } from "@/lib/types";
+import type { HistoricoAtributosMembro, Membro, MembroAtributos, Punicao } from "@/lib/types";
 
 const TODOS = "__todos__";
 const STATUS_OPCOES = ["Ativo", "Inativo", "Afastado", "Em Analise"];
@@ -112,8 +116,16 @@ function Membros() {
   const [historico, setHistorico] = useState<Membro | null>(null);
   const [removendo, setRemovendo] = useState<Membro | null>(null);
   const [editando, setEditando] = useState<Membro | null>(null);
+  const [avaliando, setAvaliando] = useState<Membro | null>(null);
+  const [historicoAtributos, setHistoricoAtributos] = useState<Membro | null>(null);
 
   const membros = data ?? [];
+  const minhaDivisaoId = membros.find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
+  const podeEditarAtributos = (membro: Membro) =>
+    podeAvaliarAtributos(user, membro.divisao_id, minhaDivisaoId);
+  const podeVerHistoricoAtributos = (membro: Membro) =>
+    membro.discord_id === user?.id || podeEditarAtributos(membro);
+
   const cargos = useMemo(
     () => Array.from(new Set(membros.flatMap((m) => parseCargos(m.cargo)))).sort(),
     [membros],
@@ -187,46 +199,64 @@ function Membros() {
                 {expandido ? (
                   <>
                     <GoldRule className="my-4" />
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <Info label="Gênero" value={m.genero ?? "—"} />
-                      <Info
-                        label="Altura"
-                        value={m.altura_jogo != null ? `${m.altura_jogo}` : "—"}
-                      />
-                      <Info label="Estilo de luta" value={m.estilo_luta_principal ?? "—"} />
-                      <Info label="Status" value={m.status} />
-                      <Info label="Entrada" value={formatarData(m.data_entrada)} />
-                      <Info
-                        label="Participações"
-                        value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
-                      />
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        {m.discord_id === user?.id || podeGerenciar ? (
-                          <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
-                            Editar dados
-                          </Button>
-                        ) : null}
-                        {podePunir ? (
-                          <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
-                            Advertir
-                          </Button>
-                        ) : null}
-                        {podeTrocarCargo ? (
-                          <Button size="sm" variant="outline" onClick={() => setTrocando(m)}>
-                            Trocar cargo
-                          </Button>
-                        ) : null}
-                        {podeVerRegistro ? (
-                          <Button size="sm" variant="ghost" onClick={() => setHistorico(m)}>
-                            Histórico
-                          </Button>
-                        ) : null}
-                        {podeGerenciar ? (
-                          <Button size="sm" variant="ghost" onClick={() => setRemovendo(m)}>
-                            Remover
-                          </Button>
-                        ) : null}
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+                      <div>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          <Info label="Gênero" value={m.genero ?? "—"} />
+                          <Info
+                            label="Altura"
+                            value={m.altura_jogo != null ? `${m.altura_jogo}` : "—"}
+                          />
+                          <Info label="Estilo de luta" value={m.estilo_luta_principal ?? "—"} />
+                          <Info label="Status" value={m.status} />
+                          <Info label="Entrada" value={formatarData(m.data_entrada)} />
+                          <Info
+                            label="Participações"
+                            value={`${m.stats.internos} internos · ${m.stats.amistosos} amistosos · ${m.stats.guerras} guerras`}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {m.discord_id === user?.id || podeGerenciar ? (
+                            <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
+                              Editar dados
+                            </Button>
+                          ) : null}
+                          {podeEditarAtributos(m) ? (
+                            <Button size="sm" variant="outline" onClick={() => setAvaliando(m)}>
+                              <SlidersHorizontal />
+                              Avaliar atributos
+                            </Button>
+                          ) : null}
+                          {podeVerHistoricoAtributos(m) ? (
+                            <Button size="sm" variant="ghost" onClick={() => setHistoricoAtributos(m)}>
+                              <History />
+                              Histórico de atributos
+                            </Button>
+                          ) : null}
+                          {podePunir ? (
+                            <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
+                              Advertir
+                            </Button>
+                          ) : null}
+                          {podeTrocarCargo ? (
+                            <Button size="sm" variant="outline" onClick={() => setTrocando(m)}>
+                              Trocar cargo
+                            </Button>
+                          ) : null}
+                          {podeVerRegistro ? (
+                            <Button size="sm" variant="ghost" onClick={() => setHistorico(m)}>
+                              Histórico de punições
+                            </Button>
+                          ) : null}
+                          {podeGerenciar ? (
+                            <Button size="sm" variant="ghost" onClick={() => setRemovendo(m)}>
+                              Remover
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <MemberAttributeRadar atributos={m.atributos} />
                     </div>
                   </>
                 ) : null}
@@ -294,6 +324,8 @@ function Membros() {
       )}
 
       <EditarDadosDialog membro={editando} onClose={() => setEditando(null)} />
+      <AtributosDialog membro={avaliando} onClose={() => setAvaliando(null)} />
+      <HistoricoAtributosDialog membro={historicoAtributos} onClose={() => setHistoricoAtributos(null)} />
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
       <TrocarCargoDialog membro={trocando} onClose={() => setTrocando(null)} />
       <HistoricoDialog membro={historico} onClose={() => setHistorico(null)} />
@@ -449,6 +481,156 @@ function EditarDadosDialog({ membro, onClose }: { membro: Membro | null; onClose
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AtributosDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const [valores, setValores] = useState<AtributosMembroValores>({
+    movimentacao: 3,
+    parry: 3,
+    reacao: 3,
+    ofensiva: 3,
+    defensiva: 3,
+    nocao_jogo: 3,
+  });
+
+  useEffect(() => {
+    if (!membro) return;
+    setValores({
+      movimentacao: membro.atributos.movimentacao,
+      parry: membro.atributos.parry,
+      reacao: membro.atributos.reacao,
+      ofensiva: membro.atributos.ofensiva,
+      defensiva: membro.atributos.defensiva,
+      nocao_jogo: membro.atributos.nocao_jogo,
+    });
+  }, [membro]);
+
+  const acao = useAcao<{ membroId: string; valores: AtributosMembroValores }>(salvarAtributosMembro, {
+    sucesso: "Atributos atualizados.",
+    invalidar: [["membros"]],
+    aoConcluir: onClose,
+  });
+
+  return (
+    <Dialog open={!!membro} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Avaliação de atributos</DialogTitle>
+          <DialogDescription>
+            Avalie o desempenho de {membro?.nome_rp || membro?.discord_username} nas lutas de Gakuran.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {ATRIBUTOS_MEMBRO.map(({ chave, rotulo }) => (
+            <div key={chave} className="space-y-2">
+              <Label>{rotulo}</Label>
+              <Select
+                value={String(valores[chave])}
+                onValueChange={(valor) =>
+                  setValores((atual) => ({ ...atual, [chave]: Number(valor) }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {NIVEIS_ATRIBUTO.map((nivel) => (
+                    <SelectItem key={nivel.valor} value={String(nivel.valor)}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: nivel.cor }} />
+                        {nivel.rotulo}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-lg border border-primary/20 bg-muted/30 p-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">Escala:</strong> Muito ruim → Ruim → Razoável → Bom → Muito bom.
+          Cada nível vai do vermelho ao verde.
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={acao.isPending}
+            onClick={() => membro && acao.mutate({ membroId: membro.discord_id, valores })}
+          >
+            Salvar avaliação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HistoricoAtributosDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const { data, isPending, error } = useQuery({
+    queryKey: ["historico-atributos", membro?.discord_id],
+    queryFn: () => fetchHistoricoAtributos({ data: { membroId: membro!.discord_id } }),
+    enabled: !!membro,
+  });
+
+  return (
+    <Dialog open={!!membro} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Histórico de atributos</DialogTitle>
+          <DialogDescription>
+            Evolução das avaliações de {membro?.nome_rp || membro?.discord_username}.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isPending ? (
+          <Skeleton className="h-28" />
+        ) : error ? (
+          <EmptyState title="Não foi possível carregar o histórico" description={error.message} />
+        ) : data?.length ? (
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {data.map((item) => (
+              <HistoricoAtributoItem key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Nenhuma avaliação registrada" description="A primeira avaliação aparecerá aqui quando os atributos forem definidos." />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HistoricoAtributoItem({ item }: { item: HistoricoAtributosMembro }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-foreground">
+          {item.avaliado_em ? formatarData(item.avaliado_em) : "Data desconhecida"}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          Avaliado por {item.avaliado_por_nome ?? item.avaliado_por ?? "—"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {ATRIBUTOS_MEMBRO.map(({ chave, rotulo }) => {
+          const nivel = NIVEIS_ATRIBUTO.find((n) => n.valor === item[chave]);
+          return (
+            <div key={chave} className="flex items-center justify-between rounded-md border border-border/70 px-2 py-1.5 text-xs">
+              <span className="text-muted-foreground">{rotulo}</span>
+              <span className="font-semibold" style={{ color: nivel?.cor }}>
+                {nivel?.rotulo ?? `${item[chave]}/5`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

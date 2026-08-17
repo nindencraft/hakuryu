@@ -1,0 +1,310 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.membros (
+  discord_id character varying NOT NULL,
+  nome_roblox character varying NOT NULL,
+  nome_rp character varying,
+  genero character varying CHECK (genero::text = ANY (ARRAY['Masculino'::character varying, 'Feminino'::character varying, 'Outro'::character varying]::text[])),
+  altura_jogo numeric CHECK (altura_jogo > 0::numeric AND altura_jogo < 3.0),
+  estilo_luta_principal character varying,
+  cargo character varying NOT NULL DEFAULT 'Recruta'::character varying,
+  status character varying NOT NULL DEFAULT 'Ativo'::character varying CHECK (status::text = ANY (ARRAY['Ativo'::character varying, 'Inativo'::character varying, 'Suspenso'::character varying, 'Banido'::character varying]::text[])),
+  data_entrada date NOT NULL DEFAULT CURRENT_DATE,
+  observacoes text,
+  pontos_fortes_gerais text,
+  pontos_fracos_gerais text,
+  discord_username character varying,
+  avatar_hash character varying,
+  roblox_user_id bigint,
+  divisao_id integer,
+  gang_id bigint NOT NULL,
+  CONSTRAINT membros_pkey PRIMARY KEY (discord_id, gang_id),
+  CONSTRAINT membros_divisao_gang_fkey FOREIGN KEY (divisao_id) REFERENCES public.divisoes(id),
+  CONSTRAINT membros_divisao_gang_fkey FOREIGN KEY (gang_id) REFERENCES public.divisoes(gang_id),
+  CONSTRAINT membros_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.avaliacoes_treino (
+  id_avaliacao integer NOT NULL DEFAULT nextval('avaliacoes_treino_id_avaliacao_seq'::regclass),
+  avaliador_id character varying NOT NULL,
+  membro_avaliado_id character varying NOT NULL,
+  data_treino date NOT NULL,
+  tipo_treino character varying CHECK (tipo_treino::text = ANY (ARRAY['Interno'::character varying, 'Amistoso'::character varying, 'Guerra'::character varying]::text[])),
+  pontos_fortes_observados text,
+  pontos_fracos_observados text,
+  nota_geral integer CHECK (nota_geral >= 1 AND nota_geral <= 5),
+  comentarios text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT avaliacoes_treino_pkey PRIMARY KEY (id_avaliacao),
+  CONSTRAINT avaliacoes_treino_avaliador_membro_fkey FOREIGN KEY (avaliador_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT avaliacoes_treino_avaliador_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT avaliacoes_treino_avaliado_membro_fkey FOREIGN KEY (membro_avaliado_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT avaliacoes_treino_avaliado_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT avaliacoes_treino_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.avaliacoes_lideranca (
+  id_avaliacao_lider integer NOT NULL DEFAULT nextval('avaliacoes_lideranca_id_avaliacao_lider_seq'::regclass),
+  avaliador_id character varying NOT NULL,
+  lider_avaliado_id character varying NOT NULL,
+  data date NOT NULL DEFAULT CURRENT_DATE,
+  competencia_comunicacao integer CHECK (competencia_comunicacao >= 1 AND competencia_comunicacao <= 5),
+  competencia_estrategia integer CHECK (competencia_estrategia >= 1 AND competencia_estrategia <= 5),
+  competencia_lideranca integer CHECK (competencia_lideranca >= 1 AND competencia_lideranca <= 5),
+  comentario text,
+  anonimo boolean NOT NULL DEFAULT true,
+  gang_id bigint NOT NULL,
+  CONSTRAINT avaliacoes_lideranca_pkey PRIMARY KEY (id_avaliacao_lider),
+  CONSTRAINT avaliacoes_lideranca_avaliador_membro_fkey FOREIGN KEY (avaliador_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT avaliacoes_lideranca_avaliador_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT avaliacoes_lideranca_lider_membro_fkey FOREIGN KEY (lider_avaliado_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT avaliacoes_lideranca_lider_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT avaliacoes_lideranca_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.votos_recrutamento (
+  id_voto integer NOT NULL DEFAULT nextval('votos_recrutamento_id_voto_seq'::regclass),
+  candidato_id character varying NOT NULL,
+  recrutador_id character varying NOT NULL,
+  decisao boolean NOT NULL,
+  justificativa text,
+  data_voto timestamp without time zone NOT NULL DEFAULT now(),
+  gang_id bigint NOT NULL,
+  CONSTRAINT votos_recrutamento_pkey PRIMARY KEY (id_voto),
+  CONSTRAINT votos_recrutamento_candidato_membro_fkey FOREIGN KEY (candidato_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT votos_recrutamento_candidato_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT votos_recrutamento_recrutador_membro_fkey FOREIGN KEY (recrutador_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT votos_recrutamento_recrutador_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT votos_recrutamento_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.punicoes (
+  id_punicao integer NOT NULL DEFAULT nextval('punicoes_id_punicao_seq'::regclass),
+  membro_id character varying NOT NULL,
+  tipo character varying NOT NULL CHECK (tipo::text = ANY (ARRAY['Warn'::character varying, 'Mute'::character varying, 'Kick'::character varying, 'Ban'::character varying]::text[])),
+  motivo text NOT NULL,
+  prova text,
+  data_aplicacao timestamp without time zone NOT NULL DEFAULT now(),
+  staff_id character varying,
+  expira_em timestamp without time zone,
+  gang_id bigint NOT NULL,
+  CONSTRAINT punicoes_pkey PRIMARY KEY (id_punicao),
+  CONSTRAINT punicoes_membro_fkey FOREIGN KEY (membro_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT punicoes_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT punicoes_staff_fkey FOREIGN KEY (staff_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT punicoes_staff_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT punicoes_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.parcerias (
+  id_parceria integer NOT NULL DEFAULT nextval('parcerias_id_parceria_seq'::regclass),
+  nome_gang character varying,
+  lider_contato character varying,
+  discord_server_id character varying,
+  server_icon_url text,
+  convite_url text,
+  status character varying NOT NULL DEFAULT 'Ativa'::character varying CHECK (status::text = ANY (ARRAY['Ativa'::character varying, 'Em negociação'::character varying, 'Pausada'::character varying, 'Encerrada'::character varying]::text[])),
+  data_parceria date NOT NULL DEFAULT CURRENT_DATE,
+  termos text,
+  representante_nossa_gang character varying,
+  contato text,
+  data_inicio date,
+  icon_hash text,
+  representante_id text,
+  representante_nome text,
+  representante_avatar text,
+  fechado_por text,
+  fechado_por_nome text,
+  link_servidor text,
+  nome text NOT NULL DEFAULT ''::text,
+  tag text,
+  observacoes text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT parcerias_pkey PRIMARY KEY (id_parceria),
+  CONSTRAINT parcerias_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.treinos_internos (
+  id_treino integer NOT NULL DEFAULT nextval('treinos_internos_id_treino_seq'::regclass),
+  data_treino date NOT NULL,
+  tipo character varying NOT NULL,
+  divisao_responsavel character varying,
+  participantes_ids text,
+  resultado_notas text,
+  instrutor_id character varying,
+  gang_id bigint NOT NULL,
+  CONSTRAINT treinos_internos_pkey PRIMARY KEY (id_treino),
+  CONSTRAINT treinos_internos_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.treinos_amistosos (
+  id_amistoso integer NOT NULL DEFAULT nextval('treinos_amistosos_id_amistoso_seq'::regclass),
+  gang_adversaria character varying NOT NULL,
+  data date NOT NULL,
+  modalidade character varying,
+  vencedor character varying CHECK (vencedor::text = ANY (ARRAY['Nós'::character varying, 'Eles'::character varying, 'Empate'::character varying]::text[])),
+  placar_detalhes text,
+  participantes_nossos text,
+  observacoes text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT treinos_amistosos_pkey PRIMARY KEY (id_amistoso),
+  CONSTRAINT treinos_amistosos_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.guerras (
+  id_guerra integer NOT NULL DEFAULT nextval('guerras_id_guerra_seq'::regclass),
+  gang_inimiga character varying NOT NULL,
+  data_inicio date NOT NULL,
+  data_fim date,
+  status character varying NOT NULL DEFAULT 'Ativa'::character varying CHECK (status::text = ANY (ARRAY['Ativa'::character varying, 'Pausada'::character varying, 'Encerrada'::character varying]::text[])),
+  motivo text,
+  saldo_vitorias_derrotas character varying,
+  historico_batalhas text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT guerras_pkey PRIMARY KEY (id_guerra),
+  CONSTRAINT guerras_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.inimigos (
+  id_inimigo integer NOT NULL DEFAULT nextval('inimigos_id_inimigo_seq'::regclass),
+  nome_gang character varying NOT NULL,
+  motivo_rivalidade text,
+  nivel_ameaca character varying CHECK (nivel_ameaca::text = ANY (ARRAY['Baixa'::character varying, 'Média'::character varying, 'Alta'::character varying]::text[])),
+  acoes_hostis_recentes text,
+  lider_contato character varying,
+  gang_id bigint NOT NULL,
+  CONSTRAINT inimigos_pkey PRIMARY KEY (id_inimigo),
+  CONSTRAINT inimigos_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.config_cargos (
+  funcao character varying NOT NULL,
+  discord_role_id character varying NOT NULL,
+  gang_id bigint NOT NULL,
+  CONSTRAINT config_cargos_pkey PRIMARY KEY (gang_id, funcao),
+  CONSTRAINT config_cargos_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.treinos (
+  id_treino integer NOT NULL DEFAULT nextval('treinos_id_treino_seq'::regclass),
+  titulo character varying NOT NULL,
+  descricao text,
+  data_treino date NOT NULL,
+  horario time without time zone,
+  tipo character varying CHECK (tipo::text = ANY (ARRAY['Interno'::character varying, 'Amistoso'::character varying, 'Obrigatório'::character varying, 'Extra'::character varying]::text[])),
+  local character varying,
+  divisao_responsavel character varying,
+  criado_por character varying,
+  status character varying DEFAULT 'Aberto'::character varying CHECK (status::text = ANY (ARRAY['Aberto'::character varying, 'Encerrado'::character varying, 'Cancelado'::character varying]::text[])),
+  criado_em timestamp without time zone DEFAULT now(),
+  gang_id bigint NOT NULL,
+  CONSTRAINT treinos_pkey PRIMARY KEY (id_treino),
+  CONSTRAINT treinos_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.presencas_treino (
+  id_presenca integer NOT NULL DEFAULT nextval('presencas_treino_id_presenca_seq'::regclass),
+  treino_id integer,
+  membro_id character varying,
+  inscricao character varying DEFAULT 'Pendente'::character varying CHECK (inscricao::text = ANY (ARRAY['Confirmado'::character varying, 'Recusado'::character varying, 'Pendente'::character varying]::text[])),
+  presenca character varying DEFAULT 'Pendente'::character varying CHECK (presenca::text = ANY (ARRAY['Presente'::character varying, 'Ausente'::character varying, 'Justificado'::character varying, 'Pendente'::character varying]::text[])),
+  comentario text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT presencas_treino_pkey PRIMARY KEY (id_presenca),
+  CONSTRAINT presencas_treino_membro_fkey FOREIGN KEY (membro_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT presencas_treino_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT presencas_treino_treino_id_fkey FOREIGN KEY (treino_id) REFERENCES public.treinos(id_treino),
+  CONSTRAINT presencas_treino_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.participacoes_guerra (
+  id_participacao integer NOT NULL DEFAULT nextval('participacoes_guerra_id_participacao_seq'::regclass),
+  guerra_id integer NOT NULL,
+  membro_id character varying NOT NULL,
+  data_participacao date NOT NULL DEFAULT CURRENT_DATE,
+  resultado character varying CHECK (resultado::text = ANY (ARRAY['Vitória'::character varying, 'Derrota'::character varying, 'Empate'::character varying]::text[])),
+  observacoes text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT participacoes_guerra_pkey PRIMARY KEY (id_participacao),
+  CONSTRAINT participacoes_guerra_membro_fkey FOREIGN KEY (membro_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT participacoes_guerra_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT participacoes_guerra_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.divisoes (
+  id integer NOT NULL DEFAULT nextval('divisoes_id_seq'::regclass),
+  nome_divisao character varying NOT NULL,
+  logo_url text,
+  discord_role_id character varying,
+  lider_id character varying,
+  vice_lider_id character varying,
+  funcao_principal text,
+  criado_em timestamp without time zone DEFAULT now(),
+  gang_id bigint NOT NULL,
+  CONSTRAINT divisoes_pkey PRIMARY KEY (id),
+  CONSTRAINT divisoes_lider_membro_fkey FOREIGN KEY (lider_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT divisoes_lider_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT divisoes_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id),
+  CONSTRAINT divisoes_vice_lider_membro_fkey FOREIGN KEY (vice_lider_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT divisoes_vice_lider_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id)
+);
+CREATE TABLE public.dashboard_config (
+  chave text NOT NULL,
+  valor text,
+  atualizado_em timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dashboard_config_pkey PRIMARY KEY (chave)
+);
+CREATE TABLE public.logs_partidas (
+  id integer NOT NULL DEFAULT nextval('logs_partidas_id_seq'::regclass),
+  tipo text NOT NULL DEFAULT 'Amistoso'::text,
+  adversario_id integer,
+  adversario_nome text NOT NULL,
+  adversario_guild_id text,
+  adversario_icon_hash text,
+  pontos_nos integer NOT NULL DEFAULT 0,
+  pontos_eles integer NOT NULL DEFAULT 0,
+  data_partida date DEFAULT now(),
+  observacoes text,
+  criado_por text,
+  criado_por_nome text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT logs_partidas_pkey PRIMARY KEY (id),
+  CONSTRAINT logs_partidas_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.membro_atributos (
+  membro_id text NOT NULL,
+  movimentacao smallint NOT NULL DEFAULT 3 CHECK (movimentacao >= 1 AND movimentacao <= 5),
+  parry smallint NOT NULL DEFAULT 3 CHECK (parry >= 1 AND parry <= 5),
+  reacao smallint NOT NULL DEFAULT 3 CHECK (reacao >= 1 AND reacao <= 5),
+  ofensiva smallint NOT NULL DEFAULT 3 CHECK (ofensiva >= 1 AND ofensiva <= 5),
+  defensiva smallint NOT NULL DEFAULT 3 CHECK (defensiva >= 1 AND defensiva <= 5),
+  nocao_jogo smallint NOT NULL DEFAULT 3 CHECK (nocao_jogo >= 1 AND nocao_jogo <= 5),
+  atualizado_em timestamp with time zone NOT NULL DEFAULT now(),
+  atualizado_por text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT membro_atributos_pkey PRIMARY KEY (membro_id, gang_id),
+  CONSTRAINT membro_atributos_membro_fkey FOREIGN KEY (membro_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT membro_atributos_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id)
+);
+CREATE TABLE public.historico_atributos_membro (
+  id bigint NOT NULL DEFAULT nextval('historico_atributos_membro_id_seq'::regclass),
+  membro_id text NOT NULL,
+  movimentacao smallint NOT NULL CHECK (movimentacao >= 1 AND movimentacao <= 5),
+  parry smallint NOT NULL CHECK (parry >= 1 AND parry <= 5),
+  reacao smallint NOT NULL CHECK (reacao >= 1 AND reacao <= 5),
+  ofensiva smallint NOT NULL CHECK (ofensiva >= 1 AND ofensiva <= 5),
+  defensiva smallint NOT NULL CHECK (defensiva >= 1 AND defensiva <= 5),
+  nocao_jogo smallint NOT NULL CHECK (nocao_jogo >= 1 AND nocao_jogo <= 5),
+  avaliado_em timestamp with time zone NOT NULL DEFAULT now(),
+  avaliado_por text,
+  gang_id bigint NOT NULL,
+  CONSTRAINT historico_atributos_membro_pkey PRIMARY KEY (id),
+  CONSTRAINT historico_atributos_membro_fkey FOREIGN KEY (membro_id) REFERENCES public.membros(discord_id),
+  CONSTRAINT historico_atributos_membro_fkey FOREIGN KEY (gang_id) REFERENCES public.membros(gang_id),
+  CONSTRAINT historico_atributos_membro_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);
+CREATE TABLE public.gangs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nome text NOT NULL,
+  guild_id text NOT NULL UNIQUE,
+  ativo boolean NOT NULL DEFAULT true,
+  lider_id text,
+  criado_em timestamp with time zone NOT NULL DEFAULT now(),
+  criado_por text,
+  CONSTRAINT gangs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gang_config (
+  gang_id bigint NOT NULL,
+  chave text NOT NULL,
+  valor text,
+  atualizado_em timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT gang_config_pkey PRIMARY KEY (gang_id, chave),
+  CONSTRAINT gang_config_gang_id_fkey FOREIGN KEY (gang_id) REFERENCES public.gangs(id)
+);

@@ -20,6 +20,9 @@ import type {
   GuildAtual,
   LogPartida,
   Membro,
+  MembroAtributos,
+  HistoricoAtributosMembro,
+  AtributosMembroValores,
   Parceria,
   PresencaTreino,
   Punicao,
@@ -66,13 +69,51 @@ export async function loadMembros(): Promise<Membro[]> {
         "discord_id, discord_username, nome_roblox, nome_rp, genero, altura_jogo, estilo_luta_principal, cargo, status, data_entrada, avatar_hash, divisao_id",
       )
       .order("data_entrada", { ascending: false }),
-  ) as Omit<Membro, "divisao" | "warns" | "stats">[];
+  ) as Omit<Membro, "divisao" | "warns" | "stats" | "atributos">[];
+
+  const atributosRows = unwrap(
+    await db
+      .from("membro_atributos")
+      .select(
+        "membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, atualizado_em, atualizado_por",
+      ),
+  ) as ({
+    membro_id: string;
+    movimentacao: number;
+    parry: number;
+    reacao: number;
+    ofensiva: number;
+    defensiva: number;
+    nocao_jogo: number;
+    atualizado_em: string | null;
+    atualizado_por: string | null;
+  })[];
+  const atributosPorMembro = new Map(atributosRows.map((a) => [a.membro_id, a]));
 
   const divisoes = unwrap(await db.from("divisoes").select("id, nome_divisao")) as {
     id: number;
     nome_divisao: string;
   }[];
   const divisaoNome = new Map(divisoes.map((d) => [d.id, d.nome_divisao]));
+
+  const nomesPorId = new Map(
+    membros.map((m) => [m.discord_id, m.nome_rp || m.discord_username || m.discord_id]),
+  );
+
+  const atributosPadrao = (membroId: string): MembroAtributos => {
+    const row = atributosPorMembro.get(membroId);
+    return {
+      movimentacao: row?.movimentacao ?? 3,
+      parry: row?.parry ?? 3,
+      reacao: row?.reacao ?? 3,
+      ofensiva: row?.ofensiva ?? 3,
+      defensiva: row?.defensiva ?? 3,
+      nocao_jogo: row?.nocao_jogo ?? 3,
+      atualizado_em: row?.atualizado_em ?? null,
+      atualizado_por: row?.atualizado_por ?? null,
+      atualizado_por_nome: row?.atualizado_por ? nomesPorId.get(row.atualizado_por) ?? row.atualizado_por : null,
+    };
+  };
 
   const punicoes = unwrap(
     await db.from("punicoes").select("membro_id, tipo"),
@@ -136,7 +177,7 @@ export async function loadMembros(): Promise<Membro[]> {
     divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
     warns: warns.get(m.discord_id) ?? 0,
     stats: stats.get(m.discord_id) ?? { internos: 0, amistosos: 0, guerras: 0 },
-
+    atributos: atributosPadrao(m.discord_id),
   }));
 }
 
@@ -1150,6 +1191,123 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   const { error } = await db.from("parcerias").delete().eq(coluna, input.id);
   if (error) throw new Error(error.message);
   return { ok: true };
+}
+
+/* ========== Atributos de combate ========== */
+
+const CHAVES_ATRIBUTOS = [
+  "movimentacao",
+  "parry",
+  "reacao",
+  "ofensiva",
+  "defensiva",
+  "nocao_jogo",
+] as const;
+
+type ChaveAtributo = (typeof CHAVES_ATRIBUTOS)[number];
+
+function validarAtributos(valores: AtributosMembroValores) {
+  for (const chave of CHAVES_ATRIBUTOS) {
+    const valor = Number(valores[chave]);
+    if (!Number.isInteger(valor) || valor < 1 || valor > 5) {
+      throw new Error(`O atributo ${chave} deve estar entre 1 e 5.`);
+    }
+  }
+}
+
+async function podeEditarAtributosMembro(user: SessionUser, membroId: string): Promise<boolean> {
+  if (podeGerenciarMembros(user)) return true;
+
+  const db = getDb();
+  const { data: alvo, error: alvoError } = await db
+    .from("membros")
+    .select("divisao_id")
+    .eq("discord_id", membroId)
+    .maybeSingle();
+  if (alvoError) throw new Error(alvoError.message);
+  if (!alvo?.divisao_id) return false;
+
+  const { data: divisao, error: divisaoError } = await db
+    .from("divisoes")
+    .select("lider_id, vice_lider_id")
+    .eq("id", alvo.divisao_id)
+    .maybeSingle();
+  if (divisaoError) throw new Error(divisaoError.message);
+
+  const lidera = temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lidera && (divisao?.lider_id === user.id || divisao?.vice_lider_id === user.id);
+}
+
+export async function salvarAtributosMembro(
+  user: SessionUser,
+  input: { membroId: string; valores: AtributosMembroValores },
+) {
+  assert(await podeEditarAtributosMembro(user, input.membroId), "Você não pode avaliar este membro.");
+  validarAtributos(input.valores);
+
+  const db = getDb();
+  const valores = Object.fromEntries(
+    CHAVES_ATRIBUTOS.map((chave) => [chave, Number(input.valores[chave])]),
+  ) as Record<ChaveAtributo, number>;
+
+  const { error: upsertError } = await db.from("membro_atributos").upsert(
+    {
+      membro_id: input.membroId,
+      ...valores,
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: user.id,
+    },
+    { onConflict: "membro_id" },
+  );
+  if (upsertError) throw new Error(upsertError.message);
+
+  const { error: historicoError } = await db.from("historico_atributos_membro").insert({
+    membro_id: input.membroId,
+    ...valores,
+    avaliado_por: user.id,
+  });
+  if (historicoError) throw new Error(historicoError.message);
+
+  return { ok: true };
+}
+
+export async function loadHistoricoAtributos(
+  user: SessionUser,
+  membroId: string,
+): Promise<HistoricoAtributosMembro[]> {
+  const db = getDb();
+  if (membroId !== user.id) {
+    assert(await podeEditarAtributosMembro(user, membroId), "Você não pode ver este histórico.");
+  }
+
+  const rows = unwrap(
+    await db
+      .from("historico_atributos_membro")
+      .select(
+        "id, membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, avaliado_em, avaliado_por",
+      )
+      .eq("membro_id", membroId)
+      .order("avaliado_em", { ascending: false }),
+  ) as Omit<HistoricoAtributosMembro, "avaliado_por_nome">[];
+
+  const autores = Array.from(new Set(rows.map((r) => r.avaliado_por).filter(Boolean) as string[]));
+  if (autores.length === 0) return rows.map((r) => ({ ...r, avaliado_por_nome: null }));
+
+  const membros = unwrap(
+    await db
+      .from("membros")
+      .select("discord_id, nome_rp, discord_username")
+      .in("discord_id", autores),
+  ) as { discord_id: string; nome_rp: string | null; discord_username: string | null }[];
+  const porId = new Map(membros.map((m) => [m.discord_id, m]));
+
+  return rows.map((row) => {
+    const autor = row.avaliado_por ? porId.get(row.avaliado_por) : undefined;
+    return {
+      ...row,
+      avaliado_por_nome: autor?.nome_rp || autor?.discord_username || row.avaliado_por || null,
+    };
+  });
 }
 
 /* ========== Dados pessoais do membro ========== */

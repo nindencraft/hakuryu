@@ -11,6 +11,13 @@ export type SessionUser = {
   roles: string[];
   isOwner: boolean;
   nomeRp: string | null;
+
+  /** Servidor Discord ao qual a sessão está vinculada. */
+  guildId: string | null;
+
+  /** Gang vinculada ao servidor Discord. */
+  gangId: number | null;
+
   exp: number;
 };
 
@@ -26,7 +33,11 @@ function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
   const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+
+  for (let i = 0; i < bin.length; i++) {
+    out[i] = bin.charCodeAt(i);
+  }
+
   return out;
 }
 
@@ -38,24 +49,46 @@ async function hmac(payload: string, secret: string): Promise<string> {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
+
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    enc.encode(payload),
+  );
+
   return toBase64Url(new Uint8Array(sig));
 }
 
-export async function signSession(user: Omit<SessionUser, "exp">): Promise<string> {
+export async function signSession(
+  user: Omit<SessionUser, "exp">,
+): Promise<string> {
   const { sessionSecret } = getConfig();
-  const payload: SessionUser = { ...user, exp: Date.now() + MAX_AGE * 1000 };
-  const body = toBase64Url(enc.encode(JSON.stringify(payload)));
+
+  const payload: SessionUser = {
+    ...user,
+    exp: Date.now() + MAX_AGE * 1000,
+  };
+
+  const body = toBase64Url(
+    enc.encode(JSON.stringify(payload)),
+  );
+
   const sig = await hmac(body, sessionSecret);
+
   return `${body}.${sig}`;
 }
 
-export async function verifySession(token: string | undefined): Promise<SessionUser | null> {
+export async function verifySession(
+  token: string | undefined,
+): Promise<SessionUser | null> {
   if (!token) return null;
+
   const [body, sig] = token.split(".");
+
   if (!body || !sig) return null;
 
   let sessionSecret: string;
+
   try {
     ({ sessionSecret } = getConfig());
   } catch {
@@ -63,21 +96,55 @@ export async function verifySession(token: string | undefined): Promise<SessionU
   }
 
   const expected = await hmac(body, sessionSecret);
+
   if (expected.length !== sig.length) return null;
+
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+  }
+
   if (diff !== 0) return null;
 
   try {
-    const user = JSON.parse(new TextDecoder().decode(fromBase64Url(body))) as SessionUser;
-    if (!user.exp || user.exp < Date.now()) return null;
-    return user;
+    const user = JSON.parse(
+      new TextDecoder().decode(fromBase64Url(body)),
+    ) as Partial<SessionUser>;
+
+    if (!user.exp || user.exp < Date.now()) {
+      return null;
+    }
+
+    return {
+      id: user.id ?? "",
+      username: user.username ?? "",
+      globalName: user.globalName ?? null,
+      avatarUrl: user.avatarUrl ?? "",
+      roles: Array.isArray(user.roles) ? user.roles : [],
+      isOwner: user.isOwner === true,
+      nomeRp: user.nomeRp ?? null,
+
+      // Compatibilidade com sessões antigas.
+      guildId: user.guildId ?? null,
+      gangId:
+        typeof user.gangId === "number"
+          ? user.gangId
+          : user.gangId
+            ? Number(user.gangId)
+            : null,
+
+      exp: user.exp,
+    };
   } catch {
     return null;
   }
 }
 
-export function sessionCookie(token: string, secure: boolean): string {
+export function sessionCookie(
+  token: string,
+  secure: boolean,
+): string {
   return [
     `${SESSION_COOKIE}=${token}`,
     "Path=/",
@@ -90,7 +157,9 @@ export function sessionCookie(token: string, secure: boolean): string {
     .join("; ");
 }
 
-export function clearSessionCookie(secure: boolean): string {
+export function clearSessionCookie(
+  secure: boolean,
+): string {
   return [
     `${SESSION_COOKIE}=`,
     "Path=/",
@@ -103,16 +172,24 @@ export function clearSessionCookie(secure: boolean): string {
     .join("; ");
 }
 
-export function readCookie(header: string | null, name: string): string | undefined {
+export function readCookie(
+  header: string | null,
+  name: string,
+): string | undefined {
   if (!header) return undefined;
+
   for (const part of header.split(";")) {
     const [k, ...rest] = part.trim().split("=");
-    if (k === name) return rest.join("=");
+
+    if (k === name) {
+      return rest.join("=");
+    }
   }
+
   return undefined;
 }
 
-/* ========== Permissões (espelham o auth.py original) ========== */
+/* ========== Permissões ========== */
 
 export const CARGOS_PERMITIDOS = [
   "Lider",
@@ -133,57 +210,107 @@ function normalize(value: string): string {
     .trim();
 }
 
-export function temCargo(user: SessionUser | null, cargo: string): boolean {
+export function temCargo(
+  user: SessionUser | null,
+  cargo: string,
+): boolean {
   if (!user) return false;
-  return user.roles.some((r) => normalize(r) === normalize(cargo));
-}
 
-export function podeAcessar(user: SessionUser | null): boolean {
-  if (!user) return false;
-  if (user.isOwner) return true;
-  return CARGOS_PERMITIDOS.some((c) => temCargo(user, c));
-}
-
-export function podeGerenciarMembros(user: SessionUser | null): boolean {
-  return !!user && (user.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"));
-}
-
-export function podeGerenciarTreinos(user: SessionUser | null): boolean {
-  return (
-    !!user &&
-    (user.isOwner ||
-      temCargo(user, "Lider") ||
-      temCargo(user, "Vice-Lider") ||
-      temCargo(user, "Líder de Divisão") ||
-      temCargo(user, "Vice-Líder de Divisão"))
+  return user.roles.some(
+    (r) => normalize(r) === normalize(cargo),
   );
 }
 
-export function podeAdvertir(user: SessionUser | null): boolean {
-  return podeGerenciarMembros(user) || temCargo(user, "Staff");
+export function podeAcessar(
+  user: SessionUser | null,
+): boolean {
+  if (!user) return false;
+
+  if (user.isOwner) return true;
+
+  return CARGOS_PERMITIDOS.some(
+    (c) => temCargo(user, c),
+  );
 }
 
-export function podeRevogarPunicao(user: SessionUser | null): boolean {
+export function podeGerenciarMembros(
+  user: SessionUser | null,
+): boolean {
+  return (
+    !!user &&
+    (
+      user.isOwner ||
+      temCargo(user, "Lider") ||
+      temCargo(user, "Vice-Lider")
+    )
+  );
+}
+
+export function podeGerenciarTreinos(
+  user: SessionUser | null,
+): boolean {
+  return (
+    !!user &&
+    (
+      user.isOwner ||
+      temCargo(user, "Lider") ||
+      temCargo(user, "Vice-Lider") ||
+      temCargo(user, "Líder de Divisão") ||
+      temCargo(user, "Vice-Líder de Divisão")
+    )
+  );
+}
+
+export function podeAdvertir(
+  user: SessionUser | null,
+): boolean {
+  return (
+    podeGerenciarMembros(user) ||
+    temCargo(user, "Staff")
+  );
+}
+
+export function podeRevogarPunicao(
+  user: SessionUser | null,
+): boolean {
   return podeGerenciarMembros(user);
 }
 
-export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
+export const CARGOS_DIVISAO = [
+  "Líder de Divisão",
+  "Vice-Líder de Divisão",
+];
 
-export function cargosAtribuiveis(user: SessionUser | null): string[] {
-  if (podeGerenciarMembros(user))
-    return CARGOS_PERMITIDOS.filter((c) => !CARGOS_DIVISAO.includes(c));
-  if (temCargo(user, "Recrutador")) return ["Membro"];
+export function cargosAtribuiveis(
+  user: SessionUser | null,
+): string[] {
+  if (podeGerenciarMembros(user)) {
+    return CARGOS_PERMITIDOS.filter(
+      (c) => !CARGOS_DIVISAO.includes(c),
+    );
+  }
+
+  if (temCargo(user, "Recrutador")) {
+    return ["Membro"];
+  }
+
   return [];
 }
 
-export function podeCriarDivisao(user: SessionUser | null): boolean {
+export function podeCriarDivisao(
+  user: SessionUser | null,
+): boolean {
   return podeGerenciarMembros(user);
 }
 
-export function podeGerenciarDivisoes(user: SessionUser | null): boolean {
+export function podeGerenciarDivisoes(
+  user: SessionUser | null,
+): boolean {
   return podeGerenciarMembros(user);
 }
 
-export function podeGerenciarParcerias(user: SessionUser | null): boolean {
+export function podeGerenciarParcerias(
+  user: SessionUser | null,
+): boolean {
   return podeGerenciarMembros(user);
 }

@@ -1,3 +1,51 @@
+export const ATRIBUTO_MEMBRO_CHAVES = [
+  "movimentacao",
+  "parry",
+  "reacao",
+  "ofensiva",
+  "defensiva",
+  "nocao_jogo",
+] as const;
+
+export type AtributoMembroChave = (typeof ATRIBUTO_MEMBRO_CHAVES)[number];
+
+export type AtributosMembroValores = Record<AtributoMembroChave, number>;
+
+export type MembroAtributos = AtributosMembroValores & {
+  atualizado_em: string | null;
+  atualizado_por: string | null;
+  atualizado_por_nome: string | null;
+};
+
+export type HistoricoAtributosMembro = AtributosMembroValores & {
+  id: number;
+  membro_id: string;
+  avaliado_em: string | null;
+  avaliado_por: string | null;
+  avaliado_por_nome: string | null;
+};
+
+export const ATRIBUTOS_MEMBRO = [
+  { chave: "movimentacao", rotulo: "Movimentação" },
+  { chave: "parry", rotulo: "Parry" },
+  { chave: "reacao", rotulo: "Reação" },
+  { chave: "ofensiva", rotulo: "Ofensiva" },
+  { chave: "defensiva", rotulo: "Defensiva" },
+  { chave: "nocao_jogo", rotulo: "Noção de jogo" },
+] as const satisfies ReadonlyArray<{ chave: AtributoMembroChave; rotulo: string }>;
+
+export const NIVEIS_ATRIBUTO = [
+  { valor: 1, rotulo: "Muito ruim", cor: "#ef4444" },
+  { valor: 2, rotulo: "Ruim", cor: "#f97316" },
+  { valor: 3, rotulo: "Razoável", cor: "#eab308" },
+  { valor: 4, rotulo: "Bom", cor: "#84cc16" },
+  { valor: 5, rotulo: "Muito bom", cor: "#22c55e" },
+] as const;
+
+export function rotuloNivelAtributo(valor: number): string {
+  return NIVEIS_ATRIBUTO.find((nivel) => nivel.valor === valor)?.rotulo ?? "Razoável";
+}
+
 export type Membro = {
   discord_id: string;
   discord_username: string | null;
@@ -14,6 +62,7 @@ export type Membro = {
   avatar_hash: string | null;
   warns: number;
   stats: { internos: number; amistosos: number; guerras: number };
+  atributos: MembroAtributos;
 };
 
 export type Adiamento = { por: string | null; em: string | null; antes: string | null };
