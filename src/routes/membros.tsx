@@ -200,8 +200,9 @@ function Membros() {
                   <>
                     <GoldRule className="my-4" />
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-                      <div>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="flex h-full flex-col">
+                        <div className="grid gap-4 sm:grid-cols-2">
+
                           <Info label="Gênero" value={m.genero ?? "—"} />
                           <Info
                             label="Altura"
