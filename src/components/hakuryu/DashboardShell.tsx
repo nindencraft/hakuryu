@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { sessionQuery } from "@/lib/queries";
+import { gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
 import {
   cargoPrincipal,
   nomeExibicao,
@@ -71,7 +71,7 @@ function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useQuery(sessionQuery);
   const base = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
-  const itens = data?.user?.isOwner ? [...base, ...NAV_OWNER] : base;
+  const itens = data?.user?.isSuperOwner ? [...base, ...NAV_OWNER] : base;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Navegação principal">
@@ -384,7 +384,7 @@ export function DashboardShell({
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
-  if (data.gangId == null && !(permitirSemGang && data.user.isOwner)) return <SemGangScreen />;
+  if (data.gangId == null && !(permitirSemGang && data.user.isSuperOwner)) return <SemGangScreen />;
 
   const user = data.user;
 
@@ -397,7 +397,7 @@ export function DashboardShell({
         >
           <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
           <div className="relative z-10 flex h-full flex-col">
-            <SidebarBody user={user} gangNome={data.gangNome} />
+            <SidebarBody user={user} gangNome={data.gangNome} gangId={data.gangId} />
           </div>
         </aside>
 
@@ -429,6 +429,7 @@ export function DashboardShell({
                     <SidebarBody
                       user={user}
                       gangNome={data.gangNome}
+                      gangId={data.gangId}
                       onNavigate={() => setOpen(false)}
                     />
                   </div>
