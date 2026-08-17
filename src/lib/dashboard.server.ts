@@ -671,14 +671,59 @@ export async function alterarStatusMembro(
 export async function removerMembro(user: SessionUser, input: { membroId: string }) {
   assert(podeGerenciarMembros(user));
   const db = getDb();
+  const g = gid(user);
+  const id = input.membroId;
+
+  // Libera vínculos de liderança em divisões
+  const { data: divs } = await db
+    .from("divisoes")
+    .select("id, lider_id, vice_lider_id")
+    .eq("gang_id", g);
+  for (const d of (divs ?? []) as {
+    id: number;
+    lider_id: string | null;
+    vice_lider_id: string | null;
+  }[]) {
+    if (d.lider_id !== id && d.vice_lider_id !== id) continue;
+    await db
+      .from("divisoes")
+      .update({
+        lider_id: d.lider_id === id ? null : d.lider_id,
+        vice_lider_id: d.vice_lider_id === id ? null : d.vice_lider_id,
+      })
+      .eq("gang_id", g)
+      .eq("id", d.id);
+  }
+
+  // Remove registros dependentes (evita violação de chave estrangeira)
+  const dependentes: [string, string[]][] = [
+    ["membro_atributos", ["membro_id"]],
+    ["historico_atributos_membro", ["membro_id"]],
+    ["presencas_treino", ["membro_id"]],
+    ["participacoes_guerra", ["membro_id"]],
+    ["punicoes", ["membro_id", "staff_id"]],
+    ["avaliacoes_treino", ["membro_avaliado_id", "avaliador_id"]],
+    ["avaliacoes_lideranca", ["lider_avaliado_id", "avaliador_id"]],
+    ["votos_recrutamento", ["candidato_id", "recrutador_id"]],
+  ];
+  for (const [tabela, colunas] of dependentes) {
+    for (const coluna of colunas) {
+      const { error } = await db.from(tabela).delete().eq("gang_id", g).eq(coluna, id);
+      if (error && !/does not exist|schema cache/i.test(error.message)) {
+        throw new Error(`${tabela}: ${error.message}`);
+      }
+    }
+  }
+
   const { error } = await db
     .from("membros")
     .delete()
-    .eq("gang_id", gid(user))
-    .eq("discord_id", input.membroId);
+    .eq("gang_id", g)
+    .eq("discord_id", id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
 
 /* ========== Escrita: treinos ========== */
 
