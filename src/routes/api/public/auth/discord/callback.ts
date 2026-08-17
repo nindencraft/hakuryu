@@ -368,6 +368,7 @@ export const Route = createFileRoute(
                 discordUser.id,
                 "Em Analise",
                 "add",
+                { guildId: gang.guild_id, gangId: gang.id },
               );
 
               roleNames.push("Em Analise");
@@ -428,7 +429,7 @@ export const Route = createFileRoute(
           status: 302,
 
           headers: {
-            Location: "/",
+            Location: gang ? "/" : "/selecionar-gang",
 
             "Set-Cookie": sessionCookie(
               sessionToken,

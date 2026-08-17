@@ -7,6 +7,7 @@ import {
   fetchTreinos,
   fetchLogs,
   fetchGuildAtual,
+  fetchGangsDisponiveis,
   fetchConfiguracoes,
   getSession,
 } from "./dashboard.functions";
@@ -16,6 +17,12 @@ export const sessionQuery = queryOptions({
   queryFn: () => getSession(),
   staleTime: 0,
   refetchOnWindowFocus: true,
+});
+
+export const gangsDisponiveisQuery = queryOptions({
+  queryKey: ["gangs-disponiveis"],
+  queryFn: () => fetchGangsDisponiveis(),
+  staleTime: 60_000,
 });
 
 export const membrosQuery = queryOptions({
