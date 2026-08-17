@@ -146,17 +146,45 @@ export async function listarGangsRegistradas(
     contagem.set(m.gang_id, (contagem.get(m.gang_id) ?? 0) + 1);
   }
 
+  // Solicitação aceita que originou cada relação (representante, datas, quem fechou).
+  const acordo = new Map<number, SolicitacaoLinha>();
+  if (relacaoDe.size > 0) {
+    const { data: aceitas } = await db
+      .from("gang_solicitacoes")
+      .select("*")
+      .eq("status", "Aceita")
+      .in("tipo", ["Alianca", "Guerra"])
+      .or(`gang_origem_id.eq.${minha},gang_destino_id.eq.${minha}`)
+      .order("respondido_em", { ascending: false });
+    for (const s of (aceitas ?? []) as SolicitacaoLinha[]) {
+      const outra = s.gang_origem_id === minha ? s.gang_destino_id : s.gang_origem_id;
+      const esperado = relacaoDe.get(outra) === "Aliada" ? "Alianca" : "Guerra";
+      if (s.tipo !== esperado) continue;
+      if (!acordo.has(outra)) acordo.set(outra, s);
+    }
+  }
+
   const gangs = todas
     .filter((g) => g.id !== minha)
-    .map<GangRegistrada>((g) => ({
-      id: g.id,
-      nome: g.nome,
-      guild_id: g.guild_id,
-      icon_hash: icones.get(g.guild_id) ?? null,
-      membros: contagem.get(g.id) ?? 0,
-      relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
-      pendencias: pendentes.get(g.id) ?? [],
-    }));
+    .map<GangRegistrada>((g) => {
+      const a = acordo.get(g.id);
+      return {
+        id: g.id,
+        nome: g.nome,
+        guild_id: g.guild_id,
+        icon_hash: icones.get(g.guild_id) ?? null,
+        membros: contagem.get(g.id) ?? 0,
+        relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
+        pendencias: pendentes.get(g.id) ?? [],
+        desde: a?.respondido_em ?? a?.criado_em ?? null,
+        representante_id: a?.representante_id ?? null,
+        representante_nome: a?.representante_nome ?? null,
+        representante_avatar: a?.representante_avatar ?? null,
+        solicitado_por_nome: a?.criado_por_nome ?? null,
+        fechado_por_nome: a?.respondido_por_nome ?? null,
+      };
+    });
+
 
   return { gangs, tabelaAusente };
 }
