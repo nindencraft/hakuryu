@@ -21,10 +21,7 @@ async function resolverGuild(guildId?: string | null): Promise<string> {
  * Busca os cargos atuais do usuário no servidor do Discord.
  * Retorna null quando não foi possível consultar (mantém os cargos da sessão).
  */
-export async function fetchCargosAtuais(
-  discordId: string,
-  guildIdSessao?: string | null,
-): Promise<string[] | null> {
+export async function fetchCargosAtuais(discordId: string, guildIdSessao?: string | null): Promise<string[] | null> {
   let config;
   try {
     config = getConfig();
@@ -35,10 +32,9 @@ export async function fetchCargosAtuais(
   try {
     const guildId = await resolverGuild(guildIdSessao);
     if (!guildId) return null;
-    const memberRes = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
-      { headers: { Authorization: `Bot ${config.discordBotToken}` } },
-    );
+    const memberRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`, {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
     if (memberRes.status === 404) return [];
     if (!memberRes.ok) return null;
     const member = (await memberRes.json()) as GuildMember;
@@ -76,7 +72,6 @@ function normalizar(v: string): string {
     .trim();
 }
 
-/** Adiciona ou remove um cargo pelo ID. Falhas são silenciosas (best-effort). */
 export async function ajustarCargoPorId(
   discordId: string,
   roleId: string,
@@ -85,18 +80,49 @@ export async function ajustarCargoPorId(
 ): Promise<void> {
   try {
     const config = getConfig();
+
     const id = roleId.trim().replace(/\D/g, "");
     const guildId = await resolverGuild(guildIdSessao);
-    if (!id || !guildId) return;
-    await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`,
-      {
-        method: acao === "add" ? "PUT" : "DELETE",
-        headers: { Authorization: `Bot ${config.discordBotToken}` },
+
+    if (!id || !guildId) {
+      console.error("[Discord] Guild ID ou Role ID inválido.", {
+        guildId,
+        roleId,
+      });
+      return;
+    }
+
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
+      method: acao === "add" ? "PUT" : "DELETE",
+      headers: {
+        Authorization: `Bot ${config.discordBotToken}`,
       },
-    );
-  } catch {
-    /* best-effort */
+    });
+
+    if (!res.ok) {
+      const detalhe = await res.text().catch(() => "");
+
+      console.error("[Discord] Falha ao ajustar cargo:", {
+        status: res.status,
+        statusText: res.statusText,
+        acao,
+        discordId,
+        roleId: id,
+        guildId,
+        detalhe,
+      });
+
+      return;
+    }
+
+    console.log("[Discord] Cargo ajustado com sucesso:", {
+      acao,
+      discordId,
+      roleId: id,
+      guildId,
+    });
+  } catch (error) {
+    console.error("[Discord] Erro ao ajustar cargo:", error);
   }
 }
 
@@ -130,11 +156,7 @@ export type EmbedDiscord = {
 };
 
 /** Publica um embed no canal configurado para a gang. Best-effort. */
-export async function enviarMensagemCanal(
-  chaveCanal: string,
-  ctx: CtxDiscord,
-  embed: EmbedDiscord,
-): Promise<void> {
+export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, embed: EmbedDiscord): Promise<void> {
   try {
     const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
     if (!canalId) return;
@@ -156,9 +178,7 @@ export async function enviarMensagemCanal(
  * Cargos de todos os membros do servidor (1 chamada), para usar o Discord
  * como fonte da verdade na listagem de membros.
  */
-export async function fetchCargosDeTodos(
-  guildIdSessao?: string | null,
-): Promise<Map<string, string[]> | null> {
+export async function fetchCargosDeTodos(guildIdSessao?: string | null): Promise<Map<string, string[]> | null> {
   let config;
   try {
     config = getConfig();
