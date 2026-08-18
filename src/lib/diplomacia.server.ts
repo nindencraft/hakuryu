@@ -395,7 +395,7 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
   const db = getDb();
   const minha = gid(user);
   if (input.gangId === minha) throw new Error("Você não pode se solicitar.");
-  if (!["Alianca", "Guerra", "Treino"].includes(input.tipo)) {
+  if (!["Guerra", "Treino"].includes(input.tipo)) {
     throw new Error("Tipo de solicitação inválido.");
   }
 
@@ -408,9 +408,6 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
   const relacaoAtual = relacoes.find(
     (r) => r.gang_a_id === input.gangId || r.gang_b_id === input.gangId,
   )?.tipo;
-  if (input.tipo === "Alianca" && relacaoAtual === "Aliada") {
-    throw new Error("Vocês já são aliadas.");
-  }
   if (input.tipo === "Guerra" && relacaoAtual === "Inimiga") {
     throw new Error("Vocês já estão em guerra.");
   }
@@ -435,9 +432,6 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
 
   let rep: { id: string; nome: string; avatar: string | null } | null = null;
   const repId = (input.representante_id ?? "").trim().replace(/\D/g, "");
-  if (input.tipo === "Alianca" && !repId) {
-    throw new Error("Informe o ID do representante da aliança.");
-  }
   if (repId) {
     const { fetchUsuarioDiscord } = await import("./discord.server");
     const u = await fetchUsuarioDiscord(repId);
@@ -473,11 +467,9 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
 
   await avisarDiscord(user, input.gangId, {
     title:
-      input.tipo === "Alianca"
-        ? "🤝 Nova solicitação de aliança"
-        : input.tipo === "Guerra"
-          ? "⚔️ Declaração de guerra recebida"
-          : "🏋️ Solicitação de treino amistoso",
+      input.tipo === "Guerra"
+        ? "⚔️ Declaração de guerra recebida"
+        : "🏋️ Solicitação de treino amistoso",
     description: input.motivo.trim() || undefined,
     fields: [
       { name: "Enviado por", value: nomeUsuario(user), inline: true },
@@ -556,9 +548,7 @@ export async function responderSolicitacao(
   };
 
   if (input.aceitar) {
-    if (sol.tipo === "Alianca") {
-      await definirRelacao(user, sol.gang_origem_id, "Aliada");
-    } else if (sol.tipo === "Guerra") {
+    if (sol.tipo === "Guerra") {
       await definirRelacao(user, sol.gang_origem_id, "Inimiga");
     } else if (sol.tipo === "Treino") {
       const ids = await criarTreinosAmistosos(sol, user);
@@ -716,5 +706,13 @@ export async function excluirSolicitacao(user: SessionUser, input: { id: number 
 
   const { error: delErr } = await db.from("gang_solicitacoes").delete().eq("id", sol.id);
   if (delErr) throw new Error(delErr.message);
+  return { ok: true };
+}
+
+/** Remove manualmente a relação diplomática com outra gang (volta a ser neutra). */
+export async function removerRelacaoGang(user: SessionUser, input: { gangId: number }) {
+  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem desfazer relações.");
+  const minha = gid(user);
+  await limparRelacao(minha, input.gangId);
   return { ok: true };
 }
