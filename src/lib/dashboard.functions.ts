@@ -450,3 +450,11 @@ export const encerrarGuerra = createServerFn({ method: "POST" })
     const { encerrarGuerra: fn } = await import("./diplomacia.server");
     return fn(user, data);
   });
+
+export const removerRelacaoGang = createServerFn({ method: "POST" })
+  .inputValidator((data: { gangId: number }) => data)
+  .handler(async ({ data }) => {
+    const user = await svc.requireUser(getRequest());
+    const { removerRelacaoGang: fn } = await import("./diplomacia.server");
+    return fn(user, data);
+  });
