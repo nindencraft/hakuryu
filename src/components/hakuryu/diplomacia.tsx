@@ -242,11 +242,11 @@ export function GangsRegistradas() {
 }
 
 
-function SolicitacaoDialog({
+export function SolicitacaoDialog({
   valor,
   onClose,
 }: {
-  valor: { gang: GangRegistrada; tipo: string } | null;
+  valor: { gang: { id: number; nome: string }; tipo: string } | null;
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState("");
@@ -273,14 +273,9 @@ function SolicitacaoDialog({
     aoConcluir: onClose,
   });
 
-  const tipo = valor?.tipo ?? "Alianca";
-  const comEvento = tipo === "Guerra" || tipo === "Treino";
-  const titulo =
-    tipo === "Alianca"
-      ? "🤝 Solicitação de aliança"
-      : tipo === "Guerra"
-        ? "⚔️ Declaração de guerra"
-        : "🏋️ Solicitação de treino";
+  const tipo = valor?.tipo ?? "Treino";
+  const comEvento = true;
+  const titulo = tipo === "Guerra" ? "⚔️ Declaração de guerra" : "🏋️ Solicitação de treino";
 
   return (
     <Dialog
@@ -308,9 +303,7 @@ function SolicitacaoDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="representante">
-              ID do representante no Discord{tipo === "Alianca" ? "" : " (opcional)"}
-            </Label>
+            <Label htmlFor="representante">ID do representante no Discord (opcional)</Label>
             <Input
               id="representante"
               inputMode="numeric"
@@ -380,7 +373,7 @@ function SolicitacaoDialog({
             Cancelar
           </Button>
           <Button
-            disabled={acao.isPending || (tipo === "Alianca" && !representante.trim())}
+            disabled={acao.isPending}
             onClick={() => {
               if (!valor) return;
               acao.mutate({
