@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ExternalLink, Plus, Search, X } from "lucide-react";
+import { Dumbbell, ExternalLink, Plus, Search, Swords, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
@@ -38,11 +38,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GangDiplomaticaCard, GangsRegistradas } from "@/components/hakuryu/diplomacia";
+import {
+  GangDiplomaticaCard,
+  GangsRegistradas,
+  SolicitacaoDialog,
+} from "@/components/hakuryu/diplomacia";
 import { gangsRegistradasQuery, parceriasQuery } from "@/lib/queries";
-import { deletarParceria, resolverAliado, salvarParceria } from "@/lib/dashboard.functions";
+import {
+  deletarParceria,
+  removerRelacaoGang,
+  resolverAliado,
+  salvarParceria,
+} from "@/lib/dashboard.functions";
 import { podeGerenciarParcerias } from "@/lib/permissions";
-import { RELACAO_GANG_OPCOES, STATUS_PARCERIA_OPCOES, type Parceria } from "@/lib/types";
+import {
+  RELACAO_GANG_OPCOES,
+  STATUS_PARCERIA_OPCOES,
+  type GangRegistrada,
+  type Parceria,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/parcerias")({
   head: () => ({
@@ -129,6 +143,17 @@ function Aliancas() {
   const { data: registradas } = useQuery(gangsRegistradasQuery);
   const diploAliadas = (registradas?.gangs ?? []).filter((g) => g.relacao === "Aliada");
   const diploInimigas = (registradas?.gangs ?? []).filter((g) => g.relacao === "Inimiga");
+  const porGuild = new Map((registradas?.gangs ?? []).map((g) => [g.guild_id, g]));
+
+  const [solicitando, setSolicitando] = useState<{
+    gang: { id: number; nome: string };
+    tipo: string;
+  } | null>(null);
+
+  const removerRelacao = useAcao<{ gangId: number }>(removerRelacaoGang, {
+    sucesso: "Relação desfeita.",
+    invalidar: [["gangs-registradas"], ["guerras"]],
+  });
 
   return (
     <>
@@ -178,13 +203,28 @@ function Aliancas() {
                 </h2>
                 <ul className="grid gap-4 lg:grid-cols-2">
                   {secao.diplo.map((g) => (
-                    <GangDiplomaticaCard key={`diplo-${g.id}`} gang={g} />
+                    <GangDiplomaticaCard
+                      key={`diplo-${g.id}`}
+                      gang={g}
+                      onDeletar={
+                        podeGerenciar ? () => removerRelacao.mutate({ gangId: g.id }) : undefined
+                      }
+                      onSolicitar={
+                        podeGerenciar
+                          ? (tipo) => setSolicitando({ gang: { id: g.id, nome: g.nome }, tipo })
+                          : undefined
+                      }
+                    />
                   ))}
                   {secao.lista.map((p) => (
                     <AliancaCard
                       key={p.id}
                       alianca={p}
                       podeGerenciar={podeGerenciar}
+                      registrada={porGuild.get(p.tag ?? "")}
+                      onSolicitar={(tipo, gangId) =>
+                        setSolicitando({ gang: { id: gangId, nome: p.nome }, tipo })
+                      }
                       onEditar={() => setEditando(paraForm(p))}
                       onDeletar={() => setDeletando(p)}
                     />
@@ -199,6 +239,8 @@ function Aliancas() {
       <div className="mt-10">
         <GangsRegistradas />
       </div>
+
+      <SolicitacaoDialog valor={solicitando} onClose={() => setSolicitando(null)} />
 
       <AliancaDialog valor={editando} onClose={() => setEditando(null)} />
 
@@ -230,11 +272,15 @@ function Aliancas() {
 function AliancaCard({
   alianca: p,
   podeGerenciar,
+  registrada,
+  onSolicitar,
   onEditar,
   onDeletar,
 }: {
   alianca: Parceria;
   podeGerenciar: boolean;
+  registrada?: GangRegistrada | undefined;
+  onSolicitar: (tipo: string, gangId: number) => void;
   onEditar: () => void;
   onDeletar: () => void;
 }) {
@@ -314,6 +360,28 @@ function AliancaCard({
               Servidor deles <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </Button>
+        ) : null}
+        {podeGerenciar && registrada ? (
+          <>
+            {registrada.relacao !== "Inimiga" ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={registrada.pendencias.some((x) => x.tipo === "Guerra")}
+                onClick={() => onSolicitar("Guerra", registrada.id)}
+              >
+                <Swords className="h-4 w-4" /> Declarar guerra
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={registrada.pendencias.some((x) => x.tipo === "Treino")}
+              onClick={() => onSolicitar("Treino", registrada.id)}
+            >
+              <Dumbbell className="h-4 w-4" /> Solicitar treino
+            </Button>
+          </>
         ) : null}
         {podeGerenciar ? (
           <Button size="sm" variant="ghost" onClick={onEditar}>
