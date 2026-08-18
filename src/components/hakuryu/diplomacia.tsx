@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Handshake, Search, Swords, Dumbbell, ChevronDown } from "lucide-react";
+import { Search, Swords, Dumbbell, ExternalLink, X } from "lucide-react";
 
 import { EmptyState, MemberAvatar } from "@/components/hakuryu/ui-bits";
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
