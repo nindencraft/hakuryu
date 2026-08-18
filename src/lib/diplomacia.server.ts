@@ -138,13 +138,30 @@ export async function listarGangsRegistradas(
     pendentes.set(outra, [...(pendentes.get(outra) ?? []), { tipo: s.tipo, direcao }]);
   }
 
-  // Contagem de membros por gang.
+  // Contagem de membros, treinos e divisões por gang.
   const contagem = new Map<number, number>();
-  const { data: membros } = await db.from("membros").select("gang_id");
+  const treinosPorGang = new Map<number, number>();
+  const divisoesPorGang = new Map<number, number>();
+  const [{ data: membros }, { data: treinos }, { data: divisoes }] = await Promise.all([
+    db.from("membros").select("gang_id"),
+    db.from("treinos").select("gang_id"),
+    db.from("divisoes").select("gang_id"),
+  ]);
   for (const m of (membros ?? []) as { gang_id: number | null }[]) {
     if (m.gang_id == null) continue;
     contagem.set(m.gang_id, (contagem.get(m.gang_id) ?? 0) + 1);
   }
+  for (const t of (treinos ?? []) as { gang_id: number | null }[]) {
+    if (t.gang_id == null) continue;
+    treinosPorGang.set(t.gang_id, (treinosPorGang.get(t.gang_id) ?? 0) + 1);
+  }
+  for (const d of (divisoes ?? []) as { gang_id: number | null }[]) {
+    if (d.gang_id == null) continue;
+    divisoesPorGang.set(d.gang_id, (divisoesPorGang.get(d.gang_id) ?? 0) + 1);
+  }
+
+  const convites = await convitesDasGangs(todas.filter((g) => g.id !== minha));
+
 
   // Solicitação aceita que originou cada relação (representante, datas, quem fechou).
   const acordo = new Map<number, SolicitacaoLinha>();
