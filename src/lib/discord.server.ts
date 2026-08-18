@@ -71,7 +71,6 @@ function normalizar(v: string): string {
     .toLowerCase()
     .trim();
 }
-console.log(`[DEBUG] Ação: ${acao}, roleId: ${id}, discordId: ${discordId}`);
 
 /** Adiciona ou remove um cargo pelo ID. Falhas são silenciosas (best-effort). */
 export async function ajustarCargoPorId(
@@ -85,7 +84,8 @@ export async function ajustarCargoPorId(
     const id = roleId.trim().replace(/\D/g, "");
     const guildId = await resolverGuild(guildIdSessao);
     if (!id || !guildId) return;
-    await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
+    await console.log(`[DEBUG] Ação: ${acao}, roleId: ${id}, discordId: ${discordId}`);
+    fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
       method: acao === "add" ? "PUT" : "DELETE",
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
