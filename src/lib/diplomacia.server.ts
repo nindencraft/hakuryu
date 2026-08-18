@@ -52,6 +52,41 @@ async function gangsAtivas(): Promise<GangLinha[]> {
   return (data ?? []) as GangLinha[];
 }
 
+/**
+ * Link do servidor de cada gang. Usa o convite salvo em `gangs.convite`;
+ * quando não existe, pede ao bot um convite permanente e guarda no banco.
+ */
+async function convitesDasGangs(gangs: GangLinha[]): Promise<Map<number, string>> {
+  const db = getDb();
+  const mapa = new Map<number, string>();
+  if (gangs.length === 0) return mapa;
+
+  const { data, error } = await db
+    .from("gangs")
+    .select("id, convite")
+    .in("id", gangs.map((g) => g.id));
+  const semColuna = !!error;
+  for (const g of (data ?? []) as { id: number; convite: string | null }[]) {
+    if (g.convite) mapa.set(g.id, g.convite);
+  }
+
+  const faltando = gangs.filter((g) => !mapa.has(g.id));
+  if (faltando.length === 0) return mapa;
+
+  const { garantirConviteInfinito } = await import("./discord.server");
+  await Promise.all(
+    faltando.map(async (g) => {
+      const link = await garantirConviteInfinito(g.guild_id);
+      if (!link) return;
+      mapa.set(g.id, link);
+      if (!semColuna) {
+        await db.from("gangs").update({ convite: link }).eq("id", g.id);
+      }
+    }),
+  );
+  return mapa;
+}
+
 type RelacaoLinha = { gang_a_id: number; gang_b_id: number; tipo: string };
 
 async function relacoesDaGang(
@@ -138,13 +173,30 @@ export async function listarGangsRegistradas(
     pendentes.set(outra, [...(pendentes.get(outra) ?? []), { tipo: s.tipo, direcao }]);
   }
 
-  // Contagem de membros por gang.
+  // Contagem de membros, treinos e divisões por gang.
   const contagem = new Map<number, number>();
-  const { data: membros } = await db.from("membros").select("gang_id");
+  const treinosPorGang = new Map<number, number>();
+  const divisoesPorGang = new Map<number, number>();
+  const [{ data: membros }, { data: treinos }, { data: divisoes }] = await Promise.all([
+    db.from("membros").select("gang_id"),
+    db.from("treinos").select("gang_id"),
+    db.from("divisoes").select("gang_id"),
+  ]);
   for (const m of (membros ?? []) as { gang_id: number | null }[]) {
     if (m.gang_id == null) continue;
     contagem.set(m.gang_id, (contagem.get(m.gang_id) ?? 0) + 1);
   }
+  for (const t of (treinos ?? []) as { gang_id: number | null }[]) {
+    if (t.gang_id == null) continue;
+    treinosPorGang.set(t.gang_id, (treinosPorGang.get(t.gang_id) ?? 0) + 1);
+  }
+  for (const d of (divisoes ?? []) as { gang_id: number | null }[]) {
+    if (d.gang_id == null) continue;
+    divisoesPorGang.set(d.gang_id, (divisoesPorGang.get(d.gang_id) ?? 0) + 1);
+  }
+
+  const convites = await convitesDasGangs(todas.filter((g) => g.id !== minha));
+
 
   // Solicitação aceita que originou cada relação (representante, datas, quem fechou).
   const acordo = new Map<number, SolicitacaoLinha>();
@@ -174,6 +226,9 @@ export async function listarGangsRegistradas(
         guild_id: g.guild_id,
         icon_hash: icones.get(g.guild_id) ?? null,
         membros: contagem.get(g.id) ?? 0,
+        treinos: treinosPorGang.get(g.id) ?? 0,
+        divisoes: divisoesPorGang.get(g.id) ?? 0,
+        convite: convites.get(g.id) ?? null,
         relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
         pendencias: pendentes.get(g.id) ?? [],
         desde: a?.respondido_em ?? a?.criado_em ?? null,
@@ -340,7 +395,7 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
   const db = getDb();
   const minha = gid(user);
   if (input.gangId === minha) throw new Error("Você não pode se solicitar.");
-  if (!["Alianca", "Guerra", "Treino"].includes(input.tipo)) {
+  if (!["Guerra", "Treino"].includes(input.tipo)) {
     throw new Error("Tipo de solicitação inválido.");
   }
 
@@ -353,9 +408,6 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
   const relacaoAtual = relacoes.find(
     (r) => r.gang_a_id === input.gangId || r.gang_b_id === input.gangId,
   )?.tipo;
-  if (input.tipo === "Alianca" && relacaoAtual === "Aliada") {
-    throw new Error("Vocês já são aliadas.");
-  }
   if (input.tipo === "Guerra" && relacaoAtual === "Inimiga") {
     throw new Error("Vocês já estão em guerra.");
   }
@@ -380,9 +432,6 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
 
   let rep: { id: string; nome: string; avatar: string | null } | null = null;
   const repId = (input.representante_id ?? "").trim().replace(/\D/g, "");
-  if (input.tipo === "Alianca" && !repId) {
-    throw new Error("Informe o ID do representante da aliança.");
-  }
   if (repId) {
     const { fetchUsuarioDiscord } = await import("./discord.server");
     const u = await fetchUsuarioDiscord(repId);
@@ -418,11 +467,9 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
 
   await avisarDiscord(user, input.gangId, {
     title:
-      input.tipo === "Alianca"
-        ? "🤝 Nova solicitação de aliança"
-        : input.tipo === "Guerra"
-          ? "⚔️ Declaração de guerra recebida"
-          : "🏋️ Solicitação de treino amistoso",
+      input.tipo === "Guerra"
+        ? "⚔️ Declaração de guerra recebida"
+        : "🏋️ Solicitação de treino amistoso",
     description: input.motivo.trim() || undefined,
     fields: [
       { name: "Enviado por", value: nomeUsuario(user), inline: true },
@@ -501,9 +548,7 @@ export async function responderSolicitacao(
   };
 
   if (input.aceitar) {
-    if (sol.tipo === "Alianca") {
-      await definirRelacao(user, sol.gang_origem_id, "Aliada");
-    } else if (sol.tipo === "Guerra") {
+    if (sol.tipo === "Guerra") {
       await definirRelacao(user, sol.gang_origem_id, "Inimiga");
     } else if (sol.tipo === "Treino") {
       const ids = await criarTreinosAmistosos(sol, user);
@@ -661,5 +706,13 @@ export async function excluirSolicitacao(user: SessionUser, input: { id: number 
 
   const { error: delErr } = await db.from("gang_solicitacoes").delete().eq("id", sol.id);
   if (delErr) throw new Error(delErr.message);
+  return { ok: true };
+}
+
+/** Remove manualmente a relação diplomática com outra gang (volta a ser neutra). */
+export async function removerRelacaoGang(user: SessionUser, input: { gangId: number }) {
+  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem desfazer relações.");
+  const minha = gid(user);
+  await limparRelacao(minha, input.gangId);
   return { ok: true };
 }

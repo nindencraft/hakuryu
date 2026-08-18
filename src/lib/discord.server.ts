@@ -304,3 +304,54 @@ export async function fetchGuildsDoBot(): Promise<GuildInfo[]> {
     return [];
   }
 }
+
+/**
+ * Devolve (ou cria) um convite permanente do servidor usando o token do bot.
+ * Reaproveita um convite infinito já existente antes de criar outro.
+ */
+export async function garantirConviteInfinito(guildId: string): Promise<string | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  const id = (guildId ?? "").replace(/\D/g, "");
+  if (!id) return null;
+  const auth = { Authorization: `Bot ${config.discordBotToken}` };
+  try {
+    const atuais = await fetch(`https://discord.com/api/v10/guilds/${id}/invites`, {
+      headers: auth,
+    });
+    if (atuais.ok) {
+      const lista = (await atuais.json()) as {
+        code: string;
+        max_age?: number;
+        max_uses?: number;
+      }[];
+      const eterno = lista.find((i) => !i.max_age && !i.max_uses);
+      if (eterno) return `https://discord.gg/${eterno.code}`;
+    }
+
+    const canais = await fetch(`https://discord.com/api/v10/guilds/${id}/channels`, {
+      headers: auth,
+    });
+    if (!canais.ok) return null;
+    const lista = (await canais.json()) as { id: string; type: number; position?: number }[];
+    const alvo = lista
+      .filter((c) => c.type === 0 || c.type === 5)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0];
+    if (!alvo) return null;
+
+    const criado = await fetch(`https://discord.com/api/v10/channels/${alvo.id}/invites`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ max_age: 0, max_uses: 0, unique: false }),
+    });
+    if (!criado.ok) return null;
+    const invite = (await criado.json()) as { code?: string };
+    return invite.code ? `https://discord.gg/${invite.code}` : null;
+  } catch {
+    return null;
+  }
+}

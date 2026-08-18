@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Handshake, Search, Swords, Dumbbell, ChevronDown } from "lucide-react";
+import { Search, Swords, Dumbbell, ExternalLink, X } from "lucide-react";
 
 import { EmptyState, MemberAvatar } from "@/components/hakuryu/ui-bits";
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
@@ -65,10 +65,28 @@ export function GangAvatar({
 }
 
 /** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
-export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
+export function GangDiplomaticaCard({
+  gang,
+  onDeletar,
+  onSolicitar,
+}: {
+  gang: GangRegistrada;
+  onDeletar?: (() => void) | undefined;
+  onSolicitar?: ((tipo: string) => void) | undefined;
+}) {
   return (
-    <li className="card-gold flex flex-col gap-3 p-5">
-      <div className="flex items-start gap-4">
+    <li className="card-gold relative flex flex-col gap-3 p-5">
+      {onDeletar ? (
+        <button
+          type="button"
+          aria-label={`Remover relação com ${gang.nome}`}
+          onClick={onDeletar}
+          className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <div className="flex items-start gap-4 pr-8">
         <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
         <div className="min-w-0 flex-1">
           <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
@@ -106,6 +124,38 @@ export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
           <dd className="mt-1 truncate">{gang.fechado_por_nome ?? "—"}</dd>
         </div>
       </dl>
+
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
+        {gang.convite ? (
+          <Button size="sm" variant="outline" asChild>
+            <a href={gang.convite} target="_blank" rel="noreferrer noopener">
+              Servidor deles <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        ) : null}
+        {onSolicitar ? (
+          <>
+            {gang.relacao !== "Inimiga" ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={gang.pendencias.some((p) => p.tipo === "Guerra")}
+                onClick={() => onSolicitar("Guerra")}
+              >
+                <Swords className="h-4 w-4" /> Declarar guerra
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={gang.pendencias.some((p) => p.tipo === "Treino")}
+              onClick={() => onSolicitar("Treino")}
+            >
+              <Dumbbell className="h-4 w-4" /> Solicitar treino
+            </Button>
+          </>
+        ) : null}
+      </div>
     </li>
   );
 }
@@ -119,21 +169,12 @@ function badgeRelacao(relacao: RelacaoGang) {
 /* ================= Gangs registradas ================= */
 
 export function GangsRegistradas() {
-  const user = useSessionUser();
-  const podeAgir = podeGerenciarParcerias(user);
   const { data, isPending, error } = useQuery(gangsRegistradasQuery);
   const [busca, setBusca] = useState("");
-  const [selecionada, setSelecionada] = useState<GangRegistrada | null>(null);
-  const [solicitando, setSolicitando] = useState<{ gang: GangRegistrada; tipo: string } | null>(
-    null,
-  );
 
-  // Aliadas e inimigas já aparecem nas seções de cima; aqui só ficam as neutras.
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return (data?.gangs ?? []).filter(
-      (g) => g.relacao === "Neutra" && (!termo || g.nome.toLowerCase().includes(termo)),
-    );
+    return (data?.gangs ?? []).filter((g) => !termo || g.nome.toLowerCase().includes(termo));
   }, [data, busca]);
 
   return (
@@ -143,7 +184,8 @@ export function GangsRegistradas() {
         Gangs registradas
       </h2>
       <p className="text-sm text-muted-foreground">
-        Gangs neutras. Ao virar aliada ou inimiga, a gang passa para as seções acima.
+        Todas as gangs com painel ativo. Para declarar guerra ou marcar um amistoso, use o card da
+        aliança criada acima.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -163,106 +205,48 @@ export function GangsRegistradas() {
         <EmptyState title="Não consegui carregar as gangs" description={error.message} />
       ) : isPending ? (
         <Skeleton className="h-24" />
-      ) : data?.tabelaAusente ? (
-        <EmptyState
-          title="Tabelas de diplomacia não encontradas"
-          description="Rode o script sql/diplomacia.sql no banco para habilitar solicitações de aliança, guerra e treino."
-        />
       ) : lista.length === 0 ? (
         <EmptyState
-          title="Nenhuma gang neutra"
-          description="Todas as gangs registradas já são aliadas ou inimigas da sua gang."
+          title="Nenhuma gang encontrada"
+          description="Nenhuma outra gang registrada com esse nome."
         />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
-          {lista.map((g) => {
-            const aberta = selecionada?.id === g.id;
-            return (
-              <li key={g.id} className="card-gold p-4">
-                <button
-                  type="button"
-                  onClick={() => setSelecionada(aberta ? null : g)}
-                  className="flex w-full items-center gap-3 text-left"
-                  aria-expanded={aberta}
-                >
-                  <GangAvatar nome={g.nome} guildId={g.guild_id} iconHash={g.icon_hash} size={44} />
-                  <span className="min-w-0 flex-1">
-                    <span className="font-display block truncate text-lg text-foreground">
-                      {g.nome}
-                    </span>
-                    <span className="text-sm text-muted-foreground">👥 {g.membros} membros</span>
-                  </span>
-                  {badgeRelacao(g.relacao)}
-                  <ChevronDown
-                    className={`h-4 w-4 text-muted-foreground transition-transform ${aberta ? "rotate-180" : ""}`}
-                    aria-hidden
-                  />
-                </button>
-
-                {aberta ? (
-                  <div className="mt-4 space-y-2 border-t border-border pt-4">
-                    {!podeAgir ? (
-                      <p className="text-sm text-muted-foreground">
-                        Apenas Líder e Vice-Líder podem enviar solicitações.
-                      </p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {g.relacao !== "Aliada" && g.relacao !== "Inimiga" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={g.pendencias.some((p) => p.tipo === "Alianca")}
-                            onClick={() => setSolicitando({ gang: g, tipo: "Alianca" })}
-                          >
-                            <Handshake className="h-4 w-4" /> Solicitar aliança
-                          </Button>
-                        ) : null}
-                        {g.relacao !== "Inimiga" ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={g.pendencias.some((p) => p.tipo === "Guerra")}
-                            onClick={() => setSolicitando({ gang: g, tipo: "Guerra" })}
-                          >
-                            <Swords className="h-4 w-4" /> Declarar guerra
-                          </Button>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={g.pendencias.some((p) => p.tipo === "Treino")}
-                          onClick={() => setSolicitando({ gang: g, tipo: "Treino" })}
-                        >
-                          <Dumbbell className="h-4 w-4" /> Solicitar treino
-                        </Button>
-                      </div>
-                    )}
-                    {g.pendencias.length > 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Pendente:{" "}
-                        {g.pendencias
-                          .map((p) => `${p.tipo} (${p.direcao === "enviada" ? "enviada" : "recebida"})`)
-                          .join(", ")}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
+          {lista.map((g) => (
+            <li key={g.id} className="card-gold flex flex-col gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <GangAvatar nome={g.nome} guildId={g.guild_id} iconHash={g.icon_hash} size={44} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-display truncate text-lg text-foreground">{g.nome}</p>
+                  <p className="text-sm text-muted-foreground">
+                    👥 {g.membros} membros · 🏋️ {g.treinos} treinos · 🛡️ {g.divisoes} divisões
+                  </p>
+                </div>
+                {badgeRelacao(g.relacao)}
+              </div>
+              {g.convite ? (
+                <div>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={g.convite} target="_blank" rel="noreferrer noopener">
+                      Servidor deles <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
+              ) : null}
+            </li>
+          ))}
         </ul>
       )}
-
-      <SolicitacaoDialog valor={solicitando} onClose={() => setSolicitando(null)} />
     </section>
   );
 }
 
-function SolicitacaoDialog({
+
+export function SolicitacaoDialog({
   valor,
   onClose,
 }: {
-  valor: { gang: GangRegistrada; tipo: string } | null;
+  valor: { gang: { id: number; nome: string }; tipo: string } | null;
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState("");
@@ -289,14 +273,9 @@ function SolicitacaoDialog({
     aoConcluir: onClose,
   });
 
-  const tipo = valor?.tipo ?? "Alianca";
-  const comEvento = tipo === "Guerra" || tipo === "Treino";
-  const titulo =
-    tipo === "Alianca"
-      ? "🤝 Solicitação de aliança"
-      : tipo === "Guerra"
-        ? "⚔️ Declaração de guerra"
-        : "🏋️ Solicitação de treino";
+  const tipo = valor?.tipo ?? "Treino";
+  const comEvento = true;
+  const titulo = tipo === "Guerra" ? "⚔️ Declaração de guerra" : "🏋️ Solicitação de treino";
 
   return (
     <Dialog
@@ -324,9 +303,7 @@ function SolicitacaoDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="representante">
-              ID do representante no Discord{tipo === "Alianca" ? "" : " (opcional)"}
-            </Label>
+            <Label htmlFor="representante">ID do representante no Discord (opcional)</Label>
             <Input
               id="representante"
               inputMode="numeric"
@@ -396,7 +373,7 @@ function SolicitacaoDialog({
             Cancelar
           </Button>
           <Button
-            disabled={acao.isPending || (tipo === "Alianca" && !representante.trim())}
+            disabled={acao.isPending}
             onClick={() => {
               if (!valor) return;
               acao.mutate({
