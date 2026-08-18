@@ -52,6 +52,41 @@ async function gangsAtivas(): Promise<GangLinha[]> {
   return (data ?? []) as GangLinha[];
 }
 
+/**
+ * Link do servidor de cada gang. Usa o convite salvo em `gangs.convite`;
+ * quando não existe, pede ao bot um convite permanente e guarda no banco.
+ */
+async function convitesDasGangs(gangs: GangLinha[]): Promise<Map<number, string>> {
+  const db = getDb();
+  const mapa = new Map<number, string>();
+  if (gangs.length === 0) return mapa;
+
+  const { data, error } = await db
+    .from("gangs")
+    .select("id, convite")
+    .in("id", gangs.map((g) => g.id));
+  const semColuna = !!error;
+  for (const g of (data ?? []) as { id: number; convite: string | null }[]) {
+    if (g.convite) mapa.set(g.id, g.convite);
+  }
+
+  const faltando = gangs.filter((g) => !mapa.has(g.id));
+  if (faltando.length === 0) return mapa;
+
+  const { garantirConviteInfinito } = await import("./discord.server");
+  await Promise.all(
+    faltando.map(async (g) => {
+      const link = await garantirConviteInfinito(g.guild_id);
+      if (!link) return;
+      mapa.set(g.id, link);
+      if (!semColuna) {
+        await db.from("gangs").update({ convite: link }).eq("id", g.id);
+      }
+    }),
+  );
+  return mapa;
+}
+
 type RelacaoLinha = { gang_a_id: number; gang_b_id: number; tipo: string };
 
 async function relacoesDaGang(
