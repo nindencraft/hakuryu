@@ -124,6 +124,38 @@ export function GangDiplomaticaCard({
           <dd className="mt-1 truncate">{gang.fechado_por_nome ?? "—"}</dd>
         </div>
       </dl>
+
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
+        {gang.convite ? (
+          <Button size="sm" variant="outline" asChild>
+            <a href={gang.convite} target="_blank" rel="noreferrer noopener">
+              Servidor deles <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        ) : null}
+        {onSolicitar ? (
+          <>
+            {gang.relacao !== "Inimiga" ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={gang.pendencias.some((p) => p.tipo === "Guerra")}
+                onClick={() => onSolicitar("Guerra")}
+              >
+                <Swords className="h-4 w-4" /> Declarar guerra
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={gang.pendencias.some((p) => p.tipo === "Treino")}
+              onClick={() => onSolicitar("Treino")}
+            >
+              <Dumbbell className="h-4 w-4" /> Solicitar treino
+            </Button>
+          </>
+        ) : null}
+      </div>
     </li>
   );
 }
