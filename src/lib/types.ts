@@ -200,6 +200,9 @@ export type GangRegistrada = {
   guild_id: string;
   icon_hash: string | null;
   membros: number;
+  treinos: number;
+  divisoes: number;
+  convite: string | null;
   relacao: RelacaoGang;
   pendencias: { tipo: string; direcao: "enviada" | "recebida" }[];
   desde: string | null;
