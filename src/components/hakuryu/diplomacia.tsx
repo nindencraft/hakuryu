@@ -65,10 +65,28 @@ export function GangAvatar({
 }
 
 /** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
-export function GangDiplomaticaCard({ gang }: { gang: GangRegistrada }) {
+export function GangDiplomaticaCard({
+  gang,
+  onDeletar,
+  onSolicitar,
+}: {
+  gang: GangRegistrada;
+  onDeletar?: (() => void) | undefined;
+  onSolicitar?: ((tipo: string) => void) | undefined;
+}) {
   return (
-    <li className="card-gold flex flex-col gap-3 p-5">
-      <div className="flex items-start gap-4">
+    <li className="card-gold relative flex flex-col gap-3 p-5">
+      {onDeletar ? (
+        <button
+          type="button"
+          aria-label={`Remover relação com ${gang.nome}`}
+          onClick={onDeletar}
+          className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <div className="flex items-start gap-4 pr-8">
         <GangAvatar nome={gang.nome} guildId={gang.guild_id} iconHash={gang.icon_hash} size={56} />
         <div className="min-w-0 flex-1">
           <h3 className="font-display truncate text-xl text-foreground">{gang.nome}</h3>
