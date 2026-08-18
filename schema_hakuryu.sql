@@ -308,3 +308,6 @@ CREATE POLICY "Solicitacoes gravaveis" ON public.gang_solicitacoes
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 NOTIFY pgrst, 'reload schema';
+
+-- Link permanente do servidor de cada gang (gerado pelo bot).
+ALTER TABLE public.gangs ADD COLUMN IF NOT EXISTS convite TEXT;

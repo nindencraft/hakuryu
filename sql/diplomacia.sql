@@ -86,3 +86,6 @@ ALTER TABLE public.gang_solicitacoes
   ADD COLUMN IF NOT EXISTS representante_avatar TEXT;
 
 NOTIFY pgrst, 'reload schema';
+
+-- Link permanente do servidor de cada gang (gerado pelo bot).
+ALTER TABLE public.gangs ADD COLUMN IF NOT EXISTS convite TEXT;
