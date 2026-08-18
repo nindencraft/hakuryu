@@ -71,6 +71,7 @@ function normalizar(v: string): string {
     .toLowerCase()
     .trim();
 }
+console.log(`[DEBUG] Ação: ${acao}, roleId: ${id}, discordId: ${discordId}`);
 
 /** Adiciona ou remove um cargo pelo ID. Falhas são silenciosas (best-effort). */
 export async function ajustarCargoPorId(
