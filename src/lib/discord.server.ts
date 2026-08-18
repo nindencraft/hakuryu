@@ -72,58 +72,60 @@ function normalizar(v: string): string {
     .trim();
 }
 
+/** Adiciona ou remove um cargo pelo ID. */
 export async function ajustarCargoPorId(
   discordId: string,
   roleId: string,
   acao: "add" | "remove",
   guildIdSessao?: string | null,
 ): Promise<void> {
-  try {
-    const config = getConfig();
+  const config = getConfig();
 
-    const id = roleId.trim().replace(/\D/g, "");
-    const guildId = await resolverGuild(guildIdSessao);
+  const id = roleId.trim().replace(/\D/g, "");
+  const guildId = await resolverGuild(guildIdSessao);
 
-    if (!id || !guildId) {
-      console.error("[Discord] Guild ID ou Role ID inválido.", {
-        guildId,
-        roleId,
-      });
-      return;
-    }
+  if (!id) {
+    throw new Error("ID do cargo inválido.");
+  }
 
-    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
-      method: acao === "add" ? "PUT" : "DELETE",
-      headers: {
-        Authorization: `Bot ${config.discordBotToken}`,
-      },
-    });
+  if (!guildId) {
+    throw new Error("ID da guild não encontrado.");
+  }
 
-    if (!res.ok) {
-      const detalhe = await res.text().catch(() => "");
+  const url = `https://discord.com/api/v10/guilds/${guildId}` + `/members/${discordId}/roles/${id}`;
 
-      console.error("[Discord] Falha ao ajustar cargo:", {
-        status: res.status,
-        statusText: res.statusText,
-        acao,
-        discordId,
-        roleId: id,
-        guildId,
-        detalhe,
-      });
+  const response = await fetch(url, {
+    method: acao === "add" ? "PUT" : "DELETE",
+    headers: {
+      Authorization: `Bot ${config.discordBotToken}`,
+    },
+  });
 
-      return;
-    }
+  if (!response.ok) {
+    const detalhe = await response.text().catch(() => "");
 
-    console.log("[Discord] Cargo ajustado com sucesso:", {
+    console.error("Erro ao alterar cargo no Discord:", {
       acao,
       discordId,
       roleId: id,
       guildId,
+      status: response.status,
+      statusText: response.statusText,
+      detalhe,
     });
-  } catch (error) {
-    console.error("[Discord] Erro ao ajustar cargo:", error);
+
+    throw new Error(
+      `Discord recusou a operação de ${acao === "add" ? "adicionar" : "remover"} o cargo. ` +
+        `HTTP ${response.status}: ${detalhe || response.statusText}`,
+    );
   }
+
+  console.log("Cargo alterado com sucesso:", {
+    acao,
+    discordId,
+    roleId: id,
+    guildId,
+  });
 }
 
 /**
