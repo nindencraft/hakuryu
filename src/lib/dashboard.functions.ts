@@ -35,111 +35,110 @@ export type SessionPayload = {
   gangNome: string | null;
 };
 
-export const getSession = createServerFn({ method: "GET" }).handler(
-  async (): Promise<SessionPayload> => {
-    if (!isConfigured()) {
-      let faltando: string[] = [];
-      try {
-        const { getConfig } = await import("./config.server");
-        getConfig();
-      } catch (error) {
-        if (error instanceof ConfigError) faltando = error.missing;
-      }
-      return {
-        configurado: false,
-        faltando,
-        user: null,
-        permitido: false,
-        gangId: null,
-        gangNome: null,
-      };
+export const getSession = createServerFn({ method: "GET" }).handler(async (): Promise<SessionPayload> => {
+  if (!isConfigured()) {
+    let faltando: string[] = [];
+    try {
+      const { getConfig } = await import("./config.server");
+      getConfig();
+    } catch (error) {
+      if (error instanceof ConfigError) faltando = error.missing;
     }
+    return {
+      configurado: false,
+      faltando,
+      user: null,
+      permitido: false,
+      gangId: null,
+      gangNome: null,
+    };
+  }
 
-    const request = getRequest();
-    const user = await currentUser(request);
-    if (!user)
-      return {
-        configurado: true,
-        faltando: [],
-        user: null,
-        permitido: false,
-        gangId: null,
-        gangNome: null,
-      };
-
-    const { podeAcessar } = await import("./session.server");
-
-    // Cargos são revalidados no Discord a cada carregamento para nunca ficarem defasados.
-    const { fetchCargosAtuais } = await import("./discord.server");
-    const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
-    if (cargosAtuais) user.roles = cargosAtuais;
-
-    const { ehDono, ehSuperOwner } = await import("./settings.server");
-    user.isSuperOwner = ehSuperOwner(user.id);
-    user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
-
-    let gangNome: string | null = null;
-    if (user.gangId != null) {
-      const { buscarGangPorId } = await import("./gangs.server");
-      const gang = await buscarGangPorId(user.gangId);
-      gangNome = gang?.nome ?? null;
-      // Líder registrado da gang recebe o cargo "Lider" no painel.
-      const { temCargo } = await import("./session.server");
-      if (gang?.lider_id === user.id && !temCargo(user, "Lider")) {
-        user.roles = [...user.roles, "Lider"];
-      }
-    }
-
+  const request = getRequest();
+  const user = await currentUser(request);
+  if (!user)
     return {
       configurado: true,
       faltando: [],
-      gangId: user.gangId,
-      gangNome,
-      // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
-      permitido: user.gangId == null ? true : podeAcessar(user),
-      user: {
-        id: user.id,
-        username: user.username,
-        globalName: user.globalName,
-        avatarUrl: user.avatarUrl,
-        roles: user.roles,
-        isOwner: user.isOwner,
-        isSuperOwner: user.isSuperOwner,
-        nomeRp: user.nomeRp,
-      },
+      user: null,
+      permitido: false,
+      gangId: null,
+      gangNome: null,
     };
-  },
-);
+
+  // Cargos são revalidados no Discord a cada carregamento e canonizados pelos
+  // IDs configurados em gang_config para impedir liberações por nome de cargo.
+  const { fetchRolesAtuais } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import("./cargos.server");
+  const cargosAtuais = await fetchRolesAtuais(user.id, user.guildId);
+  let temCargoDeAcessoConfigurado = false;
+  if (cargosAtuais && user.gangId != null) {
+    const mapa = await mapaCargos(user.gangId);
+    user.roles = canonizarCargos(mapa, cargosAtuais.ids, cargosAtuais.nomes);
+    temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, cargosAtuais.ids);
+  } else if (user.gangId != null) {
+    // Sem confirmação atual dos IDs Discord, bloqueia o acesso por segurança.
+    user.roles = [];
+  }
+
+  const { ehDono, ehSuperOwner } = await import("./settings.server");
+  user.isSuperOwner = ehSuperOwner(user.id);
+  user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
+
+  let gangNome: string | null = null;
+  if (user.gangId != null) {
+    const { buscarGangPorId } = await import("./gangs.server");
+    const gang = await buscarGangPorId(user.gangId);
+    gangNome = gang?.nome ?? null;
+    // Líder registrado da gang recebe o cargo "Lider" no painel.
+    const { temCargo } = await import("./session.server");
+    if (gang?.lider_id === user.id && !temCargo(user, "Lider")) {
+      user.roles = [...user.roles, "Lider"];
+    }
+  }
+
+  return {
+    configurado: true,
+    faltando: [],
+    gangId: user.gangId,
+    gangNome,
+    // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
+    // Com gang ativa, apenas o ID de Membro ou de cargo superior em gang_config libera o painel.
+    permitido: user.gangId == null ? true : temCargoDeAcessoConfigurado,
+    user: {
+      id: user.id,
+      username: user.username,
+      globalName: user.globalName,
+      avatarUrl: user.avatarUrl,
+      roles: user.roles,
+      isOwner: user.isOwner,
+      isSuperOwner: user.isSuperOwner,
+      nomeRp: user.nomeRp,
+    },
+  };
+});
 
 /** Gangs que o usuário da sessão pode acessar (Super Owner vê todas). */
-export const fetchGangsDisponiveis = createServerFn({ method: "GET" }).handler(
-  async (): Promise<GangDisponivel[]> => {
-    const user = await svc.requireUserSemGang(getRequest());
-    const { gangsDoUsuario } = await import("./gangs-acesso.server");
-    return gangsDoUsuario(user);
-  },
-);
+export const fetchGangsDisponiveis = createServerFn({ method: "GET" }).handler(async (): Promise<GangDisponivel[]> => {
+  const user = await svc.requireUserSemGang(getRequest());
+  const { gangsDoUsuario } = await import("./gangs-acesso.server");
+  return gangsDoUsuario(user);
+});
 
-export const fetchMembros = createServerFn({ method: "GET" }).handler(
-  async (): Promise<Membro[]> => {
-    const user = await svc.requireUser(getRequest());
-    return svc.loadMembros(user);
-  },
-);
+export const fetchMembros = createServerFn({ method: "GET" }).handler(async (): Promise<Membro[]> => {
+  const user = await svc.requireUser(getRequest());
+  return svc.loadMembros(user);
+});
 
-export const fetchTreinos = createServerFn({ method: "GET" }).handler(
-  async (): Promise<Treino[]> => {
-    const user = await svc.requireUser(getRequest());
-    return svc.loadTreinos(user);
-  },
-);
+export const fetchTreinos = createServerFn({ method: "GET" }).handler(async (): Promise<Treino[]> => {
+  const user = await svc.requireUser(getRequest());
+  return svc.loadTreinos(user);
+});
 
-export const fetchDivisoes = createServerFn({ method: "GET" }).handler(
-  async (): Promise<Divisao[]> => {
-    const user = await svc.requireUser(getRequest());
-    return svc.loadDivisoes(user);
-  },
-);
+export const fetchDivisoes = createServerFn({ method: "GET" }).handler(async (): Promise<Divisao[]> => {
+  const user = await svc.requireUser(getRequest());
+  return svc.loadDivisoes(user);
+});
 
 export const fetchParcerias = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> => {
@@ -172,9 +171,7 @@ export const fetchHistoricoAtributos = createServerFn({ method: "POST" })
   });
 
 export const salvarAtributosMembro = createServerFn({ method: "POST" })
-  .inputValidator(
-    (data: { membroId: string; valores: AtributosMembroValores }) => data,
-  )
+  .inputValidator((data: { membroId: string; valores: AtributosMembroValores }) => data)
   .handler(async ({ data }) => svc.salvarAtributosMembro(await svc.requireUser(getRequest()), data));
 
 export const fetchMinhaInscricao = createServerFn({ method: "POST" })
@@ -198,9 +195,7 @@ export const trocarCargo = createServerFn({ method: "POST" })
 
 export const alterarStatusMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string; status: string }) => data)
-  .handler(async ({ data }) =>
-    svc.alterarStatusMembro(await svc.requireUser(getRequest()), data),
-  );
+  .handler(async ({ data }) => svc.alterarStatusMembro(await svc.requireUser(getRequest()), data));
 
 export const removerMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string }) => data)
@@ -220,7 +215,6 @@ export const criarTreino = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => svc.criarTreino(await svc.requireUser(getRequest()), data));
-
 
 export const deletarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
@@ -248,31 +242,19 @@ export const atualizarPresenca = createServerFn({ method: "POST" })
 
 export const criarDivisao = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: {
-      nome_divisao: string;
-      logo_url: string;
-      discord_role_id: string;
-      funcao_principal: string;
-    }) => data,
+    (data: { nome_divisao: string; logo_url: string; discord_role_id: string; funcao_principal: string }) => data,
   )
   .handler(async ({ data }) => svc.criarDivisao(await svc.requireUser(getRequest()), data));
 
 export const atualizarDivisao = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: {
-      divisaoId: number;
-      liderId: string | null;
-      viceLiderId: string | null;
-      novosMembros: string[];
-    }) => data,
+    (data: { divisaoId: number; liderId: string | null; viceLiderId: string | null; novosMembros: string[] }) => data,
   )
   .handler(async ({ data }) => svc.atualizarDivisao(await svc.requireUser(getRequest()), data));
 
 export const removerMembroDivisao = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string }) => data)
-  .handler(async ({ data }) =>
-    svc.removerMembroDivisao(await svc.requireUser(getRequest()), data),
-  );
+  .handler(async ({ data }) => svc.removerMembroDivisao(await svc.requireUser(getRequest()), data));
 
 export const deletarDivisao = createServerFn({ method: "POST" })
   .inputValidator((data: { divisaoId: number }) => data)
@@ -305,7 +287,6 @@ export const deletarParceria = createServerFn({ method: "POST" })
   .inputValidator((data: { id: number }) => data)
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
 
-
 export const atualizarMeusDados = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -320,22 +301,14 @@ export const atualizarMeusDados = createServerFn({ method: "POST" })
   .handler(async ({ data }) => svc.atualizarDadosMembro(await svc.requireUser(getRequest()), data));
 
 export const fetchConfiguracoes = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ConfiguracoesPainel> =>
-    svc.loadConfiguracoesPainel(await svc.requireUser(getRequest())),
+  async (): Promise<ConfiguracoesPainel> => svc.loadConfiguracoesPainel(await svc.requireUser(getRequest())),
 );
 
 export const salvarConfiguracoes = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: {
-      cargos: Record<string, string>;
-      canais: Record<string, string>;
-      owners: string;
-      guildId: string;
-    }) => data,
+    (data: { cargos: Record<string, string>; canais: Record<string, string>; owners: string; guildId: string }) => data,
   )
-  .handler(async ({ data }) =>
-    svc.salvarConfiguracoesPainel(await svc.requireUser(getRequest()), data),
-  );
+  .handler(async ({ data }) => svc.salvarConfiguracoesPainel(await svc.requireUser(getRequest()), data));
 
 export const fetchLogs = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> => {
@@ -344,12 +317,10 @@ export const fetchLogs = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const fetchGuildAtual = createServerFn({ method: "GET" }).handler(
-  async (): Promise<GuildAtual> => {
-    const user = await svc.requireUser(getRequest());
-    return svc.guildAtualInfo(user);
-  },
-);
+export const fetchGuildAtual = createServerFn({ method: "GET" }).handler(async (): Promise<GuildAtual> => {
+  const user = await svc.requireUser(getRequest());
+  return svc.guildAtualInfo(user);
+});
 
 export const salvarLog = createServerFn({ method: "POST" })
   .inputValidator(
