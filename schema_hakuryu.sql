@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS public.treinos (
   horario TEXT,
   tipo TEXT,
   local TEXT,
+  link_servidor_privado TEXT,
   divisao_responsavel TEXT,
   status TEXT DEFAULT 'Aberto',
   criado_por TEXT
@@ -210,6 +211,7 @@ CREATE TABLE IF NOT EXISTS public.logs_partidas (
   pontos_nos INTEGER NOT NULL DEFAULT 0,
   pontos_eles INTEGER NOT NULL DEFAULT 0,
   data_partida DATE DEFAULT now(),
+  link_servidor_privado TEXT,
   observacoes TEXT,
   criado_por TEXT,
   criado_por_nome TEXT
@@ -261,6 +263,7 @@ CREATE TABLE IF NOT EXISTS public.gang_solicitacoes (
   data_evento DATE,
   horario TEXT,
   local TEXT,
+  link_servidor_privado TEXT,
   membros_origem INTEGER,
   membros_destino INTEGER,
   criado_por TEXT,

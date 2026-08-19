@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.gang_solicitacoes (
   data_evento DATE,
   horario TEXT,
   local TEXT,
+  link_servidor_privado TEXT,
   membros_origem INTEGER,
   membros_destino INTEGER,
   criado_por TEXT,
@@ -89,3 +90,9 @@ NOTIFY pgrst, 'reload schema';
 
 -- Link permanente do servidor de cada gang (gerado pelo bot).
 ALTER TABLE public.gangs ADD COLUMN IF NOT EXISTS convite TEXT;
+
+-- Link do servidor privado Roblox onde o treino amistoso ou a guerra ocorrerá.
+ALTER TABLE public.gang_solicitacoes
+  ADD COLUMN IF NOT EXISTS link_servidor_privado TEXT;
+
+NOTIFY pgrst, 'reload schema';
