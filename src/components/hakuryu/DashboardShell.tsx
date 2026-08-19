@@ -15,9 +15,8 @@ import {
   Repeat,
   Mails,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import logo from "@/assets/hakuryu-logo.png";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
 import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
@@ -34,6 +33,8 @@ import {
   type SessionUserView,
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+
+const logo = "/manus-storage/hakuryu-logo_f1592314.png";
 
 const NAV = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard },
@@ -255,7 +256,6 @@ function SidebarBody({
   );
 }
 
-
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
     <div
@@ -371,6 +371,12 @@ export function DashboardShell({
   const { data, isPending } = useQuery(sessionQuery);
   const search = useRouterState({ select: (s) => s.location.search }) as { erro?: string };
 
+  useEffect(() => {
+    const abrirDrawerNaPrevia =
+      import.meta.env.DEV && new URLSearchParams(window.location.search).get("previewDrawer") === "open";
+    if (abrirDrawerNaPrevia) setOpen(true);
+  }, []);
+
   if (isPending) {
     return (
       <div className="washi min-h-screen p-8">
@@ -418,7 +424,7 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="relative w-[85vw] max-w-xs overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                 >
                   <img
                     src={sidebarBgAsset.url}
