@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import logo from "@/assets/hakuryu-logo.png";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
 import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
@@ -33,8 +34,6 @@ import {
   type SessionUserView,
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-
-const logo = "/manus-storage/hakuryu-logo_f1592314.png";
 
 const NAV = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard },
@@ -61,7 +60,9 @@ function Brand() {
         className="h-12 w-12 shrink-0 object-contain"
       />
       <div className="min-w-0">
-        <p className="text-gold-gradient font-display text-lg leading-tight font-semibold">Hakuryū</p>
+        <p className="text-gold-gradient font-display text-lg leading-tight font-semibold">
+          Hakuryū
+        </p>
         <p className="font-jp text-xs text-muted-foreground">白竜 · painel da gang</p>
       </div>
     </div>
@@ -122,7 +123,13 @@ function iconeGuild(guildId: string, hash: string | null): string | null {
 }
 
 /** Servidores registrados em que o usuário está: troca rápida de painel. */
-function GangsRail({ gangAtivaId, onNavigate }: { gangAtivaId: number | null; onNavigate?: (() => void) | undefined }) {
+function GangsRail({
+  gangAtivaId,
+  onNavigate,
+}: {
+  gangAtivaId: number | null;
+  onNavigate?: (() => void) | undefined;
+}) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data } = useQuery(gangsDisponiveisQuery);
@@ -248,6 +255,7 @@ function SidebarBody({
   );
 }
 
+
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
     <div
@@ -271,14 +279,19 @@ function LoginScreen({ erro }: { erro?: string | undefined }) {
         height={140}
         className="mx-auto h-35 w-35 object-contain"
       />
-      <h1 className="text-gold-gradient font-display mt-4 text-3xl font-semibold">Hakuryū Dashboard</h1>
+      <h1 className="text-gold-gradient font-display mt-4 text-3xl font-semibold">
+        Hakuryū Dashboard
+      </h1>
       <p className="font-jp mt-1 text-sm text-muted-foreground">白竜 · painel de gestão da gang</p>
       <div className="rule-gold my-6" aria-hidden />
       {erro ? (
-        <p className="mb-4 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">{erro}</p>
+        <p className="mb-4 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {erro}
+        </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        Entre com o Discord para acessar o painel. Só membros do servidor com cargo autorizado conseguem entrar.
+        Entre com o Discord para acessar o painel. Só membros do servidor com cargo autorizado
+        conseguem entrar.
       </p>
       <Button size="lg" className="mt-6 w-full" asChild>
         <a href="/api/public/auth/discord/login">Entrar com Discord</a>
@@ -290,11 +303,13 @@ function LoginScreen({ erro }: { erro?: string | undefined }) {
 function SetupScreen({ faltando }: { faltando: string[] }) {
   return (
     <CenteredCard>
-      <h1 className="text-gold-gradient font-display text-2xl font-semibold">Painel quase pronto</h1>
+      <h1 className="text-gold-gradient font-display text-2xl font-semibold">
+        Painel quase pronto
+      </h1>
       <div className="rule-gold my-5" aria-hidden />
       <p className="text-sm text-muted-foreground">
-        Faltam credenciais para conectar ao banco da gang e ao Discord. Adicione os segredos abaixo nas configurações do
-        projeto:
+        Faltam credenciais para conectar ao banco da gang e ao Discord. Adicione os segredos abaixo
+        nas configurações do projeto:
       </p>
       <ul className="mt-4 space-y-1 text-left font-mono text-xs text-foreground">
         {faltando.map((f) => (
@@ -319,7 +334,9 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
       />
       <h1 className="text-gold-gradient font-display mt-4 text-2xl font-semibold">Acesso negado</h1>
       <div className="rule-gold my-5" aria-hidden />
-      <p className="text-sm text-muted-foreground">Você não possui um cargo autorizado para acessar este dashboard.</p>
+      <p className="text-sm text-muted-foreground">
+        Você não possui um cargo autorizado para acessar este dashboard.
+      </p>
       <Button variant="outline" className="mt-6" asChild>
         <a href="/api/public/auth/logout">Sair</a>
       </Button>
@@ -333,7 +350,8 @@ function SemGangScreen() {
       <h1 className="text-gold-gradient font-display text-2xl font-semibold">Escolha uma gang</h1>
       <div className="rule-gold my-5" aria-hidden />
       <p className="text-sm text-muted-foreground">
-        Sua sessão ainda não está vinculada a nenhuma gang. Selecione qual servidor você quer administrar.
+        Sua sessão ainda não está vinculada a nenhuma gang. Selecione qual servidor você quer
+        administrar.
       </p>
       <Button className="mt-6" asChild>
         <Link to="/selecionar-gang">Selecionar gang</Link>
@@ -400,7 +418,7 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="relative w-[85vw] max-w-xs overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                 >
                   <img
                     src={sidebarBgAsset.url}
