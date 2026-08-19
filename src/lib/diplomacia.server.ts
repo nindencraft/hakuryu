@@ -682,7 +682,7 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
   await avisarDiscord(user, input.gangId, {
     title: input.tipo === "Guerra" ? "⚔️ Declaração de guerra recebida" : "🏋️ Solicitação de treino amistoso",
 
-    description: input.motivo.trim() || undefined,
+    ...(input.motivo.trim() ? { description: input.motivo.trim() } : {}),
 
     fields: [
       {
