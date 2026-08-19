@@ -8,10 +8,12 @@ import {
   podeGerenciarParcerias,
   podeGerenciarTreinos,
   temCargo,
+  CARGOS_PERMITIDOS,
   CARGOS_DIVISAO,
   type SessionUser,
 } from "./session.server";
 import { cargoPrimario } from "./permissions";
+import { normalizarLinkEvento } from "./event-link";
 import type {
   AliadoResolvido,
   Divisao,
@@ -749,6 +751,7 @@ export async function criarTreino(
     horario: string;
     tipo: string;
     local: string;
+    link_servidor_privado?: string;
     divisao_responsavel: string;
     aliado: string;
   },
@@ -761,6 +764,10 @@ export async function criarTreino(
     throw new Error("Configure o ID Discord do cargo Membro antes de criar um treino.");
   }
   const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
+  const linkServidorPrivado = normalizarLinkEvento(
+    input.link_servidor_privado,
+    "O link do servidor privado Roblox",
+  );
   const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
   const descricao =
     `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
@@ -772,6 +779,7 @@ export async function criarTreino(
     horario: input.horario || null,
     tipo: input.tipo,
     local: input.local || null,
+    link_servidor_privado: linkServidorPrivado,
     divisao_responsavel: input.divisao_responsavel || null,
     status: "Aberto",
     criado_por: user.id,
@@ -790,6 +798,9 @@ export async function criarTreino(
       { name: "Horário", value: input.horario || "A definir", inline: true },
       { name: "Tipo", value: input.tipo, inline: true },
       { name: "Local", value: input.local || "A definir", inline: true },
+      ...(linkServidorPrivado
+        ? [{ name: "Servidor privado Roblox", value: linkServidorPrivado }]
+        : []),
       { name: "Divisão", value: input.divisao_responsavel || "Geral", inline: true },
       ...(aliado ? [{ name: "Gang aliada", value: aliado, inline: true }] : []),
       {
@@ -1616,6 +1627,7 @@ export async function loadLogs(
     pontos_nos: Number(row["pontos_nos"] ?? 0),
     pontos_eles: Number(row["pontos_eles"] ?? 0),
     data_partida: (row["data_partida"] as string | null) ?? null,
+    link_servidor_privado: (row["link_servidor_privado"] as string | null) ?? null,
     observacoes: (row["observacoes"] as string | null) ?? null,
     criado_por: (row["criado_por"] as string | null) ?? null,
     criado_por_nome: (row["criado_por_nome"] as string | null) ?? null,
@@ -1634,12 +1646,17 @@ export async function salvarLog(
     pontos_nos: number;
     pontos_eles: number;
     data_partida: string;
+    link_servidor_privado?: string;
     observacoes: string;
   },
 ) {
   assert(podeGerenciarTreinos(user), "Sem permissão para registrar logs.");
   const db = getDb();
   const autor = user.nomeRp || user.globalName || user.username;
+  const linkServidorPrivado = normalizarLinkEvento(
+    input.link_servidor_privado,
+    "O link do servidor privado Roblox",
+  );
   const { error } = await db.from("logs_partidas").insert({
     tipo: input.tipo,
     adversario_id: input.adversario_id,
@@ -1649,6 +1666,7 @@ export async function salvarLog(
     pontos_nos: input.pontos_nos,
     pontos_eles: input.pontos_eles,
     data_partida: input.data_partida || new Date().toISOString().slice(0, 10),
+    link_servidor_privado: linkServidorPrivado,
     observacoes: input.observacoes.trim() || null,
     criado_por: user.id,
     criado_por_nome: autor,
@@ -1676,6 +1694,9 @@ export async function salvarLog(
     fields: [
       { name: "Resultado", value: resultado, inline: true },
       { name: "Registrado por", value: autor, inline: true },
+      ...(linkServidorPrivado
+        ? [{ name: "Servidor privado Roblox", value: linkServidorPrivado }]
+        : []),
     ],
     timestamp: new Date().toISOString(),
   });

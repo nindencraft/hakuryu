@@ -253,6 +253,7 @@ export function SolicitacaoDialog({
   const [data, setData] = useState("");
   const [horario, setHorario] = useState("");
   const [local, setLocal] = useState("");
+aaaa  const [linkServidorPrivado, setLinkServidorPrivado] = useState("");
   const [nos, setNos] = useState("");
   const [eles, setEles] = useState("");
   const [representante, setRepresentante] = useState("");
@@ -264,6 +265,7 @@ export function SolicitacaoDialog({
     data_evento: string;
     horario: string;
     local: string;
+    link_servidor_privado: string;
     membros_origem: string;
     membros_destino: string;
     representante_id: string;
@@ -287,6 +289,7 @@ export function SolicitacaoDialog({
           setData("");
           setHorario("");
           setLocal("");
+          setLinkServidorPrivado("");
           setNos("");
           setEles("");
           setRepresentante("");
@@ -348,6 +351,17 @@ export function SolicitacaoDialog({
                 <Label htmlFor="local">Local</Label>
                 <Input id="local" value={local} onChange={(e) => setLocal(e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="link-servidor-privado">Servidor privado Roblox (opcional)</Label>
+                <Input
+                  id="link-servidor-privado"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://www.roblox.com/share?..."
+                  value={linkServidorPrivado}
+                  onChange={(e) => setLinkServidorPrivado(e.target.value)}
+                />
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="nos">Membros nossos</Label>
@@ -383,6 +397,7 @@ export function SolicitacaoDialog({
                 data_evento: data,
                 horario,
                 local,
+                link_servidor_privado: linkServidorPrivado,
                 membros_origem: nos,
                 membros_destino: eles,
                 representante_id: representante,
@@ -479,6 +494,21 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
           <Detalhe rotulo="Local" valor={g.local ?? "—"} />
           <Detalhe rotulo="Data" valor={formatarData(g.data_evento)} />
           <Detalhe rotulo="Horário" valor={formatarHorario(g.horario)} />
+          {g.link_servidor_privado ? (
+            <div>
+              <dt className="text-xs text-muted-foreground uppercase">Servidor privado Roblox</dt>
+              <dd className="mt-1">
+                <a
+                  href={g.link_servidor_privado}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+                >
+                  Abrir servidor <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </dd>
+            </div>
+          ) : null}
           <Detalhe
             rotulo="Membros requisitados"
             valor={`${g.membros_nos ?? "—"} (nós) × ${g.membros_eles ?? "—"} (eles)`}

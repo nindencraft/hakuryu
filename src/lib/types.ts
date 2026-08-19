@@ -75,6 +75,7 @@ export type Treino = {
   horario: string | null;
   tipo: string;
   local: string | null;
+  link_servidor_privado: string | null;
   divisao_responsavel: string | null;
   status: string | null;
   criado_por: string | null;
@@ -151,6 +152,7 @@ export type LogPartida = {
   pontos_nos: number;
   pontos_eles: number;
   data_partida: string | null;
+  link_servidor_privado: string | null;
   observacoes: string | null;
   criado_por: string | null;
   criado_por_nome: string | null;
@@ -221,6 +223,7 @@ export type SolicitacaoGang = {
   data_evento: string | null;
   horario: string | null;
   local: string | null;
+  link_servidor_privado: string | null;
   membros_origem: number | null;
   membros_destino: number | null;
   criado_por: string | null;
@@ -241,6 +244,7 @@ export type GuerraAtiva = {
   data_evento: string | null;
   horario: string | null;
   local: string | null;
+  link_servidor_privado: string | null;
   membros_nos: number | null;
   membros_eles: number | null;
   solicitante_nome: string | null;

@@ -12,6 +12,7 @@ import {
   fetchGangsRegistradas,
   fetchSolicitacoes,
   fetchGuerras,
+  fetchBannerGlobal,
   getSession,
 } from "./dashboard.functions";
 
@@ -20,6 +21,12 @@ export const sessionQuery = queryOptions({
   queryFn: () => getSession(),
   staleTime: 0,
   refetchOnWindowFocus: true,
+});
+
+export const bannerGlobalQuery = queryOptions({
+  queryKey: ["banner-global"],
+  queryFn: () => fetchBannerGlobal(),
+  staleTime: 30_000,
 });
 
 export const gangsDisponiveisQuery = queryOptions({

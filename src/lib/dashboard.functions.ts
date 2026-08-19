@@ -35,6 +35,11 @@ export type SessionPayload = {
   gangNome: string | null;
 };
 
+export type BannerGlobal = {
+  imagemUrl: string;
+  discordUrl: string;
+};
+
 export const getSession = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionPayload> => {
     if (!isConfigured()) {
@@ -144,6 +149,22 @@ export const fetchTreinos = createServerFn({ method: "GET" }).handler(
   },
 );
 
+/** Anúncio único e global, exibido a todas as gangs autorizadas. */
+export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
+  async (): Promise<BannerGlobal | null> => {
+    await svc.requireUser(getRequest());
+    const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig } = await import(
+      "./settings.server"
+    );
+    const [imagemUrl, discordUrl] = await Promise.all([
+      lerConfig(CHAVE_BANNER_IMAGEM_URL),
+      lerConfig(CHAVE_BANNER_DISCORD_URL),
+    ]);
+    if (!imagemUrl || !discordUrl) return null;
+    return { imagemUrl, discordUrl };
+  },
+);
+
 export const fetchDivisoes = createServerFn({ method: "GET" }).handler(
   async (): Promise<Divisao[]> => {
     const user = await svc.requireUser(getRequest());
@@ -225,6 +246,7 @@ export const criarTreino = createServerFn({ method: "POST" })
       horario: string;
       tipo: string;
       local: string;
+      link_servidor_privado: string;
       divisao_responsavel: string;
       aliado: string;
     }) => data,
@@ -372,6 +394,7 @@ export const salvarLog = createServerFn({ method: "POST" })
       pontos_nos: number;
       pontos_eles: number;
       data_partida: string;
+      link_servidor_privado: string;
       observacoes: string;
     }) => data,
   )
@@ -418,6 +441,7 @@ export const criarSolicitacao = createServerFn({ method: "POST" })
       data_evento: string;
       horario: string;
       local: string;
+      link_servidor_privado: string;
       membros_origem: string;
       membros_destino: string;
       representante_id?: string;

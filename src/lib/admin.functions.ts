@@ -14,6 +14,11 @@ export type GangAdmin = {
 
 export type GuildBot = { id: string; nome: string; iconHash: string | null; registrada: boolean };
 
+export type BannerGlobalAdmin = {
+  imagemUrl: string;
+  discordUrl: string;
+};
+
 async function requireSuperOwner() {
   const user = await svc.requireUserSemGang(getRequest());
   if (!user.isSuperOwner) throw new Error("Apenas o Super Owner acessa esta área.");
@@ -101,3 +106,43 @@ export const excluirGangAdmin = createServerFn({ method: "POST" })
     const { excluirGang } = await import("./gangs.server");
     return excluirGang(data.id);
   });
+
+/** Cria ou atualiza o anúncio único exibido na Visão Geral de todas as gangs. */
+export const salvarBannerAdmin = createServerFn({ method: "POST" })
+  .inputValidator((input: BannerGlobalAdmin) => input)
+  .handler(async ({ data }) => {
+    await requireSuperOwner();
+    const [
+      { normalizarLinkEvento },
+      {
+        CHAVE_BANNER_DISCORD_URL,
+        CHAVE_BANNER_IMAGEM_URL,
+        salvarConfiguracoes,
+      },
+    ] = await Promise.all([import("./event-link"), import("./settings.server")]);
+
+    const imagemUrl = normalizarLinkEvento(data.imagemUrl, "A URL da imagem do anúncio");
+    const discordUrl = normalizarLinkEvento(data.discordUrl, "O link do servidor Discord");
+    if (!imagemUrl || !discordUrl) {
+      throw new Error("Informe a URL da imagem e o link do servidor Discord.");
+    }
+
+    await salvarConfiguracoes({
+      [CHAVE_BANNER_IMAGEM_URL]: imagemUrl,
+      [CHAVE_BANNER_DISCORD_URL]: discordUrl,
+    });
+    return { ok: true };
+  });
+
+/** Remove o anúncio global sem alterar outras configurações do painel. */
+export const removerBannerAdmin = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSuperOwner();
+  const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes } = await import(
+    "./settings.server"
+  );
+  await salvarConfiguracoes({
+    [CHAVE_BANNER_IMAGEM_URL]: "",
+    [CHAVE_BANNER_DISCORD_URL]: "",
+  });
+  return { ok: true };
+});

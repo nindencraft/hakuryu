@@ -1,6 +1,7 @@
 import { getDb } from "./db.server";
 import { podeGerenciarParcerias, type SessionUser } from "./session.server";
 import type { GangRegistrada, GuerraAtiva, SolicitacaoGang } from "./types";
+import { normalizarLinkEvento } from "./event-link";
 
 /* ========== utilidades ========== */
 
@@ -371,6 +372,7 @@ type SolicitacaoLinha = {
   data_evento: string | null;
   horario: string | null;
   local: string | null;
+  link_servidor_privado: string | null;
   membros_origem: number | null;
   membros_destino: number | null;
   criado_por: string | null;
@@ -431,6 +433,7 @@ export async function listarSolicitacoes(user: SessionUser): Promise<{
       data_evento: s.data_evento,
       horario: s.horario,
       local: s.local,
+      link_servidor_privado: s.link_servidor_privado,
       membros_origem: s.membros_origem,
       membros_destino: s.membros_destino,
       criado_por: s.criado_por,
@@ -528,6 +531,8 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
 
       local: s.local,
 
+      link_servidor_privado: s.link_servidor_privado,
+
       membros_nos: souOrigem ? s.membros_origem : s.membros_destino,
 
       membros_eles: souOrigem ? s.membros_destino : s.membros_origem,
@@ -563,6 +568,7 @@ export type NovaSolicitacao = {
   data_evento: string;
   horario: string;
   local: string;
+  link_servidor_privado?: string;
   membros_origem: string;
   membros_destino: string;
   representante_id?: string;
@@ -621,6 +627,7 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
 
     return Number.isFinite(n) && n > 0 ? n : null;
   };
+  const linkServidorPrivado = normalizarLinkEvento(input.link_servidor_privado);
 
   let rep: {
     id: string;
@@ -655,6 +662,8 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
     horario: input.horario || null,
 
     local: input.local.trim() || null,
+
+    link_servidor_privado: linkServidorPrivado,
 
     membros_origem: numero(input.membros_origem),
 
@@ -717,6 +726,15 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
               name: "Local",
               value: input.local,
               inline: true,
+            },
+          ]
+        : []),
+
+      ...(linkServidorPrivado
+        ? [
+            {
+              name: "Servidor privado Roblox",
+              value: linkServidorPrivado,
             },
           ]
         : []),
@@ -896,6 +914,8 @@ async function criarTreinosAmistosos(
     tipo: "Amistoso",
 
     local: sol.local,
+
+    link_servidor_privado: sol.link_servidor_privado,
 
     status: "Aberto",
   };

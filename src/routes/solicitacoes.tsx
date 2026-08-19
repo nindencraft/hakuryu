@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
 import { GangAvatar } from "@/components/hakuryu/diplomacia";
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -182,6 +182,21 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
           <Info rotulo="Data" valor={formatarData(s.data_evento)} />
           <Info rotulo="Horário" valor={formatarHorario(s.horario)} />
           <Info rotulo="Local" valor={s.local ?? "—"} />
+          {s.link_servidor_privado ? (
+            <div>
+              <dt className="text-xs text-muted-foreground uppercase">Servidor privado Roblox</dt>
+              <dd className="mt-1">
+                <a
+                  href={s.link_servidor_privado}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+                >
+                  Abrir servidor <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </dd>
+            </div>
+          ) : null}
           <Info
             rotulo="Membros"
             valor={`${s.membros_origem ?? "—"} × ${s.membros_destino ?? "—"}`}

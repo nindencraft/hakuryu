@@ -39,6 +39,8 @@ export type Configuracoes = {
 export const SUPER_OWNER_IDS = ["1454976616735313970"];
 
 export const CHAVE_GUILD = "guild_id";
+export const CHAVE_BANNER_IMAGEM_URL = "banner_imagem_url";
+export const CHAVE_BANNER_DISCORD_URL = "banner_discord_url";
 
 /**
  * Lê uma configuração antiga/global.

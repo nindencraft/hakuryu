@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, MemberAvatar, PageTitle } from "@/components/hakuryu/ui-bits";
@@ -279,6 +279,17 @@ function TreinoCard({
         </div>
       </dl>
 
+      {treino.link_servidor_privado ? (
+        <a
+          href={treino.link_servidor_privado}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex w-fit items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Entrar no servidor privado Roblox <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ) : null}
+
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         <Badge variant="secondary">{treino.inscritos} inscritos</Badge>
         <div className="flex-1" />
@@ -330,6 +341,7 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
     horario: "20:00",
     tipo: "Interno" as string,
     local: "",
+    link_servidor_privado: "",
     divisao_responsavel: "Todas",
     aliado: "",
   });
@@ -444,12 +456,22 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
           ) : null}
           <div className="space-y-2">
-
             <Label htmlFor="local">Local</Label>
             <Input
               id="local"
               value={form.local}
               onChange={(e) => setForm({ ...form, local: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="link-servidor-privado">Servidor privado Roblox (opcional)</Label>
+            <Input
+              id="link-servidor-privado"
+              type="url"
+              inputMode="url"
+              placeholder="https://www.roblox.com/share?..."
+              value={form.link_servidor_privado}
+              onChange={(e) => setForm({ ...form, link_servidor_privado: e.target.value })}
             />
           </div>
         </div>

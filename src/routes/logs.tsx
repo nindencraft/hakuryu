@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, PageTitle } from "@/components/hakuryu/ui-bits";
@@ -275,6 +275,16 @@ function LogCard({
           <p className="whitespace-pre-wrap">
             {log.observacoes || "Sem observações registradas."}
           </p>
+          {log.link_servidor_privado ? (
+            <a
+              href={log.link_servidor_privado}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Abrir servidor privado Roblox <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
           <p className="text-xs text-muted-foreground">
             Registrado por {log.criado_por_nome ?? "—"}
           </p>
@@ -295,6 +305,7 @@ function CriarLogDialog({ open, onClose }: { open: boolean; onClose: () => void 
     pontos_nos: 0,
     pontos_eles: 0,
     data_partida: new Date().toISOString().slice(0, 10),
+    link_servidor_privado: "",
     observacoes: "",
   });
 
@@ -409,6 +420,18 @@ function CriarLogDialog({ open, onClose }: { open: boolean; onClose: () => void 
                 onChange={(e) => setForm({ ...form, pontos_eles: Number(e.target.value) || 0 })}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="llink-servidor-privado">Servidor privado Roblox (opcional)</Label>
+            <Input
+              id="llink-servidor-privado"
+              type="url"
+              inputMode="url"
+              placeholder="https://www.roblox.com/share?..."
+              value={form.link_servidor_privado}
+              onChange={(e) => setForm({ ...form, link_servidor_privado: e.target.value })}
+            />
           </div>
 
           <div className="space-y-2">
