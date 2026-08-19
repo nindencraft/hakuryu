@@ -51,6 +51,79 @@ export async function fetchCargosAtuais(discordId: string, guildIdSessao?: strin
   }
 }
 
+/** IDs e nomes dos cargos atuais do usuário no servidor (null quando indisponível). */
+export async function fetchRolesAtuais(
+  discordId: string,
+  guildIdSessao?: string | null,
+): Promise<{ ids: string[]; nomes: string[] } | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const guildId = await resolverGuild(guildIdSessao);
+    if (!guildId) return null;
+    const headers = { Authorization: `Bot ${config.discordBotToken}` };
+    const memberRes = await fetch(
+      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
+      { headers },
+    );
+    if (memberRes.status === 404) return { ids: [], nomes: [] };
+    if (!memberRes.ok) return null;
+    const member = (await memberRes.json()) as GuildMember;
+
+    const rolesRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+      headers,
+    });
+    const allRoles = rolesRes.ok ? ((await rolesRes.json()) as GuildRole[]) : [];
+    return {
+      ids: member.roles,
+      nomes: allRoles.filter((r) => member.roles.includes(r.id)).map((r) => r.name),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Cargos (IDs + nomes) de todos os membros do servidor, em uma chamada. */
+export async function fetchRolesDeTodos(
+  guildIdSessao?: string | null,
+): Promise<Map<string, { ids: string[]; nomes: string[] }> | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const guildId = await resolverGuild(guildIdSessao);
+    if (!guildId) return null;
+    const headers = { Authorization: `Bot ${config.discordBotToken}` };
+    const [membersRes, rolesRes] = await Promise.all([
+      fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, { headers }),
+      fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, { headers }),
+    ]);
+    if (!membersRes.ok || !rolesRes.ok) return null;
+    const members = (await membersRes.json()) as { user?: { id: string }; roles: string[] }[];
+    const allRoles = (await rolesRes.json()) as GuildRole[];
+    const nomePorId = new Map(allRoles.map((r) => [r.id, r.name]));
+
+    const mapa = new Map<string, { ids: string[]; nomes: string[] }>();
+    for (const m of members) {
+      if (!m.user?.id) continue;
+      mapa.set(m.user.id, {
+        ids: m.roles,
+        nomes: m.roles.map((id) => nomePorId.get(id)).filter((n): n is string => !!n),
+      });
+    }
+    return mapa;
+  } catch {
+    return null;
+  }
+}
+
 async function buscarRoleId(nome: string, guildIdSessao?: string | null): Promise<string | null> {
   const config = getConfig();
   const guildId = await resolverGuild(guildIdSessao);
