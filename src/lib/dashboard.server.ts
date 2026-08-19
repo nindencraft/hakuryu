@@ -622,17 +622,14 @@ export async function trocarCargo(
 
   const db = getDb();
   const g = gid(user);
-  const { fetchCargosAtuais } = await import("./discord.server");
-  const doDiscord = await fetchCargosAtuais(input.membroId, user.guildId);
+  const { fetchRolesAtuais } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos } = await import("./cargos.server");
+  const [doDiscord, mapa] = await Promise.all([
+    fetchRolesAtuais(input.membroId, user.guildId),
+    mapaCargos(g),
+  ]);
 
-  const norm = (v: string) =>
-    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  const antigos = doDiscord
-    ? (CARGOS_PERMITIDOS as readonly string[]).filter((c) =>
-        doDiscord.some((r) => norm(r) === norm(c)),
-      )
-    : [];
-
+  const antigos = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
 
   // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
@@ -647,12 +644,19 @@ export async function trocarCargo(
   if (error) throw new Error(error.message);
 
   // Sincroniza com o Discord (adiciona os novos, remove os retirados).
-  const { ajustarCargoDiscord } = await import("./discord.server");
+  // Só mexe nos cargos do painel — nunca nos de liderança de divisão.
+  const { ajustarCargoPorId, ajustarCargoDiscord } = await import("./discord.server");
   for (const cargo of permitidos) {
+    if (CARGOS_DIVISAO.includes(cargo)) continue;
     const tinha = antigos.includes(cargo);
     const tem = finais.includes(cargo);
     if (tinha === tem) continue;
-    await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove", ctxDiscord(user));
+    const roleId = mapa.porCargo.get(cargo);
+    if (roleId) {
+      await ajustarCargoPorId(input.membroId, roleId, tem ? "add" : "remove", user.guildId);
+    } else {
+      await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove", ctxDiscord(user));
+    }
   }
 
   return { ok: true };
