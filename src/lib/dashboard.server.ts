@@ -200,20 +200,18 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   }
 
   // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
-  const { fetchCargosDeTodos } = await import("./discord.server");
-  const cargosDiscord = await fetchCargosDeTodos(user.guildId);
-  const canonizar = (nomes: string[]) => {
-    const norm = (v: string) =>
-      v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const set = new Set(nomes.map(norm));
-    return CARGOS_PERMITIDOS.filter((c) => set.has(norm(c)));
-  };
+  const { fetchRolesDeTodos } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos } = await import("./cargos.server");
+  const [rolesDiscord, mapa] = await Promise.all([
+    fetchRolesDeTodos(user.guildId),
+    mapaCargos(g),
+  ]);
 
   return membros.map((m) => ({
     ...m,
     cargo: (() => {
-      const doDiscord = cargosDiscord?.get(m.discord_id);
-      const lista = doDiscord ? canonizar(doDiscord) : [];
+      const doDiscord = rolesDiscord?.get(m.discord_id);
+      const lista = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
       return lista.length ? lista.join(", ") : m.cargo;
     })(),
     divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
