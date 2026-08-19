@@ -1,7 +1,6 @@
 import { getDb, currentUser } from "./db.server";
 import {
   cargosAtribuiveis,
-  podeAcessar,
   podeAdvertir,
   podeCriarDivisao,
   podeGerenciarMembros,
@@ -29,7 +28,6 @@ import type {
   Treino,
 } from "./types";
 
-
 /* ========== Sessão / guardas ========== */
 
 export async function requireUserSemGang(request: Request): Promise<SessionUser> {
@@ -38,11 +36,16 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
   // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
   const { fetchRolesAtuais } = await import("./discord.server");
-  const { mapaCargos, canonizarCargos, CARGOS_COM_ACESSO } = await import("./cargos.server");
+  const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import("./cargos.server");
   const atuais = await fetchRolesAtuais(user.id, user.guildId);
+  let temCargoDeAcessoConfigurado = false;
   if (atuais) {
     const mapa = await mapaCargos(user.gangId);
     user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
+    temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, atuais.ids);
+  } else if (user.gangId != null) {
+    // A confirmação no Discord falhou; o cookie não pode manter o acesso ativo.
+    user.roles = [];
   }
   // Dono é recalculado a cada requisição no escopo da gang ativa:
   // ser dono de uma gang NÃO dá poder em outra.
@@ -57,9 +60,8 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   }
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  // Só entra quem já foi registrado e tem cargo de Membro ou superior.
-  const temAcesso = user.isOwner || CARGOS_COM_ACESSO.some((c) => temCargo(user, c));
-  if (!temAcesso || !podeAcessar(user)) throw new Error("SEM_PERMISSAO");
+  // Só entra quem tem no Discord o ID de Membro ou de cargo superior configurado em gang_config.
+  if (!temCargoDeAcessoConfigurado) throw new Error("SEM_PERMISSAO");
   return user;
 }
 
@@ -112,11 +114,9 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   const atributosRows = unwrap(
     await db
       .from("membro_atributos")
-      .select(
-        "membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, atualizado_em, atualizado_por",
-      )
+      .select("membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, atualizado_em, atualizado_por")
       .eq("gang_id", g),
-  ) as ({
+  ) as {
     membro_id: string;
     movimentacao: number;
     parry: number;
@@ -126,20 +126,16 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
     nocao_jogo: number;
     atualizado_em: string | null;
     atualizado_por: string | null;
-  })[];
+  }[];
   const atributosPorMembro = new Map(atributosRows.map((a) => [a.membro_id, a]));
 
-  const divisoes = unwrap(
-    await db.from("divisoes").select("id, nome_divisao").eq("gang_id", g),
-  ) as {
+  const divisoes = unwrap(await db.from("divisoes").select("id, nome_divisao").eq("gang_id", g)) as {
     id: number;
     nome_divisao: string;
   }[];
   const divisaoNome = new Map(divisoes.map((d) => [d.id, d.nome_divisao]));
 
-  const nomesPorId = new Map(
-    membros.map((m) => [m.discord_id, m.nome_rp || m.discord_username || m.discord_id]),
-  );
+  const nomesPorId = new Map(membros.map((m) => [m.discord_id, m.nome_rp || m.discord_username || m.discord_id]));
 
   const atributosPadrao = (membroId: string): MembroAtributos => {
     const row = atributosPorMembro.get(membroId);
@@ -152,13 +148,14 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
       nocao_jogo: row?.nocao_jogo ?? 3,
       atualizado_em: row?.atualizado_em ?? null,
       atualizado_por: row?.atualizado_por ?? null,
-      atualizado_por_nome: row?.atualizado_por ? nomesPorId.get(row.atualizado_por) ?? row.atualizado_por : null,
+      atualizado_por_nome: row?.atualizado_por ? (nomesPorId.get(row.atualizado_por) ?? row.atualizado_por) : null,
     };
   };
 
-  const punicoes = unwrap(
-    await db.from("punicoes").select("membro_id, tipo").eq("gang_id", g),
-  ) as { membro_id: string; tipo: string }[];
+  const punicoes = unwrap(await db.from("punicoes").select("membro_id, tipo").eq("gang_id", g)) as {
+    membro_id: string;
+    tipo: string;
+  }[];
   const warns = new Map<string, number>();
   for (const p of punicoes) {
     if (p.tipo === "Warn") warns.set(p.membro_id, (warns.get(p.membro_id) ?? 0) + 1);
@@ -189,11 +186,10 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
     else s.internos += 1;
   }
 
-
   try {
-    const guerras = unwrap(
-      await db.from("participacoes_guerra").select("membro_id").eq("gang_id", g),
-    ) as { membro_id: string }[];
+    const guerras = unwrap(await db.from("participacoes_guerra").select("membro_id").eq("gang_id", g)) as {
+      membro_id: string;
+    }[];
     for (const g of guerras) bucket(g.membro_id).guerras += 1;
   } catch {
     /* tabela opcional */
@@ -202,10 +198,7 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
   const { fetchRolesDeTodos } = await import("./discord.server");
   const { mapaCargos, canonizarCargos } = await import("./cargos.server");
-  const [rolesDiscord, mapa] = await Promise.all([
-    fetchRolesDeTodos(user.guildId),
-    mapaCargos(g),
-  ]);
+  const [rolesDiscord, mapa] = await Promise.all([fetchRolesDeTodos(user.guildId), mapaCargos(g)]);
 
   return membros.map((m) => ({
     ...m,
@@ -234,9 +227,7 @@ function separarAdiamento(descricao: string | null) {
   const limpa = descricao.replace(MARCA_ADIAMENTO, "").replace(MARCA_ALIADO, "").trim();
   return {
     descricao: limpa || null,
-    adiamento: mAdi
-      ? { por: mAdi[1] || null, em: mAdi[2] || null, antes: mAdi[3] || null }
-      : null,
+    adiamento: mAdi ? { por: mAdi[1] || null, em: mAdi[2] || null, antes: mAdi[3] || null } : null,
     aliado: mAli ? mAli[1] || null : null,
   };
 }
@@ -245,16 +236,13 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
   const db = getDb();
   const g = gid(user);
   const treinos = unwrap(
-    await db
-      .from("treinos")
-      .select("*")
-      .eq("gang_id", g)
-      .order("data_treino", { ascending: false }),
+    await db.from("treinos").select("*").eq("gang_id", g).order("data_treino", { ascending: false }),
   ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
 
-  const inscricoes = unwrap(
-    await db.from("presencas_treino").select("treino_id, inscricao").eq("gang_id", g),
-  ) as { treino_id: number; inscricao: string | null }[];
+  const inscricoes = unwrap(await db.from("presencas_treino").select("treino_id, inscricao").eq("gang_id", g)) as {
+    treino_id: number;
+    inscricao: string | null;
+  }[];
 
   const contagem = new Map<number, number>();
   for (const i of inscricoes) {
@@ -269,20 +257,16 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
   });
 }
 
-
-
 export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
   const db = getDb();
   const g = gid(user);
-  const divisoes = unwrap(
-    await db.from("divisoes").select("*").eq("gang_id", g).order("nome_divisao"),
-  ) as Omit<Divisao, "lider_nome" | "lider_discord" | "vice_nome" | "vice_discord" | "membros">[];
+  const divisoes = unwrap(await db.from("divisoes").select("*").eq("gang_id", g).order("nome_divisao")) as Omit<
+    Divisao,
+    "lider_nome" | "lider_discord" | "vice_nome" | "vice_discord" | "membros"
+  >[];
 
   const membros = unwrap(
-    await db
-      .from("membros")
-      .select("discord_id, discord_username, nome_rp, avatar_hash, divisao_id")
-      .eq("gang_id", g),
+    await db.from("membros").select("discord_id, discord_username, nome_rp, avatar_hash, divisao_id").eq("gang_id", g),
   ) as {
     discord_id: string;
     discord_username: string | null;
@@ -318,10 +302,7 @@ export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
   });
 }
 
-export async function loadPresencas(
-  user: SessionUser,
-  treinoId: number,
-): Promise<PresencaTreino[]> {
+export async function loadPresencas(user: SessionUser, treinoId: number): Promise<PresencaTreino[]> {
   const db = getDb();
   const g = gid(user);
   const presencas = unwrap(
@@ -343,7 +324,12 @@ export async function loadPresencas(
         "discord_id",
         presencas.map((p) => p.membro_id),
       ),
-  ) as { discord_id: string; discord_username: string | null; nome_rp: string | null; avatar_hash: string | null }[];
+  ) as {
+    discord_id: string;
+    discord_username: string | null;
+    nome_rp: string | null;
+    avatar_hash: string | null;
+  }[];
 
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
 
@@ -357,27 +343,18 @@ export async function loadPresencas(
   }));
 }
 
-export async function loadHistorico(
-  user: SessionUser,
-  membroId: string,
-): Promise<Punicao[]> {
+export async function loadHistorico(user: SessionUser, membroId: string): Promise<Punicao[]> {
   const db = getDb();
   const g = gid(user);
   const punicoes = unwrap(
     await db.from("punicoes").select("*").eq("gang_id", g).eq("membro_id", membroId),
   ) as Punicao[];
 
-  const autores = Array.from(
-    new Set(punicoes.map((p) => p.staff_id).filter(Boolean) as string[]),
-  );
+  const autores = Array.from(new Set(punicoes.map((p) => p.staff_id).filter(Boolean) as string[]));
   if (autores.length === 0) return punicoes.map((p) => ({ ...p, staff_nome: null }));
 
   const membros = unwrap(
-    await db
-      .from("membros")
-      .select("discord_id, discord_username, nome_rp")
-      .eq("gang_id", g)
-      .in("discord_id", autores),
+    await db.from("membros").select("discord_id, discord_username, nome_rp").eq("gang_id", g).in("discord_id", autores),
   ) as { discord_id: string; discord_username: string | null; nome_rp: string | null }[];
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
 
@@ -393,11 +370,7 @@ export async function loadHistorico(
 export async function revogarPunicao(user: SessionUser, input: { punicaoId: number }) {
   assert(podeRevogarPunicao(user), "Apenas Dono, Líder e Vice-Líder podem revogar advertências.");
   const db = getDb();
-  const { error } = await db
-    .from("punicoes")
-    .delete()
-    .eq("gang_id", gid(user))
-    .eq("id_punicao", input.punicaoId);
+  const { error } = await db.from("punicoes").delete().eq("gang_id", gid(user)).eq("id_punicao", input.punicaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -441,9 +414,7 @@ function separarAlianca(observacoes: string | null) {
   if (!observacoes) return { observacoes: null, extras: vazio };
   const m = observacoes.match(MARCA_ALIANCA);
   if (!m) return { observacoes, extras: vazio };
-  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome, relacao] = (m[1] ?? "").split(
-    "|",
-  );
+  const [icon, repId, repNome, repAvatar, fechadoPor, fechadoNome, relacao] = (m[1] ?? "").split("|");
   const limpa = observacoes.replace(MARCA_ALIANCA, "").trim();
   return {
     observacoes: limpa || null,
@@ -468,21 +439,13 @@ export async function colunaIdParcerias(): Promise<string> {
   const linha = (data ?? [])[0] as Record<string, unknown> | undefined;
   const chaves = linha ? Object.keys(linha) : [];
   idParceriasCache =
-    chaves.find((c) => c === "id") ??
-    chaves.find((c) => /^id[_-]?/i.test(c) || /[_-]id$/i.test(c)) ??
-    "id";
+    chaves.find((c) => c === "id") ?? chaves.find((c) => /^id[_-]?/i.test(c) || /[_-]id$/i.test(c)) ?? "id";
   return idParceriasCache;
 }
 
-export async function loadParcerias(
-  user: SessionUser,
-): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
+export async function loadParcerias(user: SessionUser): Promise<{ parcerias: Parceria[]; tabelaAusente: boolean }> {
   const db = getDb();
-  const { data, error } = await db
-    .from("parcerias")
-    .select("*")
-    .eq("gang_id", gid(user))
-    .order("nome");
+  const { data, error } = await db.from("parcerias").select("*").eq("gang_id", gid(user)).order("nome");
   if (error) {
     const code = (error as { code?: string }).code ?? "";
     const msg = error.message ?? "";
@@ -519,8 +482,7 @@ export async function loadParcerias(
       representante_avatar: row.representante_avatar ?? extras.representante_avatar,
       fechado_por: row.fechado_por ?? extras.fechado_por,
       fechado_por_nome: row.fechado_por_nome ?? extras.fechado_por_nome,
-      relacao:
-        ((row as Partial<Parceria>).relacao as string | undefined) || extras.relacao || "Aliada",
+      relacao: ((row as Partial<Parceria>).relacao as string | undefined) || extras.relacao || "Aliada",
     } as Parceria;
   });
 
@@ -536,25 +498,17 @@ export async function resolverAliado(
   const { resolverConvite, fetchUsuarioDiscord } = await import("./discord.server");
 
   const convite = input.convite.trim() ? await resolverConvite(input.convite) : null;
-  const rep = input.representanteId.trim()
-    ? await fetchUsuarioDiscord(input.representanteId)
-    : null;
+  const rep = input.representanteId.trim() ? await fetchUsuarioDiscord(input.representanteId) : null;
 
   return {
     guild: convite ? { id: convite.guildId, nome: convite.nome ?? "", iconHash: convite.iconHash } : null,
-    representante: rep
-      ? { id: rep.id, nome: rep.globalName || rep.username, avatarHash: rep.avatarHash }
-      : null,
+    representante: rep ? { id: rep.id, nome: rep.globalName || rep.username, avatarHash: rep.avatarHash } : null,
   };
 }
 
-
 /* ========== Escrita: membros ========== */
 
-export async function advertirMembro(
-  user: SessionUser,
-  input: { membroId: string; tipo: string; motivo: string },
-) {
+export async function advertirMembro(user: SessionUser, input: { membroId: string; tipo: string; motivo: string }) {
   assert(podeAdvertir(user));
   const db = getDb();
   const base = {
@@ -607,11 +561,7 @@ async function anunciarPunicao(
   });
 }
 
-
-export async function trocarCargo(
-  user: SessionUser,
-  input: { membroId: string; cargos: string[] },
-) {
+export async function trocarCargo(user: SessionUser, input: { membroId: string; cargos: string[] }) {
   const permitidos = cargosAtribuiveis(user);
   const novos = Array.from(new Set(input.cargos.filter(Boolean)));
   assert(novos.length > 0, "Selecione ao menos um cargo.");
@@ -624,10 +574,7 @@ export async function trocarCargo(
   const g = gid(user);
   const { fetchRolesAtuais } = await import("./discord.server");
   const { mapaCargos, canonizarCargos } = await import("./cargos.server");
-  const [doDiscord, mapa] = await Promise.all([
-    fetchRolesAtuais(input.membroId, user.guildId),
-    mapaCargos(g),
-  ]);
+  const [doDiscord, mapa] = await Promise.all([fetchRolesAtuais(input.membroId, user.guildId), mapaCargos(g)]);
 
   const antigos = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
 
@@ -662,10 +609,7 @@ export async function trocarCargo(
   return { ok: true };
 }
 
-export async function alterarStatusMembro(
-  user: SessionUser,
-  input: { membroId: string; status: string },
-) {
+export async function alterarStatusMembro(user: SessionUser, input: { membroId: string; status: string }) {
   assert(podeGerenciarMembros(user));
   const db = getDb();
   const { error } = await db
@@ -684,10 +628,7 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
   const id = input.membroId;
 
   // Libera vínculos de liderança em divisões
-  const { data: divs } = await db
-    .from("divisoes")
-    .select("id, lider_id, vice_lider_id")
-    .eq("gang_id", g);
+  const { data: divs } = await db.from("divisoes").select("id, lider_id, vice_lider_id").eq("gang_id", g);
   for (const d of (divs ?? []) as {
     id: number;
     lider_id: string | null;
@@ -724,15 +665,10 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
     }
   }
 
-  const { error } = await db
-    .from("membros")
-    .delete()
-    .eq("gang_id", g)
-    .eq("discord_id", id);
+  const { error } = await db.from("membros").delete().eq("gang_id", g).eq("discord_id", id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
-
 
 /* ========== Escrita: treinos ========== */
 
@@ -753,8 +689,7 @@ export async function criarTreino(
   const db = getDb();
   const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
   const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
-  const descricao =
-    `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
+  const descricao = `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
 
   const { error } = await db.from("treinos").insert({
     titulo: input.titulo,
@@ -791,8 +726,6 @@ export async function criarTreino(
   return { ok: true };
 }
 
-
-
 /** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
 async function requireDonoTreino(user: SessionUser, treinoId: number) {
   const db = getDb();
@@ -821,11 +754,7 @@ export async function deletarTreino(user: SessionUser, input: { treinoId: number
   assert(podeGerenciarTreinos(user));
   await requireDonoTreino(user, input.treinoId);
   const db = getDb();
-  const { error } = await db
-    .from("treinos")
-    .delete()
-    .eq("gang_id", gid(user))
-    .eq("id_treino", input.treinoId);
+  const { error } = await db.from("treinos").delete().eq("gang_id", gid(user)).eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -878,7 +807,6 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
   if (treino && treino.status && treino.status !== "Aberto") {
     throw new Error("Este treino não está mais aberto para inscrições.");
   }
-
 
   // Sem depender de constraint única: verifica e então atualiza ou insere.
   const { data: existente, error: errSel } = await db
@@ -941,10 +869,7 @@ export async function atualizarPresenca(
   return { ok: true };
 }
 
-export async function minhaInscricao(
-  user: SessionUser,
-  input: { treinoId: number },
-): Promise<string | null> {
+export async function minhaInscricao(user: SessionUser, input: { treinoId: number }): Promise<string | null> {
   const db = getDb();
   const { data, error } = await db
     .from("presencas_treino")
@@ -961,10 +886,7 @@ export async function minhaInscricao(
 
 type LiderancaDivisao = { id: number; lider_id: string | null; vice_lider_id: string | null };
 
-async function carregarLideranca(
-  user: SessionUser,
-  divisaoId: number,
-): Promise<LiderancaDivisao> {
+async function carregarLideranca(user: SessionUser, divisaoId: number): Promise<LiderancaDivisao> {
   const db = getDb();
   const { data, error } = await db
     .from("divisoes")
@@ -1029,16 +951,12 @@ async function trocarCargoDivisaoDiscord(
   if (antiga === nova) return;
   const g = gid(user);
   const { ajustarCargoPorId } = await import("./discord.server");
-  const [roleAntigo, roleNovo] = await Promise.all([
-    roleIdDaDivisao(g, antiga),
-    roleIdDaDivisao(g, nova),
-  ]);
+  const [roleAntigo, roleNovo] = await Promise.all([roleIdDaDivisao(g, antiga), roleIdDaDivisao(g, nova)]);
   if (roleAntigo && roleAntigo !== roleNovo) {
     await ajustarCargoPorId(membroId, roleAntigo, "remove", user.guildId);
   }
   if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add", user.guildId);
 }
-
 
 export async function criarDivisao(
   user: SessionUser,
@@ -1081,8 +999,7 @@ export async function atualizarDivisao(
   const podeDefinirVice =
     podeCriarDivisao(user) ||
     user.id === divisao.lider_id ||
-    (temCargo(user, CARGO_LIDER_DIVISAO) &&
-      (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
+    (temCargo(user, CARGO_LIDER_DIVISAO) && (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
   const viceLiderId = podeDefinirVice ? input.viceLiderId : divisao.vice_lider_id;
 
   const { error } = await db
@@ -1093,11 +1010,7 @@ export async function atualizarDivisao(
   if (error) throw new Error(error.message);
 
   const entrando = Array.from(
-    new Set([
-      ...(liderId ? [liderId] : []),
-      ...(viceLiderId ? [viceLiderId] : []),
-      ...input.novosMembros,
-    ]),
+    new Set([...(liderId ? [liderId] : []), ...(viceLiderId ? [viceLiderId] : []), ...input.novosMembros]),
   );
   if (entrando.length > 0) {
     // Guarda a divisão anterior de cada um para trocar o cargo no Discord.
@@ -1137,7 +1050,6 @@ export async function atualizarDivisao(
   return { ok: true };
 }
 
-
 /** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
 async function sincronizarCargosLideranca(
   db: ReturnType<typeof getDb>,
@@ -1155,12 +1067,7 @@ async function sincronizarCargosLideranca(
   ];
 
   const lerCargos = async (id: string): Promise<string[]> => {
-    const { data } = await db
-      .from("membros")
-      .select("cargo")
-      .eq("gang_id", g)
-      .eq("discord_id", id)
-      .maybeSingle();
+    const { data } = await db.from("membros").select("cargo").eq("gang_id", g).eq("discord_id", id).maybeSingle();
     return ((data as { cargo: string | null } | null)?.cargo ?? "")
       .split(",")
       .map((c) => c.trim())
@@ -1178,7 +1085,10 @@ async function sincronizarCargosLideranca(
     if (antigo === novo) continue;
     if (antigo) {
       await ajustarCargoDiscord(antigo, cargo, "remove", ctxDiscord(user));
-      await gravar(antigo, (await lerCargos(antigo)).filter((c) => c !== cargo));
+      await gravar(
+        antigo,
+        (await lerCargos(antigo)).filter((c) => c !== cargo),
+      );
     }
     if (novo) {
       await ajustarCargoDiscord(novo, cargo, "add", ctxDiscord(user));
@@ -1188,11 +1098,7 @@ async function sincronizarCargosLideranca(
   }
 }
 
-
-export async function removerMembroDivisao(
-  user: SessionUser,
-  input: { membroId: string },
-) {
+export async function removerMembroDivisao(user: SessionUser, input: { membroId: string }) {
   const db = getDb();
   const g = gid(user);
   const { data: membro, error: errMembro } = await db
@@ -1204,10 +1110,7 @@ export async function removerMembroDivisao(
   if (errMembro) throw new Error(errMembro.message);
   const divisaoId = (membro as { divisao_id: number | null } | null)?.divisao_id ?? null;
   if (divisaoId == null) return { ok: true };
-  assert(
-    await podeGerirDivisao(user, await carregarLideranca(user, divisaoId)),
-    "Você não gerencia esta divisão.",
-  );
+  assert(await podeGerirDivisao(user, await carregarLideranca(user, divisaoId)), "Você não gerencia esta divisão.");
   const lideranca = await carregarLideranca(user, divisaoId);
   const novoLider = lideranca.lider_id === input.membroId ? null : lideranca.lider_id;
   const novoVice = lideranca.vice_lider_id === input.membroId ? null : lideranca.vice_lider_id;
@@ -1248,20 +1151,11 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
     await trocarCargoDivisaoDiscord(user, m.discord_id, input.divisaoId, null);
   }
 
-  await db
-    .from("membros")
-    .update({ divisao_id: null })
-    .eq("gang_id", g)
-    .eq("divisao_id", input.divisaoId);
-  const { error } = await db
-    .from("divisoes")
-    .delete()
-    .eq("gang_id", g)
-    .eq("id", input.divisaoId);
+  await db.from("membros").update({ divisao_id: null }).eq("gang_id", g).eq("divisao_id", input.divisaoId);
+  const { error } = await db.from("divisoes").delete().eq("gang_id", g).eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
-
 
 /* ========== Escrita: alianças ========== */
 
@@ -1335,10 +1229,7 @@ export async function salvarParceria(
   if (input.id == null) {
     const { enviarMensagemCanal } = await import("./discord.server");
     await enviarMensagemCanal("canal_aliancas", ctxDiscord(user), {
-      title:
-        input.relacao === "Inimiga"
-          ? `⚔️ Nova gang inimiga: ${input.nome}`
-          : `🤝 Nova aliança: ${input.nome}`,
+      title: input.relacao === "Inimiga" ? `⚔️ Nova gang inimiga: ${input.nome}` : `🤝 Nova aliança: ${input.nome}`,
       description: input.observacoes?.trim() || undefined,
       fields: [
         ...(input.tag ? [{ name: "Tag", value: input.tag, inline: true }] : []),
@@ -1352,9 +1243,7 @@ export async function salvarParceria(
               },
             ]
           : []),
-        ...(input.link_servidor
-          ? [{ name: "Servidor", value: input.link_servidor }]
-          : []),
+        ...(input.link_servidor ? [{ name: "Servidor", value: input.link_servidor }] : []),
         ...(input.contato ? [{ name: "Contato", value: input.contato }] : []),
         { name: "Fechada por", value: fechadoNome },
       ],
@@ -1364,31 +1253,18 @@ export async function salvarParceria(
   return { ok: true };
 }
 
-
-
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
   const db = getDb();
   const coluna = await colunaIdParcerias();
-  const { error } = await db
-    .from("parcerias")
-    .delete()
-    .eq("gang_id", gid(user))
-    .eq(coluna, input.id);
+  const { error } = await db.from("parcerias").delete().eq("gang_id", gid(user)).eq(coluna, input.id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
 /* ========== Atributos de combate ========== */
 
-const CHAVES_ATRIBUTOS = [
-  "movimentacao",
-  "parry",
-  "reacao",
-  "ofensiva",
-  "defensiva",
-  "nocao_jogo",
-] as const;
+const CHAVES_ATRIBUTOS = ["movimentacao", "parry", "reacao", "ofensiva", "defensiva", "nocao_jogo"] as const;
 
 type ChaveAtributo = (typeof CHAVES_ATRIBUTOS)[number];
 
@@ -1435,9 +1311,10 @@ export async function salvarAtributosMembro(
   validarAtributos(input.valores);
 
   const db = getDb();
-  const valores = Object.fromEntries(
-    CHAVES_ATRIBUTOS.map((chave) => [chave, Number(input.valores[chave])]),
-  ) as Record<ChaveAtributo, number>;
+  const valores = Object.fromEntries(CHAVES_ATRIBUTOS.map((chave) => [chave, Number(input.valores[chave])])) as Record<
+    ChaveAtributo,
+    number
+  >;
 
   const { error: upsertError } = await db.from("membro_atributos").upsert(
     {
@@ -1462,10 +1339,7 @@ export async function salvarAtributosMembro(
   return { ok: true };
 }
 
-export async function loadHistoricoAtributos(
-  user: SessionUser,
-  membroId: string,
-): Promise<HistoricoAtributosMembro[]> {
+export async function loadHistoricoAtributos(user: SessionUser, membroId: string): Promise<HistoricoAtributosMembro[]> {
   const db = getDb();
   const g = gid(user);
   if (membroId !== user.id) {
@@ -1475,9 +1349,7 @@ export async function loadHistoricoAtributos(
   const rows = unwrap(
     await db
       .from("historico_atributos_membro")
-      .select(
-        "id, membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, avaliado_em, avaliado_por",
-      )
+      .select("id, membro_id, movimentacao, parry, reacao, ofensiva, defensiva, nocao_jogo, avaliado_em, avaliado_por")
       .eq("gang_id", g)
       .eq("membro_id", membroId)
       .order("avaliado_em", { ascending: false }),
@@ -1487,11 +1359,7 @@ export async function loadHistoricoAtributos(
   if (autores.length === 0) return rows.map((r) => ({ ...r, avaliado_por_nome: null }));
 
   const membros = unwrap(
-    await db
-      .from("membros")
-      .select("discord_id, nome_rp, discord_username")
-      .eq("gang_id", g)
-      .in("discord_id", autores),
+    await db.from("membros").select("discord_id, nome_rp, discord_username").eq("gang_id", g).in("discord_id", autores),
   ) as { discord_id: string; nome_rp: string | null; discord_username: string | null }[];
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
 
@@ -1519,10 +1387,7 @@ export async function atualizarDadosMembro(
   },
 ) {
   const alvo = input.membroId || user.id;
-  assert(
-    alvo === user.id || podeGerenciarMembros(user),
-    "Você só pode alterar os seus próprios dados.",
-  );
+  assert(alvo === user.id || podeGerenciarMembros(user), "Você só pode alterar os seus próprios dados.");
 
   const limpo = (v: string) => (v ?? "").trim() || null;
   const alturaNum = Number((input.altura ?? "").toString().replace(",", "."));
@@ -1545,10 +1410,7 @@ export async function atualizarDadosMembro(
 /* ========== Configurações do painel ========== */
 
 export async function loadConfiguracoesPainel(user: SessionUser) {
-  assert(
-    podeGerenciarMembros(user),
-    "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
-  );
+  assert(podeGerenciarMembros(user), "Apenas Líder, Vice-Líder e o dono acessam as configurações.");
   const { loadConfiguracoes } = await import("./settings.server");
   return loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
 }
@@ -1582,9 +1444,7 @@ function tabelaLogsAusente(msg: string, code?: string) {
   );
 }
 
-export async function loadLogs(
-  user: SessionUser,
-): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> {
+export async function loadLogs(user: SessionUser): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> {
   const db = getDb();
   const { data, error } = await db
     .from("logs_partidas")
@@ -1645,19 +1505,13 @@ export async function salvarLog(
   });
   if (error) {
     if (tabelaLogsAusente(error.message, error.code)) {
-      throw new Error(
-        "A tabela `logs_partidas` não existe no banco. Rode o script schema_hakuryu.sql para criá-la.",
-      );
+      throw new Error("A tabela `logs_partidas` não existe no banco. Rode o script schema_hakuryu.sql para criá-la.");
     }
     throw new Error(error.message);
   }
 
   const resultado =
-    input.pontos_nos > input.pontos_eles
-      ? "Vitória"
-      : input.pontos_nos < input.pontos_eles
-        ? "Derrota"
-        : "Empate";
+    input.pontos_nos > input.pontos_eles ? "Vitória" : input.pontos_nos < input.pontos_eles ? "Derrota" : "Empate";
   const { enviarMensagemCanal } = await import("./discord.server");
   await enviarMensagemCanal("canal_treinos", ctxDiscord(user), {
     title: `${input.tipo === "Guerra" ? "⚔️" : "🤝"} ${input.tipo}: ${input.pontos_nos} x ${input.pontos_eles} — ${input.adversario_nome}`,
@@ -1673,11 +1527,7 @@ export async function salvarLog(
 export async function deletarLog(user: SessionUser, id: number) {
   assert(podeGerenciarTreinos(user), "Sem permissão para remover logs.");
   const db = getDb();
-  const { error } = await db
-    .from("logs_partidas")
-    .delete()
-    .eq("gang_id", gid(user))
-    .eq("id", id);
+  const { error } = await db.from("logs_partidas").delete().eq("gang_id", gid(user)).eq("id", id);
   if (error) throw new Error(error.message);
 }
 
