@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import * as svc from "./dashboard.server";
 import { ConfigError, isConfigured } from "./config.server";
 import { currentUser } from "./db.server";
+import { acessoGangPermitido } from "./acesso-gang";
 import type { SessionUserView } from "./permissions";
 import type {
   ConfiguracoesPainel,
@@ -72,25 +73,33 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         gangNome: null,
       };
 
-    // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
-    const { fetchRolesAtuais } = await import("./discord.server");
-    const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
-      "./cargos.server"
-    );
-    const cargosAtuais = await fetchRolesAtuais(user.id, user.guildId);
-    let temCargoDeAcessoConfigurado = false;
-    if (cargosAtuais && user.gangId != null) {
-      const mapa = await mapaCargos(user.gangId);
-      user.roles = canonizarCargos(mapa, cargosAtuais.ids, cargosAtuais.nomes);
-      temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, cargosAtuais.ids);
-    } else if (user.gangId != null) {
-      // Sem confirmação atual dos IDs Discord, a gang permanece bloqueada.
-      user.roles = [];
-    }
-
+    // O Super Owner não pode perder o painel por uma falha transitória na
+    // consulta ao Discord. Os demais continuam sendo validados por IDs de cargo.
     const { ehDono, ehSuperOwner } = await import("./settings.server");
     user.isSuperOwner = ehSuperOwner(user.id);
     user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
+
+    let temCargoDeAcessoConfigurado = false;
+    if (!user.isSuperOwner) {
+      // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
+      const { fetchRolesAtuais } = await import("./discord.server");
+      const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
+        "./cargos.server"
+      );
+      const cargosAtuais = await fetchRolesAtuais(user.id, user.guildId);
+      if (cargosAtuais && user.gangId != null) {
+        const mapa = await mapaCargos(user.gangId);
+        user.roles = canonizarCargos(mapa, cargosAtuais.ids, cargosAtuais.nomes);
+        user.roleIds = cargosAtuais.ids;
+        temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, cargosAtuais.ids);
+      } else if (user.gangId != null) {
+        // O token é assinado e os IDs foram confirmados no login/troca de gang.
+        // Ele só é usado se a consulta transitória ao Discord estiver indisponível.
+        const mapa = await mapaCargos(user.gangId);
+        user.roles = canonizarCargos(mapa, user.roleIds);
+        temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, user.roleIds);
+      }
+    }
 
     let gangNome: string | null = null;
     if (user.gangId != null) {
@@ -111,7 +120,11 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       gangNome,
       // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
       // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
-      permitido: user.gangId == null ? true : temCargoDeAcessoConfigurado,
+      permitido: acessoGangPermitido(
+        user.gangId,
+        user.isSuperOwner,
+        temCargoDeAcessoConfigurado,
+      ),
       user: {
         id: user.id,
         username: user.username,

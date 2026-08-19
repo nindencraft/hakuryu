@@ -206,7 +206,7 @@ function BannerGlobal() {
           <img
             src={anuncio.imagemUrl}
             alt="Anúncio global da comunidade"
-            className="aspect-[4/1] min-h-32 w-full object-cover sm:min-h-48"
+            className="aspect-[7/3] min-h-44 w-full object-cover sm:min-h-56"
           />
           <div className="absolute inset-0 bg-linear-to-r from-black/65 via-black/25 to-black/55" />
           <div className="absolute inset-0 flex items-end justify-between gap-4 p-4 sm:items-center sm:p-6">
@@ -274,7 +274,7 @@ function BannerGlobal() {
               </DialogHeader>
               <div className="space-y-4">
                 <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                  Dimensão recomendada da imagem: <strong>2400 × 600 px</strong> (proporção 4:1).
+                  Dimensão recomendada da imagem: <strong>2400 × 1029 px</strong> (proporção 7:3).
                 </p>
                 <div className="space-y-2">
                   <Label htmlFor="banner-imagem-url">URL da imagem</Label>

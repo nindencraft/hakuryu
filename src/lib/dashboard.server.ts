@@ -14,6 +14,7 @@ import {
 } from "./session.server";
 import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
+import { acessoGangPermitido } from "./acesso-gang";
 import type {
   AliadoResolvido,
   Divisao,
@@ -35,27 +36,35 @@ import type {
 export async function requireUserSemGang(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
-  // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
-  // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
-  const { fetchRolesAtuais } = await import("./discord.server");
-  const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
-    "./cargos.server"
-  );
-  const atuais = await fetchRolesAtuais(user.id, user.guildId);
-  let temCargoDeAcessoConfigurado = false;
-  if (atuais) {
-    const mapa = await mapaCargos(user.gangId);
-    user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
-    temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, atuais.ids);
-  } else if (user.gangId != null) {
-    // O acesso exige confirmação atual de um ID de cargo configurado na gang.
-    user.roles = [];
-  }
-  // Dono é recalculado a cada requisição no escopo da gang ativa:
-  // ser dono de uma gang NÃO dá poder em outra.
+
+  // Recalcula o Super Owner antes de consultar o Discord. Assim, uma consulta
+  // momentaneamente indisponível não derruba o acesso administrativo global.
   const { ehDono, ehSuperOwner } = await import("./settings.server");
   user.isSuperOwner = ehSuperOwner(user.id);
   user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
+
+  let temCargoDeAcessoConfigurado = false;
+  if (!user.isSuperOwner) {
+    // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
+    // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
+    const { fetchRolesAtuais } = await import("./discord.server");
+    const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
+      "./cargos.server"
+    );
+    const atuais = await fetchRolesAtuais(user.id, user.guildId);
+    if (atuais) {
+      const mapa = await mapaCargos(user.gangId);
+      user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
+      user.roleIds = atuais.ids;
+      temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, atuais.ids);
+    } else if (user.gangId != null) {
+      // O token é assinado e os IDs foram confirmados no login/troca de gang.
+      // Ele só é usado quando o Discord está indisponível na revalidação atual.
+      const mapa = await mapaCargos(user.gangId);
+      user.roles = canonizarCargos(mapa, user.roleIds);
+      temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, user.roleIds);
+    }
+  }
   // Líder registrado da gang sempre tem o cargo "Lider" no painel.
   if (user.gangId != null && !temCargo(user, "Lider")) {
     const { buscarGangPorId } = await import("./gangs.server");
@@ -64,8 +73,11 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   }
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  // Só entra na gang quem possui o ID de Membro ou de cargo superior em gang_config.
-  if (!temCargoDeAcessoConfigurado) throw new Error("SEM_PERMISSAO");
+  // Só entra na gang quem possui o ID de Membro ou de cargo superior em
+  // gang_config. O Super Owner é a exceção administrativa global.
+  if (!acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado)) {
+    throw new Error("SEM_PERMISSAO");
+  }
   return user;
 }
 

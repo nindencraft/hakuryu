@@ -54,6 +54,7 @@ export const Route = createFileRoute("/api/public/gangs/selecionar")({
           globalName: user.globalName,
           avatarUrl: user.avatarUrl,
           roles,
+          roleIds: roles,
           isOwner: user.isSuperOwner,
           isSuperOwner: user.isSuperOwner,
           nomeRp,

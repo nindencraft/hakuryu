@@ -245,6 +245,7 @@ export const Route = createFileRoute(
          * ===================================================== */
 
         let roleNames: string[] = [];
+        let roleIds: string[] = [];
 
         if (guildId) {
           const memberRes = await fetch(
@@ -272,6 +273,7 @@ export const Route = createFileRoute(
           } else {
             const member =
               (await memberRes.json()) as GuildMember;
+            roleIds = member.roles;
 
             /* =================================================
              * 10. BUSCA OS NOMES DOS CARGOS
@@ -416,6 +418,8 @@ export const Route = createFileRoute(
           avatarUrl,
 
           roles: roleNames,
+
+          roleIds,
 
           isOwner,
 
