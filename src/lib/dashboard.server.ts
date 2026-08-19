@@ -35,10 +35,15 @@ import type {
 export async function requireUserSemGang(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
-  // Revalida os cargos direto no Discord (a sessão pode estar defasada).
-  const { fetchCargosAtuais } = await import("./discord.server");
-  const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
-  if (cargosAtuais) user.roles = cargosAtuais;
+  // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
+  // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
+  const { fetchRolesAtuais } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos, CARGOS_COM_ACESSO } = await import("./cargos.server");
+  const atuais = await fetchRolesAtuais(user.id, user.guildId);
+  if (atuais) {
+    const mapa = await mapaCargos(user.gangId);
+    user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
+  }
   // Dono é recalculado a cada requisição no escopo da gang ativa:
   // ser dono de uma gang NÃO dá poder em outra.
   const { ehDono, ehSuperOwner } = await import("./settings.server");
@@ -52,7 +57,9 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   }
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
+  // Só entra quem já foi registrado e tem cargo de Membro ou superior.
+  const temAcesso = user.isOwner || CARGOS_COM_ACESSO.some((c) => temCargo(user, c));
+  if (!temAcesso || !podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
 
@@ -193,20 +200,18 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   }
 
   // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
-  const { fetchCargosDeTodos } = await import("./discord.server");
-  const cargosDiscord = await fetchCargosDeTodos(user.guildId);
-  const canonizar = (nomes: string[]) => {
-    const norm = (v: string) =>
-      v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const set = new Set(nomes.map(norm));
-    return CARGOS_PERMITIDOS.filter((c) => set.has(norm(c)));
-  };
+  const { fetchRolesDeTodos } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos } = await import("./cargos.server");
+  const [rolesDiscord, mapa] = await Promise.all([
+    fetchRolesDeTodos(user.guildId),
+    mapaCargos(g),
+  ]);
 
   return membros.map((m) => ({
     ...m,
     cargo: (() => {
-      const doDiscord = cargosDiscord?.get(m.discord_id);
-      const lista = doDiscord ? canonizar(doDiscord) : [];
+      const doDiscord = rolesDiscord?.get(m.discord_id);
+      const lista = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
       return lista.length ? lista.join(", ") : m.cargo;
     })(),
     divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
@@ -617,17 +622,14 @@ export async function trocarCargo(
 
   const db = getDb();
   const g = gid(user);
-  const { fetchCargosAtuais } = await import("./discord.server");
-  const doDiscord = await fetchCargosAtuais(input.membroId, user.guildId);
+  const { fetchRolesAtuais } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos } = await import("./cargos.server");
+  const [doDiscord, mapa] = await Promise.all([
+    fetchRolesAtuais(input.membroId, user.guildId),
+    mapaCargos(g),
+  ]);
 
-  const norm = (v: string) =>
-    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  const antigos = doDiscord
-    ? (CARGOS_PERMITIDOS as readonly string[]).filter((c) =>
-        doDiscord.some((r) => norm(r) === norm(c)),
-      )
-    : [];
-
+  const antigos = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
 
   // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
@@ -642,12 +644,19 @@ export async function trocarCargo(
   if (error) throw new Error(error.message);
 
   // Sincroniza com o Discord (adiciona os novos, remove os retirados).
-  const { ajustarCargoDiscord } = await import("./discord.server");
+  // Só mexe nos cargos do painel — nunca nos de liderança de divisão.
+  const { ajustarCargoPorId, ajustarCargoDiscord } = await import("./discord.server");
   for (const cargo of permitidos) {
+    if (CARGOS_DIVISAO.includes(cargo)) continue;
     const tinha = antigos.includes(cargo);
     const tem = finais.includes(cargo);
     if (tinha === tem) continue;
-    await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove", ctxDiscord(user));
+    const roleId = mapa.porCargo.get(cargo);
+    if (roleId) {
+      await ajustarCargoPorId(input.membroId, roleId, tem ? "add" : "remove", user.guildId);
+    } else {
+      await ajustarCargoDiscord(input.membroId, cargo, tem ? "add" : "remove", ctxDiscord(user));
+    }
   }
 
   return { ok: true };
