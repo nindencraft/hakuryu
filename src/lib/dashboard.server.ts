@@ -35,10 +35,15 @@ import type {
 export async function requireUserSemGang(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
-  // Revalida os cargos direto no Discord (a sessão pode estar defasada).
-  const { fetchCargosAtuais } = await import("./discord.server");
-  const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
-  if (cargosAtuais) user.roles = cargosAtuais;
+  // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
+  // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
+  const { fetchRolesAtuais } = await import("./discord.server");
+  const { mapaCargos, canonizarCargos, CARGOS_COM_ACESSO } = await import("./cargos.server");
+  const atuais = await fetchRolesAtuais(user.id, user.guildId);
+  if (atuais) {
+    const mapa = await mapaCargos(user.gangId);
+    user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
+  }
   // Dono é recalculado a cada requisição no escopo da gang ativa:
   // ser dono de uma gang NÃO dá poder em outra.
   const { ehDono, ehSuperOwner } = await import("./settings.server");
@@ -52,7 +57,9 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   }
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  if (!podeAcessar(user)) throw new Error("SEM_PERMISSAO");
+  // Só entra quem já foi registrado e tem cargo de Membro ou superior.
+  const temAcesso = user.isOwner || CARGOS_COM_ACESSO.some((c) => temCargo(user, c));
+  if (!temAcesso || !podeAcessar(user)) throw new Error("SEM_PERMISSAO");
   return user;
 }
 
