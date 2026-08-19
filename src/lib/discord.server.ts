@@ -157,8 +157,7 @@ export async function ajustarCargoPorId(
     const id = roleId.trim().replace(/\D/g, "");
     const guildId = await resolverGuild(guildIdSessao);
     if (!id || !guildId) return;
-    await console.log(`[DEBUG] Ação: ${acao}, roleId: ${id}, discordId: ${discordId}`);
-    fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
+    await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}/roles/${id}`, {
       method: acao === "add" ? "PUT" : "DELETE",
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
