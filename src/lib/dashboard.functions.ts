@@ -67,12 +67,21 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         gangNome: null,
       };
 
-    const { podeAcessar } = await import("./session.server");
-
-    // Cargos são revalidados no Discord a cada carregamento para nunca ficarem defasados.
-    const { fetchCargosAtuais } = await import("./discord.server");
-    const cargosAtuais = await fetchCargosAtuais(user.id, user.guildId);
-    if (cargosAtuais) user.roles = cargosAtuais;
+    // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
+    const { fetchRolesAtuais } = await import("./discord.server");
+    const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
+      "./cargos.server"
+    );
+    const cargosAtuais = await fetchRolesAtuais(user.id, user.guildId);
+    let temCargoDeAcessoConfigurado = false;
+    if (cargosAtuais && user.gangId != null) {
+      const mapa = await mapaCargos(user.gangId);
+      user.roles = canonizarCargos(mapa, cargosAtuais.ids, cargosAtuais.nomes);
+      temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, cargosAtuais.ids);
+    } else if (user.gangId != null) {
+      // Sem confirmação atual dos IDs Discord, a gang permanece bloqueada.
+      user.roles = [];
+    }
 
     const { ehDono, ehSuperOwner } = await import("./settings.server");
     user.isSuperOwner = ehSuperOwner(user.id);
@@ -96,7 +105,8 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       gangId: user.gangId,
       gangNome,
       // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
-      permitido: user.gangId == null ? true : podeAcessar(user),
+      // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
+      permitido: user.gangId == null ? true : temCargoDeAcessoConfigurado,
       user: {
         id: user.id,
         username: user.username,

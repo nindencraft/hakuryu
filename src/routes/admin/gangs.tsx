@@ -10,7 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   alternarGangAdmin,
+  excluirGangAdmin,
   fetchGangsAdmin,
   fetchGuildsDoBotAdmin,
   salvarGangAdmin,
@@ -53,6 +64,7 @@ function AdminGangs() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(VAZIO);
   const [erro, setErro] = useState<string | null>(null);
+  const [gangParaExcluir, setGangParaExcluir] = useState<GangAdmin | null>(null);
 
   const gangs = useQuery({
     queryKey: ["admin-gangs"],
@@ -88,6 +100,17 @@ function AdminGangs() {
   const alternar = useMutation({
     mutationFn: (input: { id: number; ativo: boolean }) => alternarGangAdmin({ data: input }),
     onSuccess: async () => queryClient.invalidateQueries(),
+    onError: (e: Error) => setErro(e.message),
+  });
+
+  const excluir = useMutation({
+    mutationFn: (id: number) => excluirGangAdmin({ data: { id } }),
+    onSuccess: async () => {
+      if (form.id === gangParaExcluir?.id) setForm(VAZIO);
+      setGangParaExcluir(null);
+      setErro(null);
+      await queryClient.invalidateQueries();
+    },
     onError: (e: Error) => setErro(e.message),
   });
 
@@ -246,12 +269,41 @@ function AdminGangs() {
                   >
                     {g.ativo ? "Desativar" : "Ativar"}
                   </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={excluir.isPending}
+                    onClick={() => setGangParaExcluir(g)}
+                  >
+                    Excluir
+                  </Button>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <AlertDialog open={!!gangParaExcluir} onOpenChange={(open) => !open && setGangParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir gang definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A gang “{gangParaExcluir?.nome}” e todos os seus membros, treinos, divisões,
+              registros e configurações serão apagados. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluir.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluir.isPending}
+              onClick={() => gangParaExcluir && excluir.mutate(gangParaExcluir.id)}
+            >
+              {excluir.isPending ? "Excluindo..." : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

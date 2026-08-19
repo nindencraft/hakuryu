@@ -92,3 +92,12 @@ export const alternarGangAdmin = createServerFn({ method: "POST" })
     await atualizarGang(data.id, { ativo: data.ativo });
     return { ok: true };
   });
+
+/** Exclusão definitiva de gang, disponível exclusivamente ao Super Owner. */
+export const excluirGangAdmin = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data }) => {
+    await requireSuperOwner();
+    const { excluirGang } = await import("./gangs.server");
+    return excluirGang(data.id);
+  });

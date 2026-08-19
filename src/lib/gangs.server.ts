@@ -298,3 +298,78 @@ export async function gangDoServidor(
 ): Promise<Gang | null> {
   return buscarGangPorGuildId(guildId);
 }
+
+function tabelaPodeEstarAusente(error: { message?: string; code?: string } | null): boolean {
+  const mensagem = error?.message ?? "";
+  return error?.code === "42P01" || /does not exist|schema cache|could not find the table/i.test(mensagem);
+}
+
+async function apagarRegistrosDaGang(db: ReturnType<typeof getDb>, tabela: string, gangId: number) {
+  const { error } = await db.from(tabela).delete().eq("gang_id", gangId);
+  if (error && !tabelaPodeEstarAusente(error)) {
+    throw new Error(`Não foi possível limpar ${tabela}: ${error.message}`);
+  }
+}
+
+/**
+ * Remove definitivamente uma gang e todos os seus registros dependentes.
+ * A função também cobre instalações antigas em que algumas FKs não possuem
+ * `ON DELETE CASCADE`, mantendo a remoção segura por ordem de dependência.
+ */
+export async function excluirGang(gangId: number): Promise<{ ok: true }> {
+  const db = getDb();
+  const gang = await buscarGangPorId(gangId);
+  if (!gang) throw new Error("Gang não encontrada.");
+
+  const removerRelacoes = async (tabela: string, filtro: string) => {
+    const { error } = await db.from(tabela).delete().or(filtro);
+    if (error && !tabelaPodeEstarAusente(error)) {
+      throw new Error(`Não foi possível limpar ${tabela}: ${error.message}`);
+    }
+  };
+
+  await removerRelacoes("gang_relacoes", `gang_a_id.eq.${gangId},gang_b_id.eq.${gangId}`);
+  await removerRelacoes(
+    "gang_solicitacoes",
+    `gang_origem_id.eq.${gangId},gang_destino_id.eq.${gangId}`,
+  );
+
+  // Remove os dados mais dependentes antes de membros, treinos e divisões.
+  for (const tabela of [
+    "avaliacoes_treino",
+    "avaliacoes_lideranca",
+    "votos_recrutamento",
+    "historico_atributos_membro",
+    "membro_atributos",
+    "presencas_treino",
+    "participacoes_guerra",
+    "punicoes",
+    "treinos_internos",
+    "treinos_amistosos",
+    "treinos",
+    "guerras",
+    "inimigos",
+    "parcerias",
+    "logs_partidas",
+    "config_cargos",
+    "gang_config",
+  ]) {
+    await apagarRegistrosDaGang(db, tabela, gangId);
+  }
+
+  // Libera as FKs de liderança antes de remover os membros da gang.
+  const { error: erroLideranca } = await db
+    .from("divisoes")
+    .update({ lider_id: null, vice_lider_id: null })
+    .eq("gang_id", gangId);
+  if (erroLideranca && !tabelaPodeEstarAusente(erroLideranca)) {
+    throw new Error(`Não foi possível liberar lideranças: ${erroLideranca.message}`);
+  }
+
+  await apagarRegistrosDaGang(db, "membros", gangId);
+  await apagarRegistrosDaGang(db, "divisoes", gangId);
+
+  const { error } = await db.from("gangs").delete().eq("id", gangId);
+  if (error) throw new Error(`Não foi possível excluir a gang: ${error.message}`);
+  return { ok: true };
+}

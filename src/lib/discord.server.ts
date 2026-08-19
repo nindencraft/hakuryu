@@ -187,6 +187,8 @@ export async function ajustarCargoDiscord(
 }
 
 export type EmbedDiscord = {
+  content?: string | undefined;
+  allowedRoleIds?: string[] | undefined;
   title: string;
   description?: string | undefined;
   color?: number | undefined;
@@ -196,18 +198,25 @@ export type EmbedDiscord = {
 };
 
 /** Publica um embed no canal configurado para a gang. Best-effort. */
-export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, embed: EmbedDiscord): Promise<void> {
+export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, mensagem: EmbedDiscord): Promise<void> {
   try {
     const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
     if (!canalId) return;
     const config = getConfig();
+    const { content, allowedRoleIds, ...embed } = mensagem;
     await fetch(`https://discord.com/api/v10/channels/${canalId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bot ${config.discordBotToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ embeds: [{ color: 0xd4af37, ...embed }] }),
+      body: JSON.stringify({
+        ...(content ? { content } : {}),
+        ...(allowedRoleIds?.length
+          ? { allowed_mentions: { parse: [], roles: allowedRoleIds } }
+          : {}),
+        embeds: [{ color: 0xd4af37, ...embed }],
+      }),
     });
   } catch {
     /* best-effort */

@@ -22,8 +22,8 @@ export type MapaCargos = {
 
 /**
  * Lê a configuração de IDs de cargos da gang.
- * É por esse mapa que traduzimos nomes livres do servidor
- * (ex.: "Membro RGK", "Visitante") para os cargos do painel.
+ * Para uma gang ativa, somente `gang_config` é aceito: o acesso não pode
+ * vazar a partir da configuração global de outra gang.
  */
 export async function mapaCargos(gangId: number | null): Promise<MapaCargos> {
   const porRoleId = new Map<string, string>();
@@ -49,8 +49,10 @@ export async function mapaCargos(gangId: number | null): Promise<MapaCargos> {
         .eq("gang_id", gangId);
       aplicar((data ?? []) as { chave: string; valor: string | null }[]);
     }
-    const { data: globais } = await db.from(TABELA_CONFIG).select("chave, valor");
-    aplicar((globais ?? []) as { chave: string; valor: string | null }[]);
+    if (gangId == null) {
+      const { data: globais } = await db.from(TABELA_CONFIG).select("chave, valor");
+      aplicar((globais ?? []) as { chave: string; valor: string | null }[]);
+    }
   } catch {
     /* configuração indisponível: sobra o casamento por nome */
   }
@@ -82,4 +84,22 @@ export function canonizarCargos(
   }
 
   return CARGOS_PERMITIDOS.filter((c) => encontrados.has(c));
+}
+
+/**
+ * Verifica acesso exclusivamente pelos IDs Discord configurados na gang.
+ * Nomes de cargos, inclusive "Membro", não liberam acesso nesta etapa.
+ */
+export function temCargoConfiguradoComAcesso(
+  mapa: MapaCargos,
+  roleIds: string[],
+): boolean {
+  const idsDoUsuario = new Set(
+    roleIds.map((id) => id.replace(/\D/g, "")).filter(Boolean),
+  );
+
+  return CARGOS_COM_ACESSO.some((cargo) => {
+    const idConfigurado = mapa.porCargo.get(cargo);
+    return Boolean(idConfigurado && idsDoUsuario.has(idConfigurado));
+  });
 }

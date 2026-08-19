@@ -1,7 +1,6 @@
 import { getDb, currentUser } from "./db.server";
 import {
   cargosAtribuiveis,
-  podeAcessar,
   podeAdvertir,
   podeCriarDivisao,
   podeGerenciarMembros,
@@ -10,7 +9,6 @@ import {
   podeGerenciarTreinos,
   temCargo,
   CARGOS_DIVISAO,
-  CARGOS_PERMITIDOS,
   type SessionUser,
 } from "./session.server";
 import { cargoPrimario } from "./permissions";
@@ -38,11 +36,18 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
   // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
   const { fetchRolesAtuais } = await import("./discord.server");
-  const { mapaCargos, canonizarCargos, CARGOS_COM_ACESSO } = await import("./cargos.server");
+  const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
+    "./cargos.server"
+  );
   const atuais = await fetchRolesAtuais(user.id, user.guildId);
+  let temCargoDeAcessoConfigurado = false;
   if (atuais) {
     const mapa = await mapaCargos(user.gangId);
     user.roles = canonizarCargos(mapa, atuais.ids, atuais.nomes);
+    temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, atuais.ids);
+  } else if (user.gangId != null) {
+    // O acesso exige confirmação atual de um ID de cargo configurado na gang.
+    user.roles = [];
   }
   // Dono é recalculado a cada requisição no escopo da gang ativa:
   // ser dono de uma gang NÃO dá poder em outra.
@@ -57,9 +62,8 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   }
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  // Só entra quem já foi registrado e tem cargo de Membro ou superior.
-  const temAcesso = user.isOwner || CARGOS_COM_ACESSO.some((c) => temCargo(user, c));
-  if (!temAcesso || !podeAcessar(user)) throw new Error("SEM_PERMISSAO");
+  // Só entra na gang quem possui o ID de Membro ou de cargo superior em gang_config.
+  if (!temCargoDeAcessoConfigurado) throw new Error("SEM_PERMISSAO");
   return user;
 }
 
@@ -751,6 +755,11 @@ export async function criarTreino(
 ) {
   assert(podeGerenciarTreinos(user));
   const db = getDb();
+  const { mapaCargos } = await import("./cargos.server");
+  const roleIdMembro = (await mapaCargos(gid(user))).porCargo.get("Membro");
+  if (!roleIdMembro) {
+    throw new Error("Configure o ID Discord do cargo Membro antes de criar um treino.");
+  }
   const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
   const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
   const descricao =
@@ -772,6 +781,8 @@ export async function criarTreino(
 
   const { enviarMensagemCanal } = await import("./discord.server");
   await enviarMensagemCanal("canal_treinos", ctxDiscord(user), {
+    content: `<@&${roleIdMembro}>\nAcesse https://hakuryu.lovable.app para mais informações e para se inscrever no treino.`,
+    allowedRoleIds: [roleIdMembro],
     title: `🐉 Novo treino: ${input.titulo}`,
     description: input.descricao?.trim() || undefined,
     fields: [
