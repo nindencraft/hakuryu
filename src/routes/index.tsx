@@ -565,24 +565,15 @@ function InicioAutenticado() {
             </div>
           </Link>
           <nav
-            className="order-3 flex w-full items-center justify-between gap-2 overflow-x-auto border-t border-border/70 pt-2 text-sm text-muted-foreground sm:order-none sm:w-auto sm:border-0 sm:pt-0"
+            className="order-2 flex flex-1 items-center justify-end sm:justify-center"
             aria-label="Navegação do hub"
           >
-            {CATEGORIAS_ANUNCIO.map((categoria) => (
-              <a
-                key={categoria}
-                className="shrink-0 px-1 transition-colors hover:text-foreground"
-                href={`#${INFORMACOES_CATEGORIA_ANUNCIO[categoria].ancora}`}
-              >
-                {INFORMACOES_CATEGORIA_ANUNCIO[categoria].titulo}
-              </a>
-            ))}
             <LinkPainel
               permitido={Boolean(sessao.data?.permitido)}
               quantidadeDeGangs={quantidadeDeGangs}
             />
           </nav>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="order-3 flex min-w-0 items-center gap-2">
             <img
               src={user.avatarUrl}
               alt=""

@@ -4,7 +4,6 @@ import {
   CalendarDays,
   Handshake,
   LayoutDashboard,
-  LogOut,
   Menu,
   RefreshCw,
   ScrollText,
@@ -256,11 +255,6 @@ function SidebarBody({
             </Link>
           </Button>
         ) : null}
-        <Button variant="ghost" size="sm" asChild>
-          <a href="/api/public/auth/logout">
-            <LogOut className="h-4 w-4" /> Sair
-          </a>
-        </Button>
       </div>
     </div>
   );
@@ -358,9 +352,6 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
               </p>
             </div>
           </div>
-          <Button variant="outline" className="shrink-0" asChild>
-            <a href="/api/public/auth/logout">Sair</a>
-          </Button>
         </header>
 
         <section className="card-gold bg-white/94 p-5 text-left backdrop-blur-sm sm:p-7 lg:p-9">
@@ -400,7 +391,8 @@ export function DashboardShell({
 
   useEffect(() => {
     const abrirDrawerNaPrevia =
-      import.meta.env.DEV && new URLSearchParams(window.location.search).get("previewDrawer") === "open";
+      import.meta.env.DEV &&
+      new URLSearchParams(window.location.search).get("previewDrawer") === "open";
     if (abrirDrawerNaPrevia) setOpen(true);
   }, []);
 

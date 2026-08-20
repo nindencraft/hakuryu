@@ -151,12 +151,6 @@ function SelecionarGangPage() {
             </Button>
           </div>
         ) : null}
-
-        <div className="mt-6 text-center">
-          <Button variant="ghost" size="sm" asChild>
-            <a href="/api/public/auth/logout">Sair</a>
-          </Button>
-        </div>
       </div>
     </div>
   );
