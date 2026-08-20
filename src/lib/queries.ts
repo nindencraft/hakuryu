@@ -17,6 +17,11 @@ import {
   getSession,
 } from "./dashboard.functions";
 import { fetchRecrutamentosPublicos } from "./recrutamento.functions";
+import {
+  fetchMeuServidorExplorador,
+  fetchServidoresExploradorAdmin,
+  fetchServidoresExploradorPublicos,
+} from "./explorador.functions";
 
 export const sessionQuery = queryOptions({
   queryKey: ["session"],
@@ -41,6 +46,24 @@ export const recrutamentosPublicosQuery = queryOptions({
   queryKey: ["recrutamentos-publicos"],
   queryFn: () => fetchRecrutamentosPublicos(),
   staleTime: 30_000,
+});
+
+export const servidoresExploradorPublicosQuery = queryOptions({
+  queryKey: ["servidores-explorador-publicos"],
+  queryFn: () => fetchServidoresExploradorPublicos(),
+  staleTime: 30_000,
+});
+
+export const meuServidorExploradorQuery = queryOptions({
+  queryKey: ["meu-servidor-explorador"],
+  queryFn: () => fetchMeuServidorExplorador(),
+  staleTime: 0,
+});
+
+export const servidoresExploradorAdminQuery = queryOptions({
+  queryKey: ["servidores-explorador-admin"],
+  queryFn: () => fetchServidoresExploradorAdmin(),
+  staleTime: 0,
 });
 
 export const gangsDisponiveisQuery = queryOptions({

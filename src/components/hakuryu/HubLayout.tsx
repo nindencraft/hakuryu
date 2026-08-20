@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { acaoPainelHome } from "@/lib/home-hub";
 import type { SessionUserView } from "@/lib/permissions";
 
-type AbaHub = "inicio" | "noticias" | "recrutamento";
+type AbaHub = "inicio" | "noticias" | "recrutamento" | "explorar";
 
 export function FundoHub({ children }: { children: React.ReactNode }) {
   return (
@@ -142,6 +142,11 @@ export function CabecalhoHub({
           <Button variant="ghost" size="sm" className={classeAba("recrutamento")} asChild>
             <Link to="/recrutamento" aria-current={abaAtiva === "recrutamento" ? "page" : undefined}>
               Recrutamento
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" className={classeAba("explorar")} asChild>
+            <Link to="/explorar" aria-current={abaAtiva === "explorar" ? "page" : undefined}>
+              Explorar
             </Link>
           </Button>
         </nav>

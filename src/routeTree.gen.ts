@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DivisoesRouteImport } from './routes/divisoes'
+import { Route as ExplorarRouteImport } from './routes/explorar'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as NoticiasRouteImport } from './routes/noticias'
@@ -42,6 +43,11 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const DivisoesRoute = DivisoesRouteImport.update({
   id: '/divisoes',
   path: '/divisoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExplorarRoute = ExplorarRouteImport.update({
+  id: '/explorar',
+  path: '/explorar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsRoute = LogsRouteImport.update({
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/explorar': typeof ExplorarRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/explorar': typeof ExplorarRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
+  '/explorar': typeof ExplorarRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/explorar'
     | '/logs'
     | '/membros'
     | '/noticias'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/explorar'
     | '/logs'
     | '/membros'
     | '/noticias'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/divisoes'
+    | '/explorar'
     | '/logs'
     | '/membros'
     | '/noticias'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DivisoesRoute: typeof DivisoesRoute
+  ExplorarRoute: typeof ExplorarRoute
   LogsRoute: typeof LogsRoute
   MembrosRoute: typeof MembrosRoute
   NoticiasRoute: typeof NoticiasRoute
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/divisoes'
       fullPath: '/divisoes'
       preLoaderRoute: typeof DivisoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/explorar': {
+      id: '/explorar'
+      path: '/explorar'
+      fullPath: '/explorar'
+      preLoaderRoute: typeof ExplorarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs': {
@@ -422,6 +442,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DivisoesRoute: DivisoesRoute,
+  ExplorarRoute: ExplorarRoute,
   LogsRoute: LogsRoute,
   MembrosRoute: MembrosRoute,
   NoticiasRoute: NoticiasRoute,

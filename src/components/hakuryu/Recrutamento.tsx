@@ -54,7 +54,7 @@ export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: Recrutam
           <div className="space-y-3 p-4 sm:p-5">
             <Badge variant="outline" className="border-primary/35">Recrutamento aberto</Badge>
             <h2 className="font-display text-2xl text-foreground">{recrutamento.gangNome}</h2>
-            <p className="line-clamp-3 min-h-15 text-sm leading-6 text-muted-foreground">
+            <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
               {recrutamento.descricao}
             </p>
             <Button className="w-full" asChild>
