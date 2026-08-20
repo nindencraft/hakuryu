@@ -14,11 +14,13 @@ import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DivisoesRouteImport } from './routes/divisoes'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as MembrosRouteImport } from './routes/membros'
+import { Route as NoticiasRouteImport } from './routes/noticias'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as SelecionarGangRouteImport } from './routes/selecionar-gang'
 import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
 import { Route as TreinosRouteImport } from './routes/treinos'
 import { Route as AdminGangsRouteImport } from './routes/admin/gangs'
+import { Route as AdminJornalistasRouteImport } from './routes/admin/jornalistas'
 import { Route as ApiPublicAuthLogoutRouteImport } from './routes/api/public/auth/logout'
 import { Route as ApiPublicGangsSelecionarRouteImport } from './routes/api/public/gangs/selecionar'
 import { Route as ApiPublicAuthDiscordCallbackRouteImport } from './routes/api/public/auth/discord/callback'
@@ -49,6 +51,11 @@ const MembrosRoute = MembrosRouteImport.update({
   path: '/membros',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NoticiasRoute = NoticiasRouteImport.update({
+  id: '/noticias',
+  path: '/noticias',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParceriasRoute = ParceriasRouteImport.update({
   id: '/parcerias',
   path: '/parcerias',
@@ -72,6 +79,11 @@ const TreinosRoute = TreinosRouteImport.update({
 const AdminGangsRoute = AdminGangsRouteImport.update({
   id: '/admin/gangs',
   path: '/admin/gangs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminJornalistasRoute = AdminJornalistasRouteImport.update({
+  id: '/admin/jornalistas',
+  path: '/admin/jornalistas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAuthLogoutRoute = ApiPublicAuthLogoutRouteImport.update({
@@ -104,11 +116,13 @@ export interface FileRoutesByFullPath {
   '/divisoes': typeof DivisoesRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
+  '/noticias': typeof NoticiasRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
+  '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
   '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
@@ -120,11 +134,13 @@ export interface FileRoutesByTo {
   '/divisoes': typeof DivisoesRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
+  '/noticias': typeof NoticiasRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
+  '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
   '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
@@ -137,11 +153,13 @@ export interface FileRoutesById {
   '/divisoes': typeof DivisoesRoute
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
+  '/noticias': typeof NoticiasRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
   '/admin/gangs': typeof AdminGangsRoute
+  '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
   '/api/public/gangs/selecionar': typeof ApiPublicGangsSelecionarRoute
   '/api/public/auth/discord/callback': typeof ApiPublicAuthDiscordCallbackRoute
@@ -155,11 +173,13 @@ export interface FileRouteTypes {
     | '/divisoes'
     | '/logs'
     | '/membros'
+    | '/noticias'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
+    | '/admin/jornalistas'
     | '/api/public/auth/logout'
     | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
@@ -171,11 +191,13 @@ export interface FileRouteTypes {
     | '/divisoes'
     | '/logs'
     | '/membros'
+    | '/noticias'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
+    | '/admin/jornalistas'
     | '/api/public/auth/logout'
     | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
@@ -187,11 +209,13 @@ export interface FileRouteTypes {
     | '/divisoes'
     | '/logs'
     | '/membros'
+    | '/noticias'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
     | '/admin/gangs'
+    | '/admin/jornalistas'
     | '/api/public/auth/logout'
     | '/api/public/gangs/selecionar'
     | '/api/public/auth/discord/callback'
@@ -204,11 +228,13 @@ export interface RootRouteChildren {
   DivisoesRoute: typeof DivisoesRoute
   LogsRoute: typeof LogsRoute
   MembrosRoute: typeof MembrosRoute
+  NoticiasRoute: typeof NoticiasRoute
   ParceriasRoute: typeof ParceriasRoute
   SelecionarGangRoute: typeof SelecionarGangRoute
   SolicitacoesRoute: typeof SolicitacoesRoute
   TreinosRoute: typeof TreinosRoute
   AdminGangsRoute: typeof AdminGangsRoute
+  AdminJornalistasRoute: typeof AdminJornalistasRoute
   ApiPublicAuthLogoutRoute: typeof ApiPublicAuthLogoutRoute
   ApiPublicGangsSelecionarRoute: typeof ApiPublicGangsSelecionarRoute
   ApiPublicAuthDiscordCallbackRoute: typeof ApiPublicAuthDiscordCallbackRoute
@@ -252,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MembrosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/noticias': {
+      id: '/noticias'
+      path: '/noticias'
+      fullPath: '/noticias'
+      preLoaderRoute: typeof NoticiasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parcerias': {
       id: '/parcerias'
       path: '/parcerias'
@@ -285,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/gangs'
       fullPath: '/admin/gangs'
       preLoaderRoute: typeof AdminGangsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/jornalistas': {
+      id: '/admin/jornalistas'
+      path: '/admin/jornalistas'
+      fullPath: '/admin/jornalistas'
+      preLoaderRoute: typeof AdminJornalistasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/auth/logout': {
@@ -324,11 +364,13 @@ const rootRouteChildren: RootRouteChildren = {
   DivisoesRoute: DivisoesRoute,
   LogsRoute: LogsRoute,
   MembrosRoute: MembrosRoute,
+  NoticiasRoute: NoticiasRoute,
   ParceriasRoute: ParceriasRoute,
   SelecionarGangRoute: SelecionarGangRoute,
   SolicitacoesRoute: SolicitacoesRoute,
   TreinosRoute: TreinosRoute,
   AdminGangsRoute: AdminGangsRoute,
+  AdminJornalistasRoute: AdminJornalistasRoute,
   ApiPublicAuthLogoutRoute: ApiPublicAuthLogoutRoute,
   ApiPublicGangsSelecionarRoute: ApiPublicGangsSelecionarRoute,
   ApiPublicAuthDiscordCallbackRoute: ApiPublicAuthDiscordCallbackRoute,

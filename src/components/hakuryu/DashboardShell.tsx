@@ -14,6 +14,8 @@ import {
   Crown,
   Repeat,
   Mails,
+  Newspaper,
+  Mic2,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -33,6 +35,7 @@ import {
   type SessionUserView,
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { NoticiasRecentes } from "@/components/hakuryu/Noticias";
 
 const logo = "/manus-storage/hakuryu-logo_f1592314.png";
 
@@ -44,11 +47,15 @@ const NAV = [
   { to: "/parcerias", label: "Alianças", icon: Handshake },
   { to: "/solicitacoes", label: "Solicitações", icon: Mails },
   { to: "/logs", label: "Logs", icon: ScrollText },
+  { to: "/noticias", label: "Notícias", icon: Newspaper },
 ];
 
 const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Settings }];
 
-const NAV_OWNER = [{ to: "/admin/gangs", label: "Gangs registradas", icon: Crown }];
+const NAV_OWNER = [
+  { to: "/admin/gangs", label: "Gangs registradas", icon: Crown },
+  { to: "/admin/jornalistas", label: "Jornalistas", icon: Mic2 },
+];
 
 function Brand() {
   return (
@@ -332,11 +339,12 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
         height={72}
         className="ring-gold mx-auto h-18 w-18 rounded-full object-cover"
       />
-      <h1 className="text-gold-gradient font-display mt-4 text-2xl font-semibold">Acesso negado</h1>
+      <h1 className="text-gold-gradient font-display mt-4 text-2xl font-semibold">Notícias Recentes</h1>
       <div className="rule-gold my-5" aria-hidden />
       <p className="text-sm text-muted-foreground">
-        Você não possui um cargo autorizado para acessar este dashboard.
+        Você não pertence a nenhuma gang.
       </p>
+      <div className="mt-6 text-left"><NoticiasRecentes limite={3} /></div>
       <Button variant="outline" className="mt-6" asChild>
         <a href="/api/public/auth/logout">Sair</a>
       </Button>
