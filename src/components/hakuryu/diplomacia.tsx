@@ -64,7 +64,6 @@ export function GangAvatar({
   );
 }
 
-/** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
 export function GangDiplomaticaCard({
   gang,
   onDeletar,
@@ -166,8 +165,6 @@ function badgeRelacao(relacao: RelacaoGang) {
   return <Badge variant="secondary">🟢 Neutra</Badge>;
 }
 
-/* ================= Gangs registradas ================= */
-
 export function GangsRegistradas() {
   const { data, isPending, error } = useQuery(gangsRegistradasQuery);
   const [busca, setBusca] = useState("");
@@ -240,7 +237,6 @@ export function GangsRegistradas() {
     </section>
   );
 }
-
 
 export function SolicitacaoDialog({
   valor,
@@ -411,8 +407,6 @@ export function SolicitacaoDialog({
     </Dialog>
   );
 }
-
-/* ================= Aviso de guerra (visão geral) ================= */
 
 export function AvisosDeGuerra() {
   const { data } = useQuery(guerrasQuery);

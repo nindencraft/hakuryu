@@ -6,10 +6,8 @@ import {
   type Gang,
 } from "./gangs.server";
 
-/** Tabela antiga de configurações globais. */
 export const TABELA_CONFIG = "dashboard_config";
 
-/** Configurações específicas de cada gang. */
 export const TABELA_GANG_CONFIG = "gang_config";
 
 export const CHAVES_CANAIS_CONFIG = [
@@ -33,21 +31,12 @@ export type Configuracoes = {
   gang: Gang | null;
 };
 
-/**
- * IDs que sempre possuem acesso global ao painel,
- * independentemente da gang.
- */
 export const SUPER_OWNER_IDS = ["1454976616735313970"];
 
 export const CHAVE_GUILD = "guild_id";
 export const CHAVE_BANNER_IMAGEM_URL = "banner_imagem_url";
 export const CHAVE_BANNER_DISCORD_URL = "banner_discord_url";
 
-/**
- * Lê uma configuração antiga/global.
- *
- * Mantida temporariamente para compatibilidade.
- */
 export async function lerConfig(chave: string): Promise<string | null> {
   try {
     const db = getDb();
@@ -68,9 +57,6 @@ export async function lerConfig(chave: string): Promise<string | null> {
   }
 }
 
-/**
- * Lê uma configuração específica de uma gang.
- */
 export async function lerConfigGang(
   gangId: number,
   chave: string,
@@ -95,9 +81,6 @@ export async function lerConfigGang(
   }
 }
 
-/**
- * Salva uma configuração específica de uma gang.
- */
 export async function salvarConfigGang(
   gangId: number,
   chave: string,
@@ -124,27 +107,18 @@ export async function salvarConfigGang(
   }
 }
 
-/**
- * Busca a gang associada a um servidor Discord.
- */
 export async function gangPorGuildId(
   guildId: string,
 ): Promise<Gang | null> {
   return buscarGangPorGuildId(guildId);
 }
 
-/**
- * Busca uma gang pelo ID interno.
- */
 export async function gangPorId(
   gangId: number,
 ): Promise<Gang | null> {
   return buscarGangPorId(gangId);
 }
 
-/**
- * ID da gang associada ao servidor Discord informado.
- */
 export async function gangIdPorGuildId(
   guildId: string,
 ): Promise<number | null> {
@@ -152,13 +126,6 @@ export async function gangIdPorGuildId(
   return gang?.id ?? null;
 }
 
-/**
- * Retorna a guild atualmente configurada.
- *
- * COMPATIBILIDADE:
- * ainda utiliza dashboard_config / ENV enquanto
- * o restante do projeto está sendo migrado.
- */
 export async function guildIdAtivo(): Promise<string> {
   const salvo = (await lerConfig(CHAVE_GUILD))?.replace(/\D/g, "");
 
@@ -173,11 +140,6 @@ export async function guildIdAtivo(): Promise<string> {
   }
 }
 
-/**
- * Retorna a gang atualmente configurada pela configuração antiga.
- *
- * Será substituída pelo contexto da sessão posteriormente.
- */
 export async function gangAtivaLegado(): Promise<Gang | null> {
   const guildId = await guildIdAtivo();
 
@@ -188,10 +150,6 @@ export async function gangAtivaLegado(): Promise<Gang | null> {
   return gangPorGuildId(guildId);
 }
 
-/**
- * Lê uma configuração no escopo da gang, com recuo para a configuração global
- * antiga (dashboard_config) enquanto a migração não termina.
- */
 export async function lerConfigEscopo(
   gangId: number | null,
   chave: string,
@@ -203,7 +161,6 @@ export async function lerConfigEscopo(
   return lerConfig(chave);
 }
 
-/** Salva várias configurações de uma gang de uma vez. */
 export async function salvarConfiguracoesDaGang(
   gangId: number,
   valores: Record<string, string>,
@@ -228,7 +185,6 @@ export async function salvarConfiguracoesDaGang(
   }
 }
 
-/** Guild Discord de uma gang. */
 export async function guildIdDaGang(gangId: number): Promise<string> {
   const gang = await gangPorId(gangId);
   return (gang?.guild_id ?? "").replace(/\D/g, "");
@@ -253,22 +209,12 @@ function ausente(
   );
 }
 
-/**
- * Lê todas as configurações da gang.
- *
- * Por enquanto tenta primeiro gang_config.
- * Se não houver gang, mantém compatibilidade com dashboard_config.
- */
 export async function loadConfiguracoes(
   cargosConhecidos: string[],
   gangId?: number | null,
 ): Promise<Configuracoes> {
   const db = getDb();
 
-  /*
-   * Se temos uma gang explícita, usamos a configuração
-   * específica dela.
-   */
   if (gangId != null) {
     const { data, error } = await db
       .from(TABELA_GANG_CONFIG)
@@ -313,9 +259,6 @@ export async function loadConfiguracoes(
     }
   }
 
-  /*
-   * Compatibilidade com o sistema antigo.
-   */
   const { data, error } = await db
     .from(TABELA_CONFIG)
     .select("chave, valor");
@@ -376,12 +319,6 @@ export async function loadConfiguracoes(
   };
 }
 
-/**
- * Salva configurações antigas.
- *
- * Mantida para que as páginas atuais continuem funcionando
- * durante a migração.
- */
 export async function salvarConfiguracoes(
   valores: Record<string, string>,
 ): Promise<void> {
@@ -403,12 +340,6 @@ export async function salvarConfiguracoes(
   }
 }
 
-/**
- * IDs de Super Owner + owners configurados.
- *
- * IMPORTANTE: quando a gang é informada, os donos extras vêm APENAS da
- * configuração daquela gang. Donos de uma gang nunca herdam poder em outra.
- */
 export async function ownerIds(gangId?: number | null): Promise<string[]> {
   const ids: string[] = [...superOwnerIds()];
 
@@ -429,31 +360,20 @@ export async function ownerIds(gangId?: number | null): Promise<string[]> {
   return Array.from(new Set(ids));
 }
 
-/**
- * Verifica se o Discord ID é dono do painel (global ou da gang informada).
- */
 export async function ehDono(discordId: string, gangId?: number | null): Promise<boolean> {
   return (await ownerIds(gangId)).includes(discordId);
 }
 
-/** Super Owners: lista fixa + owner definido no .env. */
 export function superOwnerIds(): string[] {
   const ids = [...SUPER_OWNER_IDS];
   try {
     const envOwner = getConfig().discordOwnerId.trim();
     if (envOwner) ids.push(envOwner);
   } catch {
-    // Sem configuração.
   }
   return ids;
 }
 
-/**
- * Verifica especificamente o Super Owner.
- *
- * Diferente de ehDono(), este não considera owners
- * cadastrados em uma gang.
- */
 export function ehSuperOwner(discordId: string): boolean {
   return superOwnerIds().includes(discordId);
 }

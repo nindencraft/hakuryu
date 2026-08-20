@@ -3,10 +3,6 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getConfig } from "./config.server";
 import { readCookie, SESSION_COOKIE, verifySession, type SessionUser } from "./session.server";
 
-/**
- * Cliente com service role para o banco existente do bot do Discord.
- * Só é usado dentro de handlers de server functions / server routes.
- */
 export function getDb(): SupabaseClient {
   const { supabaseUrl, supabaseServiceKey } = getConfig();
   return createClient(supabaseUrl, supabaseServiceKey, {

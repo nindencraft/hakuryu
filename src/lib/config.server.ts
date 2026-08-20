@@ -1,8 +1,3 @@
-/**
- * Leitura de configuração — server-only.
- * Nunca leia process.env no escopo de módulo: no runtime de edge as
- * variáveis só existem no momento da requisição.
- */
 
 export type AppConfig = {
   supabaseUrl: string;

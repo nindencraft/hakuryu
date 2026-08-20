@@ -32,23 +32,16 @@ import {
   type Treino,
 } from "./types";
 
-
-/* ========== Sessão / guardas ========== */
-
 export async function requireUserSemGang(request: Request): Promise<SessionUser> {
   const user = await currentUser(request);
   if (!user) throw new Error("NAO_AUTENTICADO");
 
-  // Recalcula o Super Owner antes de consultar o Discord. Assim, uma consulta
-  // momentaneamente indisponível não derruba o acesso administrativo global.
   const { ehDono, ehSuperOwner } = await import("./settings.server");
   user.isSuperOwner = ehSuperOwner(user.id);
   user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
   let temCargoDeAcessoConfigurado = false;
   if (!user.isSuperOwner && user.gangId != null) {
-    // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
-    // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
     const { fetchRolesAtuais } = await import("./discord.server");
     const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
       "./cargos.server"
@@ -60,46 +53,34 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
       user.roleIds = atuais.ids;
       temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, atuais.ids);
     } else if (user.gangId != null) {
-      // O token é assinado e os IDs foram confirmados no login/troca de gang.
-      // Ele só é usado quando o Discord está indisponível na revalidação atual.
       const mapa = await mapaCargos(user.gangId);
       user.roles = canonizarCargos(mapa, user.roleIds);
       temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, user.roleIds);
     }
   }
-  // Líder registrado da gang sempre tem o cargo "Lider" no painel.
   if (user.gangId != null && !temCargo(user, "Lider")) {
     const { buscarGangPorId } = await import("./gangs.server");
     const gang = await buscarGangPorId(user.gangId);
     if (gang?.lider_id && gang.lider_id === user.id) user.roles = [...user.roles, "Lider"];
   }
-  // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  // Só entra na gang quem possui o ID de Membro ou de cargo superior em
-  // gang_config. O Super Owner é a exceção administrativa global.
   if (!acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado)) {
     throw new Error("SEM_PERMISSAO");
   }
   return user;
 }
 
-/**
- * Sessão válida COM gang resolvida. Toda rota de dados usa esta guarda:
- * sem gang na sessão o front manda o usuário escolher uma.
- */
 export async function requireUser(request: Request): Promise<SessionUser> {
   const user = await requireUserSemGang(request);
   if (user.gangId == null) throw new Error("SEM_GANG");
   return user;
 }
 
-/** Gang da sessão — nunca vem do cliente. */
 export function gid(user: SessionUser): number {
   if (user.gangId == null) throw new Error("SEM_GANG");
   return user.gangId;
 }
 
-/** Contexto do Discord da gang da sessão (servidor + configurações). */
 export function ctxDiscord(user: SessionUser) {
   return { guildId: user.guildId, gangId: user.gangId };
 }
@@ -112,8 +93,6 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   if (res.error) throw new Error(res.error.message);
   return (res.data ?? []) as T;
 }
-
-/* ========== Leitura ========== */
 
 export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   const db = getDb();
@@ -209,17 +188,13 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
     else s.internos += 1;
   }
 
-
   try {
     const guerras = unwrap(
       await db.from("participacoes_guerra").select("membro_id").eq("gang_id", g),
     ) as { membro_id: string }[];
     for (const g of guerras) bucket(g.membro_id).guerras += 1;
-  } catch {
-    /* tabela opcional */
-  }
+  } catch
 
-  // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
   const { fetchRolesDeTodos } = await import("./discord.server");
   const { mapaCargos, canonizarCargos } = await import("./cargos.server");
   const [rolesDiscord, mapa] = await Promise.all([
@@ -241,10 +216,8 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   }));
 }
 
-/** Marcador de adiamento guardado no fim da descrição (o banco não tem coluna própria). */
 const MARCA_ADIAMENTO = /\n?\[ADIADO\|([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\s*/;
 
-/** Gang aliada de um treino amistoso, guardada na própria descrição. */
 const MARCA_ALIADO = /\n?\[ALIADO\|([^\]]*)\]\s*/;
 
 function separarAdiamento(descricao: string | null) {
@@ -288,8 +261,6 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
     return { ...t, descricao, adiamento, aliado, inscritos: contagem.get(t.id_treino) ?? 0 };
   });
 }
-
-
 
 export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
   const db = getDb();
@@ -422,7 +393,6 @@ export async function revogarPunicao(user: SessionUser, input: { punicaoId: numb
   return { ok: true };
 }
 
-/** Dados extras da aliança guardados no fim de `observacoes` (o banco não tem colunas próprias). */
 const MARCA_ALIANCA = /\n?\[ALIANCA\|([^\]]*)\]\s*$/;
 
 function montarMarcaAlianca(campos: {
@@ -479,7 +449,6 @@ function separarAlianca(observacoes: string | null) {
   };
 }
 
-/** A tabela legada pode usar outro nome de chave primária (ex.: id_parceria). */
 let idParceriasCache: string | null = null;
 export async function colunaIdParcerias(): Promise<string> {
   if (idParceriasCache) return idParceriasCache;
@@ -547,7 +516,6 @@ export async function loadParcerias(
   return { parcerias, tabelaAusente: false };
 }
 
-/** Resolve convite do servidor aliado + perfil do representante pelo ID. */
 export async function resolverAliado(
   user: SessionUser,
   input: { convite: string; representanteId: string },
@@ -568,9 +536,6 @@ export async function resolverAliado(
   };
 }
 
-
-/* ========== Escrita: membros ========== */
-
 export async function advertirMembro(
   user: SessionUser,
   input: { membroId: string; tipo: string; motivo: string },
@@ -584,7 +549,6 @@ export async function advertirMembro(
     gang_id: gid(user),
   };
 
-  // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
   const { error } = await db.from("punicoes").insert({ ...base, staff_id: user.id });
   if (error) {
     if (!/staff_id/i.test(error.message)) throw new Error(error.message);
@@ -596,7 +560,6 @@ export async function advertirMembro(
   return { ok: true };
 }
 
-/** Publica a advertência no canal configurado. */
 async function anunciarPunicao(
   db: ReturnType<typeof getDb>,
   user: SessionUser,
@@ -627,7 +590,6 @@ async function anunciarPunicao(
   });
 }
 
-
 export async function trocarCargo(
   user: SessionUser,
   input: { membroId: string; cargos: string[] },
@@ -651,11 +613,9 @@ export async function trocarCargo(
 
   const antigos = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
 
-  // Cargos de liderança de divisão só mudam pela tela de divisões: preserva-os.
   const preservados = antigos.filter((c) => CARGOS_DIVISAO.includes(c));
   const finais = Array.from(new Set([...preservados, ...novos]));
 
-  // A coluna `cargo` é curta (varchar 30): guarda só o principal.
   const { error } = await db
     .from("membros")
     .update({ cargo: cargoPrimario(finais) })
@@ -663,8 +623,6 @@ export async function trocarCargo(
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);
 
-  // Sincroniza com o Discord (adiciona os novos, remove os retirados).
-  // Só mexe nos cargos do painel — nunca nos de liderança de divisão.
   const { ajustarCargoPorId, ajustarCargoDiscord } = await import("./discord.server");
   for (const cargo of permitidos) {
     if (CARGOS_DIVISAO.includes(cargo)) continue;
@@ -703,7 +661,6 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
   const g = gid(user);
   const id = input.membroId;
 
-  // Libera vínculos de liderança em divisões
   const { data: divs } = await db
     .from("divisoes")
     .select("id, lider_id, vice_lider_id")
@@ -726,7 +683,6 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
 
   await encerrarHistoricoDeMembro(g, id);
 
-  // Remove registros dependentes (evita violação de chave estrangeira)
   const dependentes: [string, string[]][] = [
     ["membro_atributos", ["membro_id"]],
     ["historico_atributos_membro", ["membro_id"]],
@@ -754,9 +710,6 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
   if (error) throw new Error(error.message);
   return { ok: true };
 }
-
-
-/* ========== Escrita: treinos ========== */
 
 export async function criarTreino(
   user: SessionUser,
@@ -828,9 +781,6 @@ export async function criarTreino(
   return { ok: true };
 }
 
-
-
-/** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
 async function requireDonoTreino(user: SessionUser, treinoId: number) {
   const db = getDb();
   const { data, error } = await db
@@ -916,8 +866,6 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
     throw new Error("Este treino não está mais aberto para inscrições.");
   }
 
-
-  // Sem depender de constraint única: verifica e então atualiza ou insere.
   const { data: existente, error: errSel } = await db
     .from("presencas_treino")
     .select("membro_id")
@@ -994,8 +942,6 @@ export async function minhaInscricao(
   return (data as { inscricao: string | null } | null)?.inscricao ?? null;
 }
 
-/* ========== Escrita: divisões ========== */
-
 type LiderancaDivisao = { id: number; lider_id: string | null; vice_lider_id: string | null };
 
 async function carregarLideranca(
@@ -1017,7 +963,6 @@ async function carregarLideranca(
 export const CARGO_LIDER_DIVISAO = "Líder de Divisão";
 export const CARGO_VICE_LIDER_DIVISAO = "Vice-Líder de Divisão";
 
-/** Divisão à qual o usuário pertence (tabela membros). */
 async function divisaoDoUsuario(gangId: number, discordId: string): Promise<number | null> {
   const db = getDb();
   const { data } = await db
@@ -1029,7 +974,6 @@ async function divisaoDoUsuario(gangId: number, discordId: string): Promise<numb
   return (data as { divisao_id: number | null } | null)?.divisao_id ?? null;
 }
 
-/** Cúpula da gang ou liderança da própria divisão. */
 async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): Promise<boolean> {
   if (podeCriarDivisao(user)) return true;
   if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
@@ -1039,7 +983,6 @@ async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): P
   return false;
 }
 
-/** ID do cargo do Discord associado a uma divisão. */
 async function roleIdDaDivisao(gangId: number, divisaoId: number | null): Promise<string | null> {
   if (divisaoId == null) return null;
   const db = getDb();
@@ -1053,10 +996,6 @@ async function roleIdDaDivisao(gangId: number, divisaoId: number | null): Promis
   return id ? id.replace(/\D/g, "") || null : null;
 }
 
-/**
- * Aplica o cargo do Discord da divisão de destino e remove o da divisão anterior.
- * Vale para líder, vice e membros comuns.
- */
 async function trocarCargoDivisaoDiscord(
   user: SessionUser,
   membroId: string,
@@ -1075,7 +1014,6 @@ async function trocarCargoDivisaoDiscord(
   }
   if (roleNovo) await ajustarCargoPorId(membroId, roleNovo, "add", user.guildId);
 }
-
 
 export async function criarDivisao(
   user: SessionUser,
@@ -1113,7 +1051,6 @@ export async function atualizarDivisao(
   assert(await podeGerirDivisao(user, divisao), "Você não gerencia esta divisão.");
   const db = getDb();
 
-  // Líder/vice da própria divisão não trocam o líder; só a cúpula faz isso.
   const liderId = podeCriarDivisao(user) ? input.liderId : divisao.lider_id;
   const podeDefinirVice =
     podeCriarDivisao(user) ||
@@ -1137,7 +1074,6 @@ export async function atualizarDivisao(
     ]),
   );
   if (entrando.length > 0) {
-    // Guarda a divisão anterior de cada um para trocar o cargo no Discord.
     const { data: antesData } = await db
       .from("membros")
       .select("discord_id, divisao_id")
@@ -1162,7 +1098,6 @@ export async function atualizarDivisao(
     }
   }
 
-  // Quem deixou a liderança e não faz mais parte da divisão perde o cargo dela.
   for (const antigo of [divisao.lider_id, divisao.vice_lider_id]) {
     if (!antigo || entrando.includes(antigo)) continue;
     if ((await divisaoDoUsuario(gid(user), antigo)) !== input.divisaoId) {
@@ -1174,8 +1109,6 @@ export async function atualizarDivisao(
   return { ok: true };
 }
 
-
-/** Aplica/retira o cargo (Discord + tabela membros) de líder e vice da divisão. */
 async function sincronizarCargosLideranca(
   db: ReturnType<typeof getDb>,
   user: SessionUser,
@@ -1225,7 +1158,6 @@ async function sincronizarCargosLideranca(
   }
 }
 
-
 export async function removerMembroDivisao(
   user: SessionUser,
   input: { membroId: string },
@@ -1271,11 +1203,9 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem deletar divisões.");
   const db = getDb();
   const g = gid(user);
-  // Liderança perde o cargo de capitão junto com a divisão.
   const lideranca = await carregarLideranca(user, input.divisaoId);
   await sincronizarCargosLideranca(db, user, lideranca, null, null);
 
-  // Todos os integrantes perdem o cargo do Discord da divisão.
   const { data: integrantes } = await db
     .from("membros")
     .select("discord_id")
@@ -1299,9 +1229,6 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
   return { ok: true };
 }
 
-
-/* ========== Escrita: alianças ========== */
-
 export async function salvarParceria(
   user: SessionUser,
   input: {
@@ -1324,7 +1251,6 @@ export async function salvarParceria(
   const db = getDb();
   const g = gid(user);
 
-  // Quem fechou é mantido no registro original ao editar.
   let fechadoPor = user.id;
   let fechadoNome = user.nomeRp || user.globalName || user.username;
   const colunaId = await colunaIdParcerias();
@@ -1401,8 +1327,6 @@ export async function salvarParceria(
   return { ok: true };
 }
 
-
-
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
   const db = getDb();
@@ -1415,8 +1339,6 @@ export async function deletarParceria(user: SessionUser, input: { id: number }) 
   if (error) throw new Error(error.message);
   return { ok: true };
 }
-
-/* ========== Atributos de combate ========== */
 
 const CHAVES_ATRIBUTOS = [
   "movimentacao",
@@ -1541,9 +1463,6 @@ export async function loadHistoricoAtributos(
   });
 }
 
-/* ========== Dados pessoais do membro ========== */
-
-/** O próprio membro edita sua ficha; a liderança pode editar a de qualquer um. */
 export async function atualizarDadosMembro(
   user: SessionUser,
   input: {
@@ -1579,8 +1498,6 @@ export async function atualizarDadosMembro(
   return { ok: true };
 }
 
-/* ========== Configurações do painel ========== */
-
 export async function loadConfiguracoesPainel(user: SessionUser) {
   assert(
     podeGerenciarMembros(user),
@@ -1612,8 +1529,6 @@ export async function salvarConfiguracoesPainel(
   await salvarConfiguracoesDaGang(gid(user), valores);
   return { ok: true };
 }
-
-// ==================== Logs de partidas ====================
 
 function tabelaLogsAusente(msg: string, code?: string) {
   return (

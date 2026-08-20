@@ -1,4 +1,3 @@
-/** Normaliza o link opcional usado para acessar o servidor privado do evento. */
 export function normalizarLinkEvento(valor: string | undefined, nomeCampo = "O link do servidor privado Roblox"): string | null {
   const link = valor?.trim() ?? "";
   if (!link) return null;

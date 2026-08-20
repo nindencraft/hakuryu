@@ -9,7 +9,6 @@ export function useSessionUser(): SessionUserView | null {
   return data?.user ?? null;
 }
 
-/** Executa uma server function, mostra toast e revalida as consultas afetadas. */
 export function useAcao<TInput>(
   fn: (args: { data: TInput }) => Promise<unknown>,
   options: { sucesso: string; invalidar?: (string | number)[][]; aoConcluir?: () => void },

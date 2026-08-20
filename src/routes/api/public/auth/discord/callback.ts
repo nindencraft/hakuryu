@@ -63,10 +63,6 @@ export const Route = createFileRoute(
           );
         }
 
-        /* =====================================================
-         * 1. CONFIGURAÇÃO
-         * ===================================================== */
-
         let config;
 
         try {
@@ -81,10 +77,6 @@ export const Route = createFileRoute(
         const redirectUri =
           config.discordRedirectUri ||
           `${url.origin}/api/public/auth/discord/callback`;
-
-        /* =====================================================
-         * 2. TROCA O CODE PELO TOKEN DO DISCORD
-         * ===================================================== */
 
         const tokenRes = await fetch(
           "https://discord.com/api/v10/oauth2/token",
@@ -119,10 +111,6 @@ export const Route = createFileRoute(
           access_token: string;
         };
 
-        /* =====================================================
-         * 3. IDENTIDADE DO USUÁRIO
-         * ===================================================== */
-
         const userRes = await fetch(
           "https://discord.com/api/v10/users/@me",
           {
@@ -143,10 +131,6 @@ export const Route = createFileRoute(
         const discordUser =
           (await userRes.json()) as DiscordUser;
 
-        /* =====================================================
-         * 4. VERIFICA SE É SUPER OWNER
-         * ===================================================== */
-
         const { ehDono, ehSuperOwner } =
           await import("@/lib/settings.server");
 
@@ -154,15 +138,6 @@ export const Route = createFileRoute(
           (!!config.discordOwnerId &&
             config.discordOwnerId === discordUser.id) ||
           (await ehDono(discordUser.id));
-
-        /* =====================================================
-         * 5. LISTA AS GUILDS DO USUÁRIO
-         *
-         * O OAuth precisa possuir o scope:
-         *
-         * guilds
-         *
-         * ===================================================== */
 
         const userGuildsRes = await fetch(
           "https://discord.com/api/v10/users/@me/guilds",
@@ -181,10 +156,6 @@ export const Route = createFileRoute(
             (await userGuildsRes.json()) as DiscordGuild[];
         }
 
-        /* =====================================================
-        * 6. BUSCA AS GANGS DOS SERVIDORES DO USUÁRIO
-        * ===================================================== */
-
       let gangs: Gang[] = [];
 
       try {
@@ -197,15 +168,6 @@ export const Route = createFileRoute(
         `Não foi possível carregar suas gangs: ${(error as Error).message}`,
         );
       }
-        /* =====================================================
-         * 7. ENCONTRA A GANG DO USUÁRIO
-         *
-         * Compara:
-         *
-         * Discord Guild
-         *       ↓
-         * gangs.guild_id
-         * ===================================================== */
 
         let gang: Gang | null = null;
         let guildId: string | null = null;
@@ -218,24 +180,6 @@ export const Route = createFileRoute(
           guildId = unicaGang.guild_id;
           }
         }
-        /* =====================================================
-         * 8. SUPER OWNER
-         *
-         * O Super Owner pode entrar sem possuir uma gang
-         * selecionada.
-         *
-         * Isso permitirá que futuramente ele escolha a gang
-         * pelo próprio painel.
-         * ===================================================== */
-
-        /* =====================================================
-         * 9. VERIFICA O MEMBRO E CARGOS NO SERVIDOR
-         *
-         * Para usuário normal, usamos a guild encontrada.
-         *
-         * Para Super Owner sem gang selecionada, não há
-         * necessidade de verificar cargos.
-         * ===================================================== */
 
         let roleNames: string[] = [];
         let roleIds: string[] = [];
@@ -268,10 +212,6 @@ export const Route = createFileRoute(
               (await memberRes.json()) as GuildMember;
             roleIds = member.roles;
 
-            /* =================================================
-             * 10. BUSCA OS NOMES DOS CARGOS
-             * ================================================= */
-
             const rolesRes = await fetch(
               `https://discord.com/api/v10/guilds/${guildId}/roles`,
               {
@@ -294,25 +234,9 @@ export const Route = createFileRoute(
           }
         }
 
-        /* =====================================================
-         * 11. BUSCA O MEMBRO NO BANCO
-         *
-         * IMPORTANTE:
-         *
-         * Agora usamos Discord ID + gang_id.
-         *
-         * Isso permite:
-         *
-         * Discord A + Gang A
-         * Discord A + Gang B
-         *
-         * serem registros independentes.
-         * ===================================================== */
-
         let nomeRp: string | null = null;
 
         if (gang) {
-          // Donos e líder cadastrados na gang escolhida.
           if (!isOwner && (await ehDono(discordUser.id, gang.id))) isOwner = true;
           if (gang.lider_id === discordUser.id && !roleNames.includes("Lider")) {
             roleNames.push("Lider");
@@ -333,10 +257,6 @@ export const Route = createFileRoute(
                   | { nome_rp: string | null }
                   | null
               )?.nome_rp ?? null;
-
-            /* ===============================================
-             * NOVO MEMBRO
-             * =============================================== */
 
             if (!data) {
               await db.from("membros").insert({
@@ -382,22 +302,9 @@ export const Route = createFileRoute(
           }
         }
 
-        /* =====================================================
-         * 12. AVATAR
-         * ===================================================== */
-
         const avatarUrl = discordUser.avatar
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=128`
           : "https://cdn.discordapp.com/embed/avatars/0.png";
-
-        /* =====================================================
-         * 13. CRIA A SESSÃO
-         *
-         * Aqui finalmente guardamos:
-         *
-         * guildId
-         * gangId
-         * ===================================================== */
 
         const sessionToken = await signSession({
           id: discordUser.id,
@@ -425,16 +332,10 @@ export const Route = createFileRoute(
           gangId: gang?.id ?? null,
         });
 
-        /* =====================================================
-         * 14. FINALIZA LOGIN
-         * ===================================================== */
-
         return new Response(null, {
           status: 302,
 
           headers: {
-            // Todo usuário autenticado entra primeiro no Hub Hakuryū.
-            // O Painel de Gang é acessado de forma explícita pela interface.
             Location: "/",
 
             "Set-Cookie": sessionCookie(

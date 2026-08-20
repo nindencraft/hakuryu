@@ -19,7 +19,6 @@ function normalizarImagemDivulgacao(valor: string): string {
   return imagemUrl;
 }
 
-/** Distribui uma divulgação para os canais configurados de todas as gangs. */
 export async function publicarDivulgacaoGlobal(imagemBruta: string): Promise<ResultadoDivulgacao> {
   const imagemUrl = normalizarImagemDivulgacao(imagemBruta);
   const { discordGuildId } = getConfig();

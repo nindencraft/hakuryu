@@ -24,7 +24,6 @@ export function statusExploradorOuErro(valor: string): StatusExplorador {
   throw new Error("Status de moderação inválido.");
 }
 
-/** Normaliza as etiquetas sem alterar a ordem escolhida pelo responsável. */
 export function normalizarEtiquetas(etiquetas: string[]): string[] {
   const vistas = new Set<string>();
   const resultado: string[] = [];
