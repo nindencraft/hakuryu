@@ -152,7 +152,7 @@ export async function ajustarCargoPorId(
       method: acao === "add" ? "PUT" : "DELETE",
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
-  } catch
+  } catch {}
 }
 
 export async function ajustarCargoDiscord(
@@ -166,7 +166,7 @@ export async function ajustarCargoDiscord(
     const roleId = configurado ?? (await buscarRoleId(nomeCargo, ctx.guildId));
     if (!roleId) return;
     await ajustarCargoPorId(discordId, roleId, acao, ctx.guildId);
-  } catch
+  } catch {}
 }
 
 export type EmbedDiscord = {
@@ -223,7 +223,7 @@ export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, m
     const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
     if (!canalId) return;
     await enviarMensagemParaCanal(canalId, mensagem);
-  } catch
+  } catch {}
 }
 
 export async function fetchCargosDeTodos(guildIdSessao?: string | null): Promise<Map<string, string[]> | null> {

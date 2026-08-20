@@ -45,8 +45,7 @@ export async function mapaCargos(gangId: number | null): Promise<MapaCargos> {
       const { data: globais } = await db.from(TABELA_CONFIG).select("chave, valor");
       aplicar((globais ?? []) as { chave: string; valor: string | null }[]);
     }
-  } catch
-
+  } catch {}
   return { porRoleId, porCargo };
 }
 

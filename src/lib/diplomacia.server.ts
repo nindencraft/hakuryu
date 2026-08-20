@@ -722,7 +722,7 @@ async function avisarDiscord(
         },
       );
     }
-  } catch
+  } catch {}
 }
 
 export async function responderSolicitacao(

@@ -193,8 +193,7 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
       await db.from("participacoes_guerra").select("membro_id").eq("gang_id", g),
     ) as { membro_id: string }[];
     for (const g of guerras) bucket(g.membro_id).guerras += 1;
-  } catch
-
+  } catch {}
   const { fetchRolesDeTodos } = await import("./discord.server");
   const { mapaCargos, canonizarCargos } = await import("./cargos.server");
   const [rolesDiscord, mapa] = await Promise.all([
