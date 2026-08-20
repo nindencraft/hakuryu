@@ -1,11 +1,27 @@
 import { getDb } from "./db.server";
-import { normalizarTotaisAtividade, somarTotaisAtividade, type TotaisAtividadePerfil } from "./perfil";
+import {
+  FICHA_RPG_VAZIA,
+  normalizarFichaRPG,
+  normalizarTotaisAtividade,
+  somarTotaisAtividade,
+  type FichaRPG,
+  type FichaRPGInput,
+  type TotaisAtividadePerfil,
+} from "./perfil";
 import type { SessionUser } from "./session.server";
 
 type LinhaMembro = {
   gang_id: number;
   cargo: string | null;
   data_entrada: string | null;
+};
+
+type LinhaFichaRPG = {
+  nome_roblox: string | null;
+  nome_rp: string | null;
+  genero: string | null;
+  altura_jogo: number | null;
+  estilo_luta_principal: string | null;
 };
 
 type LinhaGang = { id: number; nome: string; guild_id: string | null };
@@ -41,6 +57,7 @@ export type PerfilJogador = {
     avatarUrl: string;
     nomeRp: string | null;
   };
+  ficha: FichaRPG;
   gangsAtuais: GangNoPerfil[];
   gangsAnteriores: GangNoPerfil[];
   atividade: TotaisAtividadePerfil;
@@ -50,6 +67,47 @@ export type PerfilJogador = {
 function tabelaPodeEstarAusente(error: { message?: string; code?: string } | null): boolean {
   const mensagem = error?.message ?? "";
   return error?.code === "42P01" || /does not exist|schema cache|could not find the table/i.test(mensagem);
+}
+
+/** Lê a ficha global do jogador, independentemente da gang selecionada. */
+export async function buscarFichaRPG(discordId: string): Promise<FichaRPG> {
+  const { data, error } = await getDb()
+    .from("perfis_jogador")
+    .select("nome_roblox, nome_rp, genero, altura_jogo, estilo_luta_principal")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  if (error) {
+    if (tabelaPodeEstarAusente(error)) return FICHA_RPG_VAZIA;
+    throw new Error(error.message);
+  }
+  if (!data) return FICHA_RPG_VAZIA;
+  const ficha = data as LinhaFichaRPG;
+  return {
+    nome_roblox: ficha.nome_roblox ?? null,
+    nome_rp: ficha.nome_rp ?? null,
+    genero: ficha.genero === "Masculino" || ficha.genero === "Feminino" ? ficha.genero : null,
+    altura_jogo: ficha.altura_jogo != null ? Number(ficha.altura_jogo) : null,
+    estilo_luta_principal: ficha.estilo_luta_principal as FichaRPG["estilo_luta_principal"],
+  };
+}
+
+/** Atualiza a ficha do próprio usuário e replica os dados nas gangs cadastradas. */
+export async function atualizarFichaRPG(user: SessionUser, input: FichaRPGInput): Promise<FichaRPG> {
+  const ficha = normalizarFichaRPG(input);
+  const db = getDb();
+  const { error: erroPerfil } = await db.from("perfis_jogador").upsert(
+    {
+      discord_id: user.id,
+      discord_username: user.username,
+      ...ficha,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "discord_id" },
+  );
+  if (erroPerfil) throw new Error(erroPerfil.message);
+  const { error: erroMembros } = await db.from("membros").update(ficha).eq("discord_id", user.id);
+  if (erroMembros) throw new Error(erroMembros.message);
+  return ficha;
 }
 
 async function contarAtividadeDaGang(discordId: string, gangId: number): Promise<TotaisAtividadePerfil> {
@@ -127,6 +185,7 @@ export async function obterPerfilJogador(user: SessionUser): Promise<PerfilJogad
   if (erroMembros) throw new Error(erroMembros.message);
 
   const linhasMembros = (membros ?? []) as LinhaMembro[];
+  const ficha = await buscarFichaRPG(user.id);
   const gangIds = [...new Set(linhasMembros.map((membro) => membro.gang_id))];
   const { data: gangs, error: erroGangs } = gangIds.length
     ? await db.from("gangs").select("id, nome, guild_id").in("id", gangIds)
@@ -182,8 +241,9 @@ export async function obterPerfilJogador(user: SessionUser): Promise<PerfilJogad
       username: user.username,
       globalName: user.globalName,
       avatarUrl: user.avatarUrl,
-      nomeRp: user.nomeRp,
+      nomeRp: ficha.nome_rp ?? user.nomeRp,
     },
+    ficha,
     gangsAtuais,
     gangsAnteriores,
     atividade: somarTotaisAtividade([...gangsAtuais.map((gang) => gang.atividade), ...gangsAnteriores.map((gang) => gang.atividade)]),

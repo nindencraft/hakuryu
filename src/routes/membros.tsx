@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, History, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, History, Search, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { MemberAttributeRadar } from "@/components/hakuryu/MemberAttributeRadar";
@@ -47,10 +48,11 @@ import { membrosQuery } from "@/lib/queries";
 import {
   advertirMembro,
   alterarStatusMembro,
+  buscarMembrosDiscord,
+  cadastrarMembroDiscord,
   fetchHistorico,
   fetchHistoricoAtributos,
   salvarAtributosMembro,
-  atualizarMeusDados,
   removerMembro,
   revogarPunicao,
   trocarCargo,
@@ -115,7 +117,7 @@ function Membros() {
   const [trocando, setTrocando] = useState<Membro | null>(null);
   const [historico, setHistorico] = useState<Membro | null>(null);
   const [removendo, setRemovendo] = useState<Membro | null>(null);
-  const [editando, setEditando] = useState<Membro | null>(null);
+  const [cadastroAberto, setCadastroAberto] = useState(false);
   const [avaliando, setAvaliando] = useState<Membro | null>(null);
   const [historicoAtributos, setHistoricoAtributos] = useState<Membro | null>(null);
 
@@ -217,11 +219,6 @@ function Membros() {
                           />
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2 lg:mt-auto lg:pt-4">
-                          {m.discord_id === user?.id || podeGerenciar ? (
-                            <Button size="sm" variant="outline" onClick={() => setEditando(m)}>
-                              Editar dados
-                            </Button>
-                          ) : null}
                           {podeEditarAtributos(m) ? (
                             <Button size="sm" variant="outline" onClick={() => setAvaliando(m)}>
                               <SlidersHorizontal />
@@ -273,7 +270,7 @@ function Membros() {
         kanji="隊員"
         title="Membros"
         subtitle="Cargos, avisos e status dos integrantes."
-        actions={<Badge variant="secondary">{filtrados.length} exibidos</Badge>}
+        actions={<div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{filtrados.length} exibidos</Badge>{podeGerenciar ? <Button size="sm" onClick={() => setCadastroAberto(true)}><UserPlus className="h-4 w-4" />Adicionar novo membro</Button> : null}</div>}
       />
 
       <div className="card-gold mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -324,7 +321,7 @@ function Membros() {
         </>
       )}
 
-      <EditarDadosDialog membro={editando} onClose={() => setEditando(null)} />
+      <CadastrarMembroDialog aberto={cadastroAberto} onClose={() => setCadastroAberto(false)} />
       <AtributosDialog membro={avaliando} onClose={() => setAvaliando(null)} />
       <HistoricoAtributosDialog membro={historicoAtributos} onClose={() => setHistoricoAtributos(null)} />
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
@@ -396,90 +393,73 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EditarDadosDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
-  const [nomeRp, setNomeRp] = useState("");
-  const [roblox, setRoblox] = useState("");
-  const [genero, setGenero] = useState("");
-  const [altura, setAltura] = useState("");
-  const [estilo, setEstilo] = useState("");
+type ResultadoBuscaDiscord = {
+  id: string;
+  username: string;
+  globalName: string | null;
+  avatarHash: string | null;
+  nick: string | null;
+  jaCadastrado: boolean;
+};
 
-  useEffect(() => {
-    if (!membro) return;
-    setNomeRp(membro.nome_rp ?? "");
-    setRoblox(membro.nome_roblox ?? "");
-    setGenero(membro.genero ?? "");
-    setAltura(membro.altura_jogo != null ? String(membro.altura_jogo) : "");
-    setEstilo(membro.estilo_luta_principal ?? "");
-  }, [membro]);
+function CadastrarMembroDialog({ aberto, onClose }: { aberto: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [busca, setBusca] = useState("");
+  const [resultados, setResultados] = useState<ResultadoBuscaDiscord[]>([]);
+  const [erro, setErro] = useState<string | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [adicionandoId, setAdicionandoId] = useState<string | null>(null);
 
-  const acao = useAcao<{
-    membroId: string;
-    nome_rp: string;
-    nome_roblox: string;
-    genero: string;
-    altura: string;
-    estilo_luta_principal: string;
-  }>(atualizarMeusDados, {
-    sucesso: "Dados atualizados.",
-    invalidar: [["membros"], ["session"]],
-    aoConcluir: onClose,
-  });
+  const pesquisar = async () => {
+    const termo = busca.trim();
+    if (termo.length < 2) {
+      setErro("Digite ao menos 2 caracteres para pesquisar.");
+      setResultados([]);
+      return;
+    }
+    setBuscando(true);
+    setErro(null);
+    try {
+      setResultados(await buscarMembrosDiscord({ data: { busca: termo } }) as ResultadoBuscaDiscord[]);
+    } catch (error) {
+      setResultados([]);
+      setErro(error instanceof Error ? error.message : "Não foi possível pesquisar no Discord.");
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const cadastrar = async (discordId: string) => {
+    setAdicionandoId(discordId);
+    setErro(null);
+    try {
+      await cadastrarMembroDiscord({ data: { discordId } });
+      await queryClient.invalidateQueries({ queryKey: ["membros"] });
+      toast.success("Membro cadastrado. A ficha RPG global foi carregada quando disponível.");
+      setResultados((anteriores) => anteriores.map((membro) => membro.id === discordId ? { ...membro, jaCadastrado: true } : membro));
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Não foi possível cadastrar o membro.");
+    } finally {
+      setAdicionandoId(null);
+    }
+  };
 
   return (
-    <Dialog open={!!membro} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+    <Dialog open={aberto} onOpenChange={(novoAberto) => !novoAberto && onClose()}>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Editar dados</DialogTitle>
-          <DialogDescription>Ficha de {membro?.discord_username ?? "membro"}.</DialogDescription>
+          <DialogTitle>Adicionar novo membro</DialogTitle>
+          <DialogDescription>Pesquise uma pessoa que já esteja no servidor Discord da gang. Se ela tiver ficha RPG, os dados serão carregados automaticamente.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ed-nome-rp">Nome no RP</Label>
-            <Input id="ed-nome-rp" value={nomeRp} onChange={(e) => setNomeRp(e.target.value)} />
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input value={busca} onChange={(evento) => setBusca(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter") { evento.preventDefault(); void pesquisar(); } }} placeholder="Nome, apelido ou ID do Discord" aria-label="Buscar integrante no Discord" />
+            <Button type="button" variant="outline" disabled={buscando} onClick={() => void pesquisar()}>{buscando ? "Buscando..." : "Buscar"}</Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ed-roblox">Nick do Roblox</Label>
-            <Input id="ed-roblox" value={roblox} onChange={(e) => setRoblox(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ed-genero">Gênero</Label>
-            <Input id="ed-genero" value={genero} onChange={(e) => setGenero(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ed-altura">Altura</Label>
-            <Input
-              id="ed-altura"
-              inputMode="decimal"
-              value={altura}
-              onChange={(e) => setAltura(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="ed-estilo">Estilo de luta</Label>
-            <Input id="ed-estilo" value={estilo} onChange={(e) => setEstilo(e.target.value)} />
-          </div>
+          {erro ? <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{erro}</p> : null}
+          {resultados.length ? <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">{resultados.map((membro) => <li key={membro.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3"><MemberAvatar discordId={membro.id} avatarHash={membro.avatarHash} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{membro.nick || membro.globalName || membro.username}</p><p className="truncate text-sm text-muted-foreground">@{membro.username} · {membro.id}</p></div><Button size="sm" disabled={membro.jaCadastrado || adicionandoId === membro.id} onClick={() => void cadastrar(membro.id)}>{membro.jaCadastrado ? "Já cadastrado" : adicionandoId === membro.id ? "Adicionando..." : "Adicionar"}</Button></li>)}</ul> : !buscando && busca.trim().length >= 2 ? <p className="text-sm text-muted-foreground">Nenhuma pessoa encontrada no servidor Discord.</p> : null}
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={acao.isPending}
-            onClick={() =>
-              membro &&
-              acao.mutate({
-                membroId: membro.discord_id,
-                nome_rp: nomeRp,
-                nome_roblox: roblox,
-                genero,
-                altura,
-                estilo_luta_principal: estilo,
-              })
-            }
-          >
-            Salvar
-          </Button>
-        </DialogFooter>
+        <DialogFooter><Button variant="ghost" onClick={onClose}>Fechar</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { PerfilJogador } from "@/components/hakuryu/PerfilJogador";
 import { CabecalhoHub, FundoHub, TelaHubCarregando, TelaHubLogin } from "@/components/hakuryu/HubLayout";
+import { useAcao } from "@/components/hakuryu/hooks";
+import type { FichaRPGInput } from "@/lib/perfil";
+import { atualizarMinhaFichaRPG } from "@/lib/perfil.functions";
 import { gangsDisponiveisQuery, meuPerfilQuery, sessionQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/perfil")({ component: PerfilPage });
@@ -12,9 +15,13 @@ function PerfilPage() {
   const gangs = useQuery({ ...gangsDisponiveisQuery, enabled: Boolean(sessao.data?.user) });
   const perfil = useQuery({ ...meuPerfilQuery, enabled: Boolean(sessao.data?.user) });
   const usuario = sessao.data?.user;
+  const salvarFicha = useAcao<FichaRPGInput>(atualizarMinhaFichaRPG, {
+    sucesso: "Ficha RPG atualizada em todas as suas gangs.",
+    invalidar: [["meu-perfil"], ["membros"], ["session"]],
+  });
   if (sessao.isPending) return <TelaHubCarregando />;
   if (!sessao.data?.configurado) return <TelaHubLogin erro="O Hakuryū ainda precisa ser configurado pela administração." />;
   if (!usuario) return <TelaHubLogin />;
 
-  return <FundoHub><CabecalhoHub usuario={usuario} permitido={Boolean(sessao.data.permitido)} quantidadeDeGangs={gangs.data?.length ?? 0} abaAtiva="perfil" /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-11">{perfil.isPending ? <TelaHubCarregando /> : null}{perfil.error ? <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-4 py-3 text-sm text-destructive">Não foi possível carregar seu perfil: {perfil.error.message}</div> : null}{perfil.data ? <PerfilJogador perfil={perfil.data} /> : null}</main></FundoHub>;
+  return <FundoHub><CabecalhoHub usuario={usuario} permitido={Boolean(sessao.data.permitido)} quantidadeDeGangs={gangs.data?.length ?? 0} abaAtiva="perfil" /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-11">{perfil.isPending ? <TelaHubCarregando /> : null}{perfil.error ? <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-4 py-3 text-sm text-destructive">Não foi possível carregar seu perfil: {perfil.error.message}</div> : null}{perfil.data ? <PerfilJogador perfil={perfil.data} aoSalvarFicha={(dados) => salvarFicha.mutate(dados)} salvandoFicha={salvarFicha.isPending} /> : null}</main></FundoHub>;
 }
