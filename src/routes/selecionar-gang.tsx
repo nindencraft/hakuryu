@@ -51,7 +51,7 @@ function SelecionarGangPage() {
       });
       if (!res.ok) throw new Error(await res.text());
       await queryClient.invalidateQueries();
-      await router.navigate({ to: "/" });
+      await router.navigate({ to: "/painel" });
     } catch (e) {
       setErro((e as Error).message || "Não foi possível entrar nesta gang.");
     } finally {

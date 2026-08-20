@@ -228,13 +228,6 @@ export const Route = createFileRoute(
          * pelo próprio painel.
          * ===================================================== */
 
-        if (gangs.length === 0 && !isOwner) {
-          return fail(
-          request,
-        "Você não pertence a nenhum servidor Discord associado a uma gang.",
-        );
-      }
-
         /* =====================================================
          * 9. VERIFICA O MEMBRO E CARGOS NO SERVIDOR
          *
@@ -440,7 +433,9 @@ export const Route = createFileRoute(
           status: 302,
 
           headers: {
-            Location: gang ? "/" : "/selecionar-gang",
+            // Todo usuário autenticado entra primeiro no Hub Hakuryū.
+            // O Painel de Gang é acessado de forma explícita pela interface.
+            Location: "/",
 
             "Set-Cookie": sessionCookie(
               sessionToken,

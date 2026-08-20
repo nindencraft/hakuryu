@@ -15,6 +15,7 @@ import { Route as DivisoesRouteImport } from './routes/divisoes'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as NoticiasRouteImport } from './routes/noticias'
+import { Route as PainelRouteImport } from './routes/painel'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as SelecionarGangRouteImport } from './routes/selecionar-gang'
 import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
@@ -54,6 +55,11 @@ const MembrosRoute = MembrosRouteImport.update({
 const NoticiasRoute = NoticiasRouteImport.update({
   id: '/noticias',
   path: '/noticias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PainelRoute = PainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParceriasRoute = ParceriasRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
+  '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
+  '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/membros': typeof MembrosRoute
   '/noticias': typeof NoticiasRoute
+  '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/membros'
     | '/noticias'
+    | '/painel'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/membros'
     | '/noticias'
+    | '/painel'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/membros'
     | '/noticias'
+    | '/painel'
     | '/parcerias'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   MembrosRoute: typeof MembrosRoute
   NoticiasRoute: typeof NoticiasRoute
+  PainelRoute: typeof PainelRoute
   ParceriasRoute: typeof ParceriasRoute
   SelecionarGangRoute: typeof SelecionarGangRoute
   SolicitacoesRoute: typeof SolicitacoesRoute
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       path: '/noticias'
       fullPath: '/noticias'
       preLoaderRoute: typeof NoticiasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/painel': {
+      id: '/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof PainelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parcerias': {
@@ -365,6 +385,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   MembrosRoute: MembrosRoute,
   NoticiasRoute: NoticiasRoute,
+  PainelRoute: PainelRoute,
   ParceriasRoute: ParceriasRoute,
   SelecionarGangRoute: SelecionarGangRoute,
   SolicitacoesRoute: SolicitacoesRoute,

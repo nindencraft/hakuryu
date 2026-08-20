@@ -44,7 +44,7 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
   let temCargoDeAcessoConfigurado = false;
-  if (!user.isSuperOwner) {
+  if (!user.isSuperOwner && user.gangId != null) {
     // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
     // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
     const { fetchRolesAtuais } = await import("./discord.server");

@@ -80,7 +80,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
     user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
     let temCargoDeAcessoConfigurado = false;
-    if (!user.isSuperOwner) {
+    if (!user.isSuperOwner && user.gangId != null) {
       // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
       const { fetchRolesAtuais } = await import("./discord.server");
       const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
@@ -165,7 +165,7 @@ export const fetchTreinos = createServerFn({ method: "GET" }).handler(
 /** Anúncio único e global, exibido a todas as gangs autorizadas. */
 export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
   async (): Promise<BannerGlobal | null> => {
-    await svc.requireUser(getRequest());
+    await svc.requireUserSemGang(getRequest());
     const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig } = await import(
       "./settings.server"
     );

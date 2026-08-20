@@ -12,6 +12,7 @@ import {
   Shield,
   Users,
   Crown,
+  Home,
   Repeat,
   Mails,
   Newspaper,
@@ -39,7 +40,8 @@ import { cn } from "@/lib/utils";
 import { NoticiasRecentes } from "@/components/hakuryu/Noticias";
 
 const NAV = [
-  { to: "/", label: "Visão Geral", icon: LayoutDashboard },
+  { to: "/", label: "Página Inicial", icon: Home },
+  { to: "/painel", label: "Visão Geral", icon: LayoutDashboard },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
   { to: "/divisoes", label: "Divisões", icon: Shield },
@@ -156,7 +158,7 @@ function GangsRail({
       });
       if (!res.ok) throw new Error(await res.text());
       await queryClient.invalidateQueries();
-      await router.navigate({ to: "/" });
+      await router.navigate({ to: "/painel" });
       onNavigate?.();
     } finally {
       setTrocando(null);
