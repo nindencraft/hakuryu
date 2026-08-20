@@ -15,6 +15,7 @@ import {
 import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
 import { acessoGangPermitido } from "./acesso-gang";
+import { encerrarHistoricoDeMembro } from "./perfil.server";
 import {
   TIPO_TREINO_OPCOES,
   type AliadoResolvido,
@@ -722,6 +723,8 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
       .eq("gang_id", g)
       .eq("id", d.id);
   }
+
+  await encerrarHistoricoDeMembro(g, id);
 
   // Remove registros dependentes (evita violação de chave estrangeira)
   const dependentes: [string, string[]][] = [

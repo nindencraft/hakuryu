@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { acaoPainelHome } from "@/lib/home-hub";
 import type { SessionUserView } from "@/lib/permissions";
 
-type AbaHub = "inicio" | "noticias" | "recrutamento" | "explorar";
+type AbaHub = "inicio" | "noticias" | "recrutamento" | "explorar" | "perfil";
 
 export function FundoHub({ children }: { children: React.ReactNode }) {
   return (
@@ -151,7 +151,7 @@ export function CabecalhoHub({
           </Button>
         </nav>
 
-        <div className="order-2 ml-auto flex min-w-0 items-center gap-2 sm:order-3">
+        <Link to="/perfil" className="order-2 ml-auto flex min-w-0 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-primary/8 sm:order-3" aria-label="Abrir meu perfil">
           <img
             src={usuario.avatarUrl}
             alt=""
@@ -163,6 +163,8 @@ export function CabecalhoHub({
             </p>
             <p className="max-w-32 truncate text-xs text-muted-foreground">@{usuario.username}</p>
           </div>
+        </Link>
+        <div className="order-2 flex items-center sm:order-3">
           {permitirSair ? (
             <Button variant="ghost" size="icon" asChild>
               <a href="/api/public/auth/logout" aria-label="Sair">

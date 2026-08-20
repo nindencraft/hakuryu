@@ -18,6 +18,7 @@ import { Route as MembrosRouteImport } from './routes/membros'
 import { Route as NoticiasRouteImport } from './routes/noticias'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as ParceriasRouteImport } from './routes/parcerias'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as RecrutamentoRouteImport } from './routes/recrutamento'
 import { Route as SelecionarGangRouteImport } from './routes/selecionar-gang'
 import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
@@ -73,6 +74,11 @@ const PainelRoute = PainelRouteImport.update({
 const ParceriasRoute = ParceriasRouteImport.update({
   id: '/parcerias',
   path: '/parcerias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecrutamentoRoute = RecrutamentoRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/noticias': typeof NoticiasRoute
   '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
+  '/perfil': typeof PerfilRoute
   '/recrutamento': typeof RecrutamentoRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/noticias': typeof NoticiasRoute
   '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
+  '/perfil': typeof PerfilRoute
   '/recrutamento': typeof RecrutamentoRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/noticias': typeof NoticiasRoute
   '/painel': typeof PainelRoute
   '/parcerias': typeof ParceriasRoute
+  '/perfil': typeof PerfilRoute
   '/recrutamento': typeof RecrutamentoRoute
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/painel'
     | '/parcerias'
+    | '/perfil'
     | '/recrutamento'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/painel'
     | '/parcerias'
+    | '/perfil'
     | '/recrutamento'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/painel'
     | '/parcerias'
+    | '/perfil'
     | '/recrutamento'
     | '/selecionar-gang'
     | '/solicitacoes'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   NoticiasRoute: typeof NoticiasRoute
   PainelRoute: typeof PainelRoute
   ParceriasRoute: typeof ParceriasRoute
+  PerfilRoute: typeof PerfilRoute
   RecrutamentoRoute: typeof RecrutamentoRoute
   SelecionarGangRoute: typeof SelecionarGangRoute
   SolicitacoesRoute: typeof SolicitacoesRoute
@@ -356,6 +369,13 @@ declare module '@tanstack/react-router' {
       path: '/parcerias'
       fullPath: '/parcerias'
       preLoaderRoute: typeof ParceriasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recrutamento': {
@@ -448,6 +468,7 @@ const rootRouteChildren: RootRouteChildren = {
   NoticiasRoute: NoticiasRoute,
   PainelRoute: PainelRoute,
   ParceriasRoute: ParceriasRoute,
+  PerfilRoute: PerfilRoute,
   RecrutamentoRoute: RecrutamentoRoute,
   SelecionarGangRoute: SelecionarGangRoute,
   SolicitacoesRoute: SolicitacoesRoute,

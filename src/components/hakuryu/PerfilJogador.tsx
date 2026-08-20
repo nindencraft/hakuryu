@@ -1,0 +1,24 @@
+import { CalendarDays, Dumbbell, Shield, Swords, Trophy } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import type { GangNoPerfil, PerfilJogador } from "@/lib/perfil.server";
+
+function formatarData(valor: string | null) {
+  if (!valor) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(valor));
+}
+
+function CardGang({ gang, antiga = false }: { gang: GangNoPerfil; antiga?: boolean }) {
+  return <Card className="border-primary/20 bg-white/85 shadow-sm"><CardContent className="space-y-3 p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-display text-xl text-foreground">{gang.gangNome}</p><p className="mt-1 text-sm text-muted-foreground">{antiga ? "Trajetória concluída" : "Gang atual"}</p></div><Badge variant={antiga ? "outline" : "default"}>{gang.cargo || "Membro"}</Badge></div><div className="grid grid-cols-2 gap-3 border-t border-border pt-3 text-xs text-muted-foreground"><p><span className="block font-medium text-foreground">Entrada</span>{formatarData(gang.entrouEm)}</p><p><span className="block font-medium text-foreground">{antiga ? "Saída" : "Status"}</span>{antiga ? formatarData(gang.saiuEm) : "Ativo no painel"}</p></div></CardContent></Card>;
+}
+
+export function PerfilJogador({ perfil }: { perfil: PerfilJogador }) {
+  const atividade = [
+    { rotulo: "Treinos", valor: perfil.atividade.treinos, icone: Dumbbell },
+    { rotulo: "Amistosos", valor: perfil.atividade.amistosos, icone: Swords },
+    { rotulo: "Guerras", valor: perfil.atividade.guerras, icone: Trophy },
+  ];
+
+  return <div className="space-y-9"><section className="card-gold flex flex-col gap-6 bg-white/88 p-6 sm:flex-row sm:items-center sm:p-8"><img src={perfil.jogador.avatarUrl} alt="" className="h-24 w-24 rounded-full border-2 border-primary/35 object-cover" /><div className="min-w-0 flex-1"><p className="font-jp text-xs tracking-[0.2em] text-primary">白竜 · PERFIL DO JOGADOR</p><h1 className="font-display mt-2 truncate text-3xl text-foreground sm:text-4xl">{perfil.jogador.globalName || perfil.jogador.username}</h1><p className="mt-1 text-sm text-muted-foreground">@{perfil.jogador.username}{perfil.jogador.nomeRp ? ` · ${perfil.jogador.nomeRp}` : ""}</p></div><Badge variant="outline" className="w-fit border-primary/40 px-3 py-1.5"><Shield className="h-3.5 w-3.5" /> {perfil.gangsAtuais.length} {perfil.gangsAtuais.length === 1 ? "gang atual" : "gangs atuais"}</Badge></section><section><div className="mb-4 flex items-center gap-2"><Dumbbell className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Atividade</p><p className="text-sm text-muted-foreground">Participações confirmadas no painel Hakuryū.</p></div></div><div className="grid gap-4 sm:grid-cols-3">{atividade.map(({ rotulo, valor, icone: Icone }) => <Card key={rotulo} className="border-primary/20 bg-white/85"><CardContent className="flex items-center gap-4 p-5"><span className="rounded-full bg-primary/12 p-3 text-primary"><Icone className="h-5 w-5" /></span><div><p className="font-display text-3xl text-foreground">{valor}</p><p className="text-sm text-muted-foreground">{rotulo} participados</p></div></CardContent></Card>)}</div></section><section><div className="mb-4 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Gang atual</p><p className="text-sm text-muted-foreground">Gangs às quais você ainda está vinculado no painel.</p></div></div>{perfil.gangsAtuais.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAtuais.map((gang) => <CardGang key={gang.gangId} gang={gang} />)}</div> : <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">Você não está vinculado a nenhuma gang ativa no painel neste momento.</CardContent></Card>}</section><section><div className="mb-4 flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Histórico de gangs</p><p className="text-sm text-muted-foreground">Registros de gangs das quais você já saiu no painel.</p></div></div>{!perfil.historicoDisponivel ? <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">O histórico será ativado quando a migração do Perfil do Jogador for aplicada.</CardContent></Card> : perfil.gangsAnteriores.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAnteriores.map((gang) => <CardGang key={`${gang.gangId}-${gang.saiuEm}`} gang={gang} antiga />)}</div> : <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">Nenhuma gang anterior registrada no painel.</CardContent></Card>}</section></div>;
+}

@@ -321,6 +321,9 @@ export async function excluirGang(gangId: number): Promise<{ ok: true }> {
   const gang = await buscarGangPorId(gangId);
   if (!gang) throw new Error("Gang não encontrada.");
 
+  const { encerrarHistoricosDaGang } = await import("./perfil.server");
+  await encerrarHistoricosDaGang(gangId);
+
   const removerRelacoes = async (tabela: string, filtro: string) => {
     const { error } = await db.from(tabela).delete().or(filtro);
     if (error && !tabelaPodeEstarAusente(error)) {

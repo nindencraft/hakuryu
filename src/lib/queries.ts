@@ -22,6 +22,7 @@ import {
   fetchServidoresExploradorAdmin,
   fetchServidoresExploradorPublicos,
 } from "./explorador.functions";
+import { fetchMeuPerfil } from "./perfil.functions";
 
 export const sessionQuery = queryOptions({
   queryKey: ["session"],
@@ -63,6 +64,12 @@ export const meuServidorExploradorQuery = queryOptions({
 export const servidoresExploradorAdminQuery = queryOptions({
   queryKey: ["servidores-explorador-admin"],
   queryFn: () => fetchServidoresExploradorAdmin(),
+  staleTime: 0,
+});
+
+export const meuPerfilQuery = queryOptions({
+  queryKey: ["meu-perfil"],
+  queryFn: () => fetchMeuPerfil(),
   staleTime: 0,
 });
 
