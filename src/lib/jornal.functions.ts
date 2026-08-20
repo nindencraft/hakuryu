@@ -17,6 +17,14 @@ export const publicarNoticia = createServerFn({ method: "POST" })
   .inputValidator((input: { titulo: string; imagemUrl: string; descricao: string }) => input)
   .handler(async ({ data }) => jornal.criarNoticia(getRequest(), data));
 
+export const editarNoticia = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number; titulo: string; imagemUrl: string; descricao: string }) => input)
+  .handler(async ({ data }) => jornal.editarNoticia(getRequest(), data));
+
+export const excluirNoticia = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data }) => jornal.excluirNoticia(getRequest(), data.id));
+
 export const fetchJornalistasAdmin = createServerFn({ method: "GET" }).handler(async () =>
   jornal.listarJornalistasAdmin(getRequest()),
 );

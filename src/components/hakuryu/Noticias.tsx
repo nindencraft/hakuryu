@@ -1,8 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileText, Newspaper, PenLine, UserRound } from "lucide-react";
+import { FileText, Newspaper, PenLine, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { EmptyState } from "@/components/hakuryu/ui-bits";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +27,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  editarNoticia,
+  excluirNoticia,
   fetchNoticiasPublicas,
   fetchPermissaoJornal,
   publicarNoticia,
@@ -124,6 +136,113 @@ export function CriarNoticiaDialog() {
   );
 }
 
+function EditarNoticiaDialog({ noticia }: { noticia: NoticiaPublica }) {
+  const client = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [titulo, setTitulo] = useState(noticia.titulo);
+  const [imagemUrl, setImagemUrl] = useState(noticia.imagemUrl);
+  const [descricao, setDescricao] = useState(noticia.descricao);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const editar = useMutation({
+    mutationFn: () => editarNoticia({ data: { id: noticia.id, titulo, imagemUrl, descricao } }),
+    onSuccess: async () => {
+      setErro(null);
+      setAberto(false);
+      await client.invalidateQueries({ queryKey: ["noticias-publicas"] });
+    },
+    onError: (error: Error) => setErro(error.message),
+  });
+
+  function mudarAbertura(valor: boolean) {
+    if (valor) {
+      setTitulo(noticia.titulo);
+      setImagemUrl(noticia.imagemUrl);
+      setDescricao(noticia.descricao);
+      setErro(null);
+    }
+    setAberto(valor);
+  }
+
+  return (
+    <Dialog open={aberto} onOpenChange={mudarAbertura}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <PenLine className="h-4 w-4" /> Editar
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">Editar reportagem</DialogTitle>
+          <DialogDescription>Atualize os dados da sua reportagem publicada.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor={`editar-titulo-${noticia.id}`}>Título</Label>
+            <Input id={`editar-titulo-${noticia.id}`} value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`editar-imagem-${noticia.id}`}>URL da imagem principal</Label>
+            <Input id={`editar-imagem-${noticia.id}`} value={imagemUrl} onChange={(e) => setImagemUrl(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`editar-descricao-${noticia.id}`}>Descrição do acontecimento</Label>
+            <Textarea id={`editar-descricao-${noticia.id}`} value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={7} />
+          </div>
+          {erro ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{erro}</p> : null}
+          <Button className="w-full" disabled={editar.isPending || !titulo.trim() || !imagemUrl.trim() || !descricao.trim()} onClick={() => editar.mutate()}>
+            {editar.isPending ? "Salvando..." : "Salvar alterações"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ExcluirNoticiaButton({ noticia }: { noticia: NoticiaPublica }) {
+  const client = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const excluir = useMutation({
+    mutationFn: () => excluirNoticia({ data: { id: noticia.id } }),
+    onSuccess: async () => {
+      setErro(null);
+      setAberto(false);
+      await client.invalidateQueries({ queryKey: ["noticias-publicas"] });
+    },
+    onError: (error: Error) => setErro(error.message),
+  });
+
+  return (
+    <AlertDialog open={aberto} onOpenChange={setAberto}>
+      <Button variant="destructive" size="sm" onClick={() => setAberto(true)}>
+        <Trash2 className="h-4 w-4" /> Excluir
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir reportagem?</AlertDialogTitle>
+          <AlertDialogDescription>
+            A reportagem “{noticia.titulo}” será apagada de forma definitiva. Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {erro ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{erro}</p> : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={excluir.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={excluir.isPending}
+            onClick={(event) => {
+              event.preventDefault();
+              excluir.mutate();
+            }}
+          >
+            {excluir.isPending ? "Excluindo..." : "Excluir reportagem"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function NoticiasRecentes({ permitirCriar = false, limite }: { permitirCriar?: boolean; limite?: number }) {
   const noticias = useQuery({ queryKey: ["noticias-publicas"], queryFn: () => fetchNoticiasPublicas(), staleTime: 30_000 });
   const permissao = useQuery({ queryKey: ["permissao-jornal"], queryFn: () => fetchPermissaoJornal(), enabled: permitirCriar });
@@ -163,7 +282,14 @@ export function NoticiasRecentes({ permitirCriar = false, limite }: { permitirCr
                       <p className="text-[11px] text-muted-foreground">{formatarData(noticia.publicadaEm)}</p>
                     </div>
                   </div>
-                  <DetalhesNoticia noticia={noticia} />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <DetalhesNoticia noticia={noticia} />
+                    {permissao.data?.isSuperOwner ||
+                    (permissao.data?.jornalistaAtivo && permissao.data.usuarioDiscordId === noticia.autor.discordId) ? (
+                      <EditarNoticiaDialog noticia={noticia} />
+                    ) : null}
+                    {permissao.data?.isSuperOwner ? <ExcluirNoticiaButton noticia={noticia} /> : null}
+                  </div>
                 </div>
               </div>
             </article>

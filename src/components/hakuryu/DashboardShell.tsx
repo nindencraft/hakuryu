@@ -20,6 +20,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
+import logo from "@/assets/hakuryu-logo.png";
 import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
 import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,6 @@ import {
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { NoticiasRecentes } from "@/components/hakuryu/Noticias";
-
-const logo = "/manus-storage/hakuryu-logo_f1592314.png";
 
 const NAV = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard },
@@ -344,7 +343,7 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
       <p className="text-sm text-muted-foreground">
         Você não pertence a nenhuma gang.
       </p>
-      <div className="mt-6 text-left"><NoticiasRecentes limite={3} /></div>
+      <div className="mt-6 text-left"><NoticiasRecentes permitirCriar limite={3} /></div>
       <Button variant="outline" className="mt-6" asChild>
         <a href="/api/public/auth/logout">Sair</a>
       </Button>
@@ -400,7 +399,9 @@ export function DashboardShell({
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
   if (!data.permitido) return <BlockedScreen user={data.user} />;
-  if (data.gangId == null && !(permitirSemGang && data.user.isSuperOwner)) return <SemGangScreen />;
+  if (data.gangId == null && !(permitirSemGang && data.user.isSuperOwner)) {
+    return <BlockedScreen user={data.user} />;
+  }
 
   const user = data.user;
 

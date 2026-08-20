@@ -1,7 +1,7 @@
 import { currentUser, getDb } from "./db.server";
 import { fetchUsuarioDiscord } from "./discord.server";
 import { normalizarLinkEvento } from "./event-link";
-import { podePublicarNoticia } from "./jornal.permissoes";
+import { podeEditarNoticia, podePublicarNoticia } from "./jornal.permissoes";
 import { ehSuperOwner } from "./settings.server";
 
 export type AutorNoticia = {
@@ -126,7 +126,31 @@ export async function permissaoJornal(request: Request) {
     podePublicar: podePublicarNoticia({ isSuperOwner, jornalistaAtivo: jornalista != null }),
     isSuperOwner,
     jornalistaAtivo: jornalista != null,
+    usuarioDiscordId: user.id,
   };
+}
+
+function validarConteudoNoticia(input: { titulo: string; imagemUrl: string; descricao: string }) {
+  const titulo = input.titulo.trim();
+  const descricao = input.descricao.trim();
+  const imagemUrl = normalizarLinkEvento(input.imagemUrl, "A URL da imagem principal");
+  if (titulo.length < 3 || titulo.length > 180) {
+    throw new Error("O título deve ter entre 3 e 180 caracteres.");
+  }
+  if (descricao.length < 10 || descricao.length > 10_000) {
+    throw new Error("A descrição deve ter entre 10 e 10.000 caracteres.");
+  }
+  if (!imagemUrl) throw new Error("Informe uma URL válida para a imagem principal.");
+  return { titulo, descricao, imagemUrl };
+}
+
+async function buscarNoticiaParaPermissao(id: number) {
+  if (!Number.isInteger(id) || id < 1) throw new Error("Notícia inválida.");
+  const db = getDb();
+  const res = await db.from("noticias").select("id, autor_discord_id").eq("id", id).maybeSingle();
+  if (res.error) throw new Error(res.error.message);
+  if (!res.data) throw new Error("A reportagem não foi encontrada.");
+  return res.data as { id: number; autor_discord_id: string };
 }
 
 export async function criarNoticia(
@@ -139,16 +163,7 @@ export async function criarNoticia(
     throw new Error("Somente jornalistas ativos ou o Super Owner podem publicar notícias.");
   }
 
-  const titulo = input.titulo.trim();
-  const descricao = input.descricao.trim();
-  const imagemUrl = normalizarLinkEvento(input.imagemUrl, "A URL da imagem principal");
-  if (titulo.length < 3 || titulo.length > 180) {
-    throw new Error("O título deve ter entre 3 e 180 caracteres.");
-  }
-  if (descricao.length < 10 || descricao.length > 10_000) {
-    throw new Error("A descrição deve ter entre 10 e 10.000 caracteres.");
-  }
-  if (!imagemUrl) throw new Error("Informe uma URL válida para a imagem principal.");
+  const { titulo, descricao, imagemUrl } = validarConteudoNoticia(input);
 
   const autorNome = jornalista?.global_name || jornalista?.discord_username || user.globalName || user.username;
   const autorAvatarUrl = jornalista
@@ -166,6 +181,43 @@ export async function criarNoticia(
       autor_avatar_url: autorAvatarUrl,
     }),
   );
+  return { ok: true };
+}
+
+export async function editarNoticia(
+  request: Request,
+  input: { id: number; titulo: string; imagemUrl: string; descricao: string },
+) {
+  const { user, isSuperOwner } = await usuarioAtual(request);
+  const [jornalista, noticia] = await Promise.all([
+    jornalistaAtivo(user.id),
+    buscarNoticiaParaPermissao(input.id),
+  ]);
+  if (
+    !podeEditarNoticia({
+      isSuperOwner,
+      jornalistaAtivo: jornalista != null,
+      autorDiscordId: noticia.autor_discord_id,
+      usuarioDiscordId: user.id,
+    })
+  ) {
+    throw new Error("Você só pode editar reportagens publicadas por você.");
+  }
+
+  const { titulo, descricao, imagemUrl } = validarConteudoNoticia(input);
+  const res = await getDb()
+    .from("noticias")
+    .update({ titulo, imagem_url: imagemUrl, descricao })
+    .eq("id", noticia.id);
+  if (res.error) throw new Error(res.error.message);
+  return { ok: true };
+}
+
+export async function excluirNoticia(request: Request, id: number) {
+  await requireSuperOwnerJornal(request);
+  if (!Number.isInteger(id) || id < 1) throw new Error("Notícia inválida.");
+  const res = await getDb().from("noticias").delete().eq("id", id);
+  if (res.error) throw new Error(res.error.message);
   return { ok: true };
 }
 
