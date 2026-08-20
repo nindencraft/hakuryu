@@ -2,7 +2,6 @@ import { getDb } from "./db.server";
 import { CARGOS_PERMITIDOS } from "./session.server";
 import { TABELA_CONFIG, TABELA_GANG_CONFIG, chaveCargo } from "./settings.server";
 
-/** Cargos que dão acesso ao painel (quem está "Em Analise" ainda não entra). */
 export const CARGOS_COM_ACESSO = CARGOS_PERMITIDOS.filter((c) => c !== "Em Analise");
 
 export function normalizarNome(valor: string): string {
@@ -14,17 +13,10 @@ export function normalizarNome(valor: string): string {
 }
 
 export type MapaCargos = {
-  /** ID do cargo no Discord -> cargo canônico do painel. */
   porRoleId: Map<string, string>;
-  /** Cargo canônico -> ID configurado no Discord. */
   porCargo: Map<string, string>;
 };
 
-/**
- * Lê a configuração de IDs de cargos da gang.
- * Para uma gang ativa, somente `gang_config` é aceito: o acesso não pode
- * vazar a partir da configuração global de outra gang.
- */
 export async function mapaCargos(gangId: number | null): Promise<MapaCargos> {
   const porRoleId = new Map<string, string>();
   const porCargo = new Map<string, string>();
@@ -53,17 +45,10 @@ export async function mapaCargos(gangId: number | null): Promise<MapaCargos> {
       const { data: globais } = await db.from(TABELA_CONFIG).select("chave, valor");
       aplicar((globais ?? []) as { chave: string; valor: string | null }[]);
     }
-  } catch {
-    /* configuração indisponível: sobra o casamento por nome */
-  }
-
+  } catch {}
   return { porRoleId, porCargo };
 }
 
-/**
- * Traduz os cargos do Discord (IDs + nomes) para os cargos canônicos do painel.
- * O ID configurado tem prioridade; o nome é apenas o recuo.
- */
 export function canonizarCargos(
   mapa: MapaCargos,
   roleIds: string[],
@@ -78,7 +63,6 @@ export function canonizarCargos(
 
   const nomes = new Set(roleNames.map(normalizarNome));
   for (const cargo of CARGOS_PERMITIDOS) {
-    // Se o cargo tem ID configurado, só o ID vale (evita falso positivo por nome).
     if (mapa.porCargo.has(cargo)) continue;
     if (nomes.has(normalizarNome(cargo))) encontrados.add(cargo);
   }
@@ -86,10 +70,6 @@ export function canonizarCargos(
   return CARGOS_PERMITIDOS.filter((c) => encontrados.has(c));
 }
 
-/**
- * Verifica acesso exclusivamente pelos IDs Discord configurados na gang.
- * Nomes de cargos, inclusive "Membro", não liberam acesso nesta etapa.
- */
 export function temCargoConfiguradoComAcesso(
   mapa: MapaCargos,
   roleIds: string[],

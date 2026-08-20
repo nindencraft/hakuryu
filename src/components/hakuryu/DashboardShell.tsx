@@ -132,7 +132,6 @@ function iconeGuild(guildId: string, hash: string | null): string | null {
   return hash ? `https://cdn.discordapp.com/icons/${guildId}/${hash}.png?size=64` : null;
 }
 
-/** Servidores registrados em que o usuário está: troca rápida de painel. */
 function GangsRail({
   gangAtivaId,
   onNavigate,

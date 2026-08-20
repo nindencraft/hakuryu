@@ -84,8 +84,6 @@ export type Treino = {
   aliado: string | null;
 };
 
-
-
 export type PresencaTreino = {
   membro_id: string;
   discord_username: string | null;
@@ -138,7 +136,6 @@ export type Parceria = {
   representante_avatar: string | null;
   fechado_por: string | null;
   fechado_por_nome: string | null;
-  /** "Aliada" ou "Inimiga". */
   relacao: string;
 };
 
@@ -169,14 +166,12 @@ export type AliadoResolvido = {
   } | null;
 };
 
-
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
 export const TIPO_TREINO_OPCOES = ["Interno", "Obrigatório"] as const;
 export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
 export const RELACAO_GANG_OPCOES = ["Aliada", "Inimiga"] as const;
 export const TIPO_LOG_OPCOES = ["Amistoso", "Guerra"] as const;
-
 
 export type ConfiguracoesPainel = {
   cargos: Record<string, string>;
@@ -192,13 +187,10 @@ export const CANAIS_CONFIG = [
   { chave: "canal_advertencias", rotulo: "Canal de advertências" },
 ] as const;
 
-/** Configuração administrativa, exibida somente ao Super Owner. */
 export const CANAL_DIVULGACAO_CONFIG = {
   chave: "canal_divulgacao",
   rotulo: "Canal de divulgação global",
 } as const;
-
-/* ========== Diplomacia entre gangs ========== */
 
 export type RelacaoGang = "Neutra" | "Aliada" | "Inimiga";
 

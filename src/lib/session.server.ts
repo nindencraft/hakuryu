@@ -1,7 +1,7 @@
 import { getConfig } from "./config.server";
 
 export const SESSION_COOKIE = "hakuryu_session";
-const MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
+const MAX_AGE = 60 * 60 * 24 * 7;
 
 export type SessionUser = {
   id: string;
@@ -9,17 +9,13 @@ export type SessionUser = {
   globalName: string | null;
   avatarUrl: string;
   roles: string[];
-  /** Últimos IDs de cargos confirmados pelo Discord para a gang ativa. */
   roleIds: string[];
   isOwner: boolean;
-  /** Super Owner global (lista fixa + .env). Só ele administra gangs registradas. */
   isSuperOwner: boolean;
   nomeRp: string | null;
 
-  /** Servidor Discord ao qual a sessão está vinculada. */
   guildId: string | null;
 
-  /** Gang vinculada ao servidor Discord. */
   gangId: number | null;
 
   exp: number;
@@ -131,7 +127,6 @@ export async function verifySession(
       isSuperOwner: user.isSuperOwner === true,
       nomeRp: user.nomeRp ?? null,
 
-      // Compatibilidade com sessões antigas.
       guildId: user.guildId ?? null,
       gangId:
         typeof user.gangId === "number"
@@ -194,8 +189,6 @@ export function readCookie(
 
   return undefined;
 }
-
-/* ========== Permissões ========== */
 
 export const CARGOS_PERMITIDOS = [
   "Lider",

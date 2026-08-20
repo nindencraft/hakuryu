@@ -3,8 +3,6 @@ import { podeGerenciarParcerias, type SessionUser } from "./session.server";
 import type { GangRegistrada, GuerraAtiva, SolicitacaoGang } from "./types";
 import { normalizarLinkEvento } from "./event-link";
 
-/* ========== utilidades ========== */
-
 function gid(user: SessionUser): number {
   if (user.gangId == null) throw new Error("SEM_GANG");
   return user.gangId;
@@ -60,12 +58,6 @@ async function gangsAtivas(): Promise<GangLinha[]> {
   return (data ?? []) as GangLinha[];
 }
 
-/**
- * Link do servidor de cada gang.
- *
- * Usa o convite salvo em `gangs.convite`.
- * Quando não existe, pede ao bot um convite permanente e guarda no banco.
- */
 async function convitesDasGangs(gangs: GangLinha[]): Promise<Map<number, string>> {
   const db = getDb();
   const mapa = new Map<number, string>();
@@ -148,15 +140,6 @@ async function relacoesDaGang(gangId: number): Promise<{
   };
 }
 
-/**
- * Remove manualmente uma relação diplomática.
- *
- * IMPORTANTE:
- * Guerra não chama mais esta função.
- *
- * Ela continua existindo apenas para a ação manual
- * "remover relação" da página de alianças.
- */
 async function limparRelacao(gangId: number, outraGangId: number) {
   const db = getDb();
 
@@ -168,8 +151,6 @@ async function limparRelacao(gangId: number, outraGangId: number) {
     throw new Error(error.message);
   }
 }
-
-/* ========== leitura ========== */
 
 export async function listarGangsRegistradas(user: SessionUser): Promise<{
   gangs: GangRegistrada[];
@@ -184,17 +165,6 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     iconesPorGuild(),
   ]);
 
-  /*
-   * Relações diplomáticas reais.
-   *
-   * IMPORTANTE:
-   * Guerra não altera este mapa.
-   *
-   * Portanto:
-   *
-   * Aliada + Guerra = continua Aliada
-   * Neutra + Guerra = continua Neutra
-   */
   const relacaoDe = new Map<number, string>();
 
   for (const r of relacoes) {
@@ -203,10 +173,6 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     relacaoDe.set(outra, r.tipo);
   }
 
-  /*
-   * Solicitações pendentes envolvendo a minha gang.
-   * Serve para impedir solicitações duplicadas.
-   */
   const pendentes = new Map<
     number,
     {
@@ -239,9 +205,6 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     ]);
   }
 
-  /*
-   * Contagem de membros, treinos e divisões.
-   */
   const contagem = new Map<number, number>();
   const treinosPorGang = new Map<number, number>();
   const divisoesPorGang = new Map<number, number>();
@@ -278,15 +241,6 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
 
   const convites = await convitesDasGangs(todas.filter((g) => g.id !== minha));
 
-  /*
-   * Solicitação aceita que originou cada relação.
-   *
-   * ATENÇÃO:
-   * Guerra não cria mais relação diplomática.
-   *
-   * Esta parte serve somente para descobrir os dados
-   * da aliança que já existe.
-   */
   const acordo = new Map<number, SolicitacaoLinha>();
 
   if (relacaoDe.size > 0) {
@@ -333,11 +287,6 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
 
         convite: convites.get(g.id) ?? null,
 
-        /*
-         * A relação vem EXCLUSIVAMENTE de gang_relacoes.
-         *
-         * Guerra não altera esse valor.
-         */
         relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
 
         pendencias: pendentes.get(g.id) ?? [],
@@ -475,11 +424,6 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
   const db = getDb();
   const minha = gid(user);
 
-  /*
-   * Guerra é determinada pela solicitação aceita.
-   *
-   * NÃO depende de gang_relacoes.
-   */
   const { data, error } = await db
     .from("gang_solicitacoes")
     .select("*")
@@ -559,8 +503,6 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
   };
 }
 
-/* ========== escrita ========== */
-
 export type NovaSolicitacao = {
   gangId: number;
   tipo: string;
@@ -588,26 +530,12 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
     throw new Error("Tipo de solicitação inválido.");
   }
 
-  /*
-   * Não verificamos mais se a relação é "Inimiga".
-   *
-   * Isso é proposital.
-   *
-   * Uma gang pode declarar guerra contra uma gang
-   * que ainda esteja marcada como Aliada.
-   *
-   * A guerra é independente da relação diplomática.
-   */
-
   const { tabelaAusente } = await relacoesDaGang(minha);
 
   if (tabelaAusente) {
     throw new Error("As tabelas de diplomacia não existem no banco. Rode o script sql/diplomacia.sql.");
   }
 
-  /*
-   * Impede somente solicitações pendentes duplicadas.
-   */
   const { data: dup } = await db
     .from("gang_solicitacoes")
     .select("id")
@@ -794,9 +722,7 @@ async function avisarDiscord(
         },
       );
     }
-  } catch {
-    /* best-effort */
-  }
+  } catch {}
 }
 
 export async function responderSolicitacao(
@@ -841,14 +767,6 @@ export async function responderSolicitacao(
     respondido_em: new Date().toISOString(),
   };
 
-  /*
-   * IMPORTANTE:
-   *
-   * Guerra NÃO chama definirRelacao().
-   *
-   * Portanto aceitar uma guerra NÃO transforma
-   * a relação em "Inimiga".
-   */
   if (input.aceitar && sol.tipo === "Treino") {
     const ids = await criarTreinosAmistosos(sol, user);
 
@@ -888,7 +806,6 @@ export async function responderSolicitacao(
   };
 }
 
-/** Cria o treino amistoso espelhado nas duas gangs. */
 async function criarTreinosAmistosos(
   sol: SolicitacaoLinha,
   user: SessionUser,
@@ -992,11 +909,6 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
 
   const outroJaPediu = !!(souOrigem ? sol.encerrar_destino : sol.encerrar_origem);
 
-  /*
-   * Marca o pedido do meu lado.
-   *
-   * A guerra só encerra quando os dois lados pedem.
-   */
   const { error: marcaErr } = await db
     .from("gang_solicitacoes")
     .update({
@@ -1021,15 +933,6 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
     };
   }
 
-  /*
-   * Encerra SOMENTE a guerra.
-   *
-   * IMPORTANTE:
-   * NÃO chama limparRelacao().
-   *
-   * Se as gangs eram aliadas antes da guerra,
-   * continuam aliadas depois que a guerra termina.
-   */
   const { error: upErr } = await db
     .from("gang_solicitacoes")
     .update({
@@ -1069,11 +972,6 @@ export async function cancelarSolicitacao(user: SessionUser, input: { id: number
   };
 }
 
-/**
- * Apaga uma solicitação do histórico da minha gang.
- *
- * Guerras ativas não podem ser apagadas.
- */
 export async function excluirSolicitacao(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
 
@@ -1117,11 +1015,6 @@ export async function excluirSolicitacao(user: SessionUser, input: { id: number 
   };
 }
 
-/**
- * Remove manualmente a relação diplomática com outra gang.
- *
- * Isso é independente de guerra.
- */
 export async function removerRelacaoGang(user: SessionUser, input: { gangId: number }) {
   assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem desfazer relações.");
 

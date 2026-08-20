@@ -73,15 +73,12 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         gangNome: null,
       };
 
-    // O Super Owner não pode perder o painel por uma falha transitória na
-    // consulta ao Discord. Os demais continuam sendo validados por IDs de cargo.
     const { ehDono, ehSuperOwner } = await import("./settings.server");
     user.isSuperOwner = ehSuperOwner(user.id);
     user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
     let temCargoDeAcessoConfigurado = false;
     if (!user.isSuperOwner && user.gangId != null) {
-      // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
       const { fetchRolesAtuais } = await import("./discord.server");
       const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } =
         await import("./cargos.server");
@@ -92,8 +89,6 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         user.roleIds = cargosAtuais.ids;
         temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, cargosAtuais.ids);
       } else if (user.gangId != null) {
-        // O token é assinado e os IDs foram confirmados no login/troca de gang.
-        // Ele só é usado se a consulta transitória ao Discord estiver indisponível.
         const mapa = await mapaCargos(user.gangId);
         user.roles = canonizarCargos(mapa, user.roleIds);
         temCargoDeAcessoConfigurado = temCargoConfiguradoComAcesso(mapa, user.roleIds);
@@ -105,7 +100,6 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       const { buscarGangPorId } = await import("./gangs.server");
       const gang = await buscarGangPorId(user.gangId);
       gangNome = gang?.nome ?? null;
-      // Líder registrado da gang recebe o cargo "Lider" no painel.
       const { temCargo } = await import("./session.server");
       if (gang?.lider_id === user.id && !temCargo(user, "Lider")) {
         user.roles = [...user.roles, "Lider"];
@@ -117,8 +111,6 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       faltando: [],
       gangId: user.gangId,
       gangNome,
-      // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
-      // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
       permitido: acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado),
       user: {
         id: user.id,
@@ -134,7 +126,6 @@ export const getSession = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Gangs que o usuário da sessão pode acessar (Super Owner vê todas). */
 export const fetchGangsDisponiveis = createServerFn({ method: "GET" }).handler(
   async (): Promise<GangDisponivel[]> => {
     const user = await svc.requireUserSemGang(getRequest());
@@ -157,7 +148,6 @@ export const fetchTreinos = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Anúncio único e global, exibido a todas as gangs autorizadas. */
 export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
   async (): Promise<BannerGlobal | null> => {
     await svc.requireUserSemGang(getRequest());
@@ -172,7 +162,6 @@ export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Anúncios ativos da Página Inicial, disponíveis a qualquer usuário autenticado. */
 export const fetchAnunciosPublicos = createServerFn({ method: "GET" }).handler(async () => {
   await svc.requireUserSemGang(getRequest());
   const { listarAnunciosPublicos } = await import("./anuncios.server");
@@ -419,8 +408,6 @@ export const deletarLog = createServerFn({ method: "POST" })
     await svc.deletarLog(user, data.id);
     return { ok: true };
   });
-
-/* ========== Diplomacia entre gangs ========== */
 
 export const fetchGangsRegistradas = createServerFn({ method: "GET" }).handler(async () => {
   const user = await svc.requireUser(getRequest());

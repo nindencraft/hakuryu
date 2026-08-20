@@ -9,7 +9,6 @@ export type GangDisponivelServer = {
   iconHash: string | null;
 };
 
-/** O usuário está no servidor Discord da gang? (checado com o token do bot) */
 async function ehMembroDoServidor(discordId: string, guildId: string): Promise<boolean> {
   try {
     const config = getConfig();
@@ -23,16 +22,11 @@ async function ehMembroDoServidor(discordId: string, guildId: string): Promise<b
   }
 }
 
-/** Ícone do servidor (best-effort, para a tela de seleção). */
 async function iconeDoServidor(guildId: string): Promise<string | null> {
   const { fetchGuildInfo } = await import("./discord.server");
   return (await fetchGuildInfo(guildId))?.iconHash ?? null;
 }
 
-/**
- * Gangs que a sessão pode acessar.
- * Super Owner enxerga todas as gangs ativas, mesmo sem estar no servidor.
- */
 export async function gangsDoUsuario(user: SessionUser): Promise<GangDisponivelServer[]> {
   const ativas = await listarGangsAtivas();
 
@@ -56,7 +50,6 @@ export async function gangsDoUsuario(user: SessionUser): Promise<GangDisponivelS
   );
 }
 
-/** Valida no servidor se a sessão pode assumir determinada gang. */
 export async function podeAcessarGang(user: SessionUser, gangId: number): Promise<Gang | null> {
   const gang = await buscarGangPorId(gangId);
   if (!gang || !gang.ativo) return null;

@@ -212,7 +212,6 @@ function Divisoes() {
                 );
               })()}
 
-
               {podeGerenciar || podeCriar ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {podeGerenciar ? (
@@ -373,7 +372,6 @@ function GerenciarDivisaoDialog({
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
   const [novos, setNovos] = useState<string[]>([]);
 
-  // Preenche os campos com a liderança atual sempre que abrir outra divisão.
   useEffect(() => {
     if (!divisao) return;
     setLider(divisao.lider_id ?? NENHUM);

@@ -3,10 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { currentUser, getDb } from "@/lib/db.server";
 import { sessionCookie, signSession } from "@/lib/session.server";
 
-/**
- * Troca a gang ativa da sessão.
- * A validação de acesso acontece aqui — o cliente só envia o id desejado.
- */
 export const Route = createFileRoute("/api/public/gangs/selecionar")({
   server: {
     handlers: {
@@ -30,7 +26,6 @@ export const Route = createFileRoute("/api/public/gangs/selecionar")({
         const gang = await podeAcessarGang(user, gangId);
         if (!gang) return new Response("Sem acesso a esta gang", { status: 403 });
 
-        // Cargos e nome de RP passam a valer no contexto da nova gang.
         const { fetchCargosAtuais } = await import("@/lib/discord.server");
         const roles = (await fetchCargosAtuais(user.id, gang.guild_id)) ?? [];
 

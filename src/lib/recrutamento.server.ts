@@ -116,8 +116,6 @@ export async function salvarRecrutamentoDaGang(
   const existente = await obterRecrutamentoDaGang(gang.id);
   let conviteAutomaticoUrl = existente?.conviteAutomaticoUrl ?? null;
 
-  // Quando não há link manual, o botão Salvar garante um convite permanente pronto
-  // para os visitantes; o fluxo não chama a API Discord ao abrir a vitrine pública.
   if (!linkServidorManual) {
     conviteAutomaticoUrl = await garantirConviteInfinito(gang.guild_id);
     if (!conviteAutomaticoUrl) {
