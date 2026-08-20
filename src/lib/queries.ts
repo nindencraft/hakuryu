@@ -12,6 +12,7 @@ import {
   fetchGangsRegistradas,
   fetchSolicitacoes,
   fetchGuerras,
+  fetchAnunciosPublicos,
   fetchBannerGlobal,
   getSession,
 } from "./dashboard.functions";
@@ -26,6 +27,12 @@ export const sessionQuery = queryOptions({
 export const bannerGlobalQuery = queryOptions({
   queryKey: ["banner-global"],
   queryFn: () => fetchBannerGlobal(),
+  staleTime: 30_000,
+});
+
+export const anunciosPublicosQuery = queryOptions({
+  queryKey: ["anuncios-comunidade"],
+  queryFn: () => fetchAnunciosPublicos(),
   staleTime: 30_000,
 });
 

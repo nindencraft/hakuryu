@@ -1,43 +1,72 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState } from "react";
 import {
-  ArrowRight,
-  CalendarDays,
-  Compass,
   ExternalLink,
   LogIn,
   LogOut,
   Megaphone,
-  Newspaper,
+  Pencil,
+  Plus,
   ShieldCheck,
-  Sparkles,
-  UsersRound,
+  Trash2,
 } from "lucide-react";
 
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import logo from "@/assets/hakuryu-logo.png";
 import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
-import { NoticiasRecentes } from "@/components/hakuryu/Noticias";
+import { useAcao } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { excluirAnuncioAdmin, fetchAnunciosAdmin, salvarAnuncioAdmin } from "@/lib/admin.functions";
+import {
+  CATEGORIAS_ANUNCIO,
+  INFORMACOES_CATEGORIA_ANUNCIO,
+  type CategoriaAnuncio,
+} from "@/lib/anuncios";
+import type { AnuncioComunidade, EntradaAnuncioComunidade } from "@/lib/anuncios.server";
 import { acaoPainelHome } from "@/lib/home-hub";
-import { bannerGlobalQuery, gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
+import { anunciosPublicosQuery, gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Hakuryū — Hub da Comunidade Gakuran" },
+      { title: "Hakuryū — Vitrine da Comunidade Gakuran" },
       {
         name: "description",
-        content: "Hub Hakuryū para notícias, comunidades, recrutamento e acesso ao painel da sua gang.",
+        content: "Descubra gangs, roleplays e comunidades da rede Hakuryū.",
       },
-      { property: "og:title", content: "Hakuryū — Hub da Comunidade Gakuran" },
-      {
-        property: "og:description",
-        content: "Notícias, recrutamento e acesso aos painéis de gang em um só lugar.",
-      },
+      { property: "og:title", content: "Hakuryū — Vitrine da Comunidade Gakuran" },
+      { property: "og:description", content: "Gangs, roleplays e comunidades em um só lugar." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -45,7 +74,7 @@ export const Route = createFileRoute("/")({
   component: InicioPage,
 });
 
-function Fundo({ children }: { children: ReactNode }) {
+function Fundo({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
@@ -59,14 +88,11 @@ function Fundo({ children }: { children: ReactNode }) {
 function TelaCarregando() {
   return (
     <Fundo>
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-8 sm:py-10">
+      <div className="mx-auto max-w-7xl space-y-7 px-4 py-8 sm:px-8 sm:py-10">
         <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-72 w-full" />
-        <div className="grid gap-5 md:grid-cols-3">
-          <Skeleton className="h-44" />
-          <Skeleton className="h-44" />
-          <Skeleton className="h-44" />
-        </div>
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-56 w-full" />
+        <Skeleton className="h-56 w-full" />
       </div>
     </Fundo>
   );
@@ -79,13 +105,21 @@ function TelaLogin({ erro }: { erro?: string }) {
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <section className="card-gold w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm sm:p-10">
-        <img src={logo} alt="Emblema do dragão branco Hakuryū" className="mx-auto h-28 w-28 object-contain" />
+        <img
+          src={logo}
+          alt="Emblema do dragão branco Hakuryū"
+          className="mx-auto h-28 w-28 object-contain"
+        />
         <p className="font-jp mt-5 text-xs text-primary">白竜 · Gakuran Community Hub</p>
         <h1 className="text-gold-gradient font-display mt-2 text-4xl font-semibold">Hakuryū</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Notícias, comunidades, recrutamento e o painel da sua gang em um único lugar.
+          Descubra gangs, roleplays e comunidades em um só lugar.
         </p>
-        {erro ? <p className="mt-5 rounded-md border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-destructive">{erro}</p> : null}
+        {erro ? (
+          <p className="mt-5 rounded-md border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {erro}
+          </p>
+        ) : null}
         <Button className="mt-7 w-full" size="lg" asChild>
           <a href="/api/public/auth/discord/login">
             <LogIn className="h-4 w-4" /> Entrar com Discord
@@ -96,158 +130,468 @@ function TelaLogin({ erro }: { erro?: string }) {
   );
 }
 
-function BannerDestaque() {
-  const banner = useQuery(bannerGlobalQuery);
-
-  if (banner.isPending) return <Skeleton className="h-52 w-full sm:h-72" />;
-  if (!banner.data) return null;
-
+function LinkPainel({
+  permitido,
+  quantidadeDeGangs,
+}: {
+  permitido: boolean;
+  quantidadeDeGangs: number;
+}) {
+  const acao = acaoPainelHome({ permitido, gangId: null, quantidadeDeGangs });
+  if (acao === "abrir-painel") {
+    return (
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/painel">
+          <ShieldCheck className="h-4 w-4" /> Painel
+        </Link>
+      </Button>
+    );
+  }
+  if (acao === "escolher-gang") {
+    return (
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/selecionar-gang">
+          <ShieldCheck className="h-4 w-4" /> Painel
+        </Link>
+      </Button>
+    );
+  }
   return (
-    <section className="card-gold relative isolate overflow-hidden p-0" aria-label="Destaque da comunidade">
+    <Button
+      variant="outline"
+      size="sm"
+      disabled
+      title="Seu acesso ao painel ainda não está disponível."
+    >
+      <ShieldCheck className="h-4 w-4" /> Painel
+    </Button>
+  );
+}
+
+function CardAnuncio({
+  anuncio,
+  podeAdministrar,
+  aoEditar,
+  aoExcluir,
+}: {
+  anuncio: AnuncioComunidade;
+  podeAdministrar: boolean;
+  aoEditar: (anuncio: AnuncioComunidade) => void;
+  aoExcluir: (anuncio: AnuncioComunidade) => void;
+}) {
+  return (
+    <article className="card-gold group relative isolate h-full overflow-hidden bg-white/95 p-0">
       <img
-        src={banner.data.imagemUrl}
-        alt="Destaque da comunidade Hakuryū"
-        className="aspect-[7/3] min-h-52 w-full object-cover sm:min-h-72"
+        src={anuncio.imagemUrl}
+        alt={`Divulgação: ${anuncio.titulo}`}
+        className="aspect-[7/3] w-full object-cover"
       />
-      <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/35 to-black/55" />
-      <div className="absolute inset-0 flex flex-col items-start justify-end gap-4 p-5 text-white sm:p-8">
-        <Badge className="border-white/25 bg-white/15 text-white hover:bg-white/15">Destaque da comunidade</Badge>
-        <div className="max-w-xl">
-          <p className="font-jp text-xs tracking-[0.2em] text-white/75">GAKURAN · CONEXÕES</p>
-          <h2 className="font-display mt-1 text-3xl leading-tight sm:text-4xl">Conheça o servidor em destaque</h2>
-          <p className="mt-2 text-sm text-white/80 sm:text-base">Descubra novos espaços para jogar, criar histórias e fortalecer a comunidade.</p>
+      <div
+        className="absolute inset-x-0 top-0 h-28 bg-linear-to-b from-black/65 to-transparent"
+        aria-hidden
+      />
+      {podeAdministrar ? (
+        <div className="absolute top-3 right-3 z-10 flex gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 shadow-md"
+            onClick={() => aoEditar(anuncio)}
+            aria-label={`Editar ${anuncio.titulo}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="destructive"
+            className="h-8 w-8 shadow-md"
+            onClick={() => aoExcluir(anuncio)}
+            aria-label={`Excluir ${anuncio.titulo}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-        <Button variant="secondary" asChild>
-          <a href={banner.data.discordUrl} target="_blank" rel="noreferrer">
+      ) : null}
+      <div className="p-4 sm:p-5">
+        <h3 className="font-display line-clamp-1 text-xl text-foreground">{anuncio.titulo}</h3>
+        <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
+          {anuncio.descricao}
+        </p>
+        <Button className="mt-4 w-full" size="sm" asChild>
+          <a href={anuncio.discordUrl} target="_blank" rel="noreferrer">
             Ir para o Discord <ExternalLink className="h-4 w-4" />
           </a>
         </Button>
       </div>
-    </section>
-  );
-}
-
-function ModuloEmBreve({
-  icon: Icon,
-  eyebrow,
-  title,
-  description,
-}: {
-  icon: typeof Compass;
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="card-gold flex min-h-52 flex-col p-5 sm:p-6">
-      <Icon className="h-6 w-6 text-primary" aria-hidden />
-      <p className="font-jp mt-5 text-xs text-primary">{eyebrow}</p>
-      <h2 className="font-display mt-1 text-2xl text-foreground">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-      <Badge variant="outline" className="mt-auto w-fit border-primary/35 text-muted-foreground">Em breve</Badge>
     </article>
   );
 }
 
-function AcessoAoPainel({
-  permitido,
-  gangId,
-  gangNome,
-  quantidadeDeGangs,
+function FaixaAnuncios({
+  categoria,
+  anuncios,
+  podeAdministrar,
+  aoCriar,
+  aoEditar,
+  aoExcluir,
 }: {
-  permitido: boolean;
-  gangId: number | null;
-  gangNome: string | null;
-  quantidadeDeGangs: number;
+  categoria: CategoriaAnuncio;
+  anuncios: AnuncioComunidade[];
+  podeAdministrar: boolean;
+  aoCriar: (categoria: CategoriaAnuncio) => void;
+  aoEditar: (anuncio: AnuncioComunidade) => void;
+  aoExcluir: (anuncio: AnuncioComunidade) => void;
 }) {
-  const acao = acaoPainelHome({ permitido, gangId, quantidadeDeGangs });
-  const podeAbrirPainel = acao === "abrir-painel";
-  const deveEscolher = acao === "escolher-gang";
+  const info = INFORMACOES_CATEGORIA_ANUNCIO[categoria];
+  return (
+    <section id={info.ancora} aria-labelledby={`titulo-${info.ancora}`} className="scroll-mt-24">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-jp text-xs tracking-[0.18em] text-primary">VITRINE HAKURYŪ</p>
+          <h2 id={`titulo-${info.ancora}`} className="font-display text-3xl text-foreground">
+            {info.titulo}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">{info.subtitulo}</p>
+        </div>
+        {podeAdministrar ? (
+          <Button type="button" size="sm" onClick={() => aoCriar(categoria)}>
+            <Plus className="h-4 w-4" /> Criar anúncio
+          </Button>
+        ) : null}
+      </div>
+
+      {anuncios.length === 0 ? (
+        <div className="card-gold border-dashed bg-white/70 p-6 text-center">
+          <p className="font-display text-lg text-foreground">
+            Nenhuma divulgação ativa por enquanto
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Novos anúncios desta categoria aparecerão aqui.
+          </p>
+        </div>
+      ) : (
+        <Carousel
+          opts={{ align: "start", containScroll: "trimSnaps", dragFree: true }}
+          className="px-0 sm:px-12"
+        >
+          <CarouselContent>
+            {anuncios.map((anuncio) => (
+              <CarouselItem key={anuncio.id} className="basis-[88%] sm:basis-1/2 xl:basis-1/3">
+                <CardAnuncio
+                  anuncio={anuncio}
+                  podeAdministrar={podeAdministrar}
+                  aoEditar={aoEditar}
+                  aoExcluir={aoExcluir}
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-0 top-1/2 hidden sm:inline-flex" />
+          <CarouselNext className="right-0 top-1/2 hidden sm:inline-flex" />
+        </Carousel>
+      )}
+    </section>
+  );
+}
+
+function formularioVazio(categoria: CategoriaAnuncio): EntradaAnuncioComunidade {
+  return { categoria, titulo: "", descricao: "", imagemUrl: "", discordUrl: "", ativo: true };
+}
+
+function GestorAnuncios({
+  anuncios,
+  isSuperOwner,
+}: {
+  anuncios: AnuncioComunidade[];
+  isSuperOwner: boolean;
+}) {
+  const admin = useQuery({
+    queryKey: ["anuncios-admin"],
+    queryFn: () => fetchAnunciosAdmin(),
+    enabled: isSuperOwner,
+  });
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState<EntradaAnuncioComunidade>(formularioVazio("comunidade"));
+  const [paraExcluir, setParaExcluir] = useState<AnuncioComunidade | null>(null);
+
+  const invalidar = [["anuncios-comunidade"], ["anuncios-admin"]];
+  const salvar = useAcao<EntradaAnuncioComunidade>(salvarAnuncioAdmin, {
+    sucesso: "Anúncio salvo na vitrine.",
+    invalidar,
+    aoConcluir: () => setAberto(false),
+  });
+  const remover = useAcao<{ id: number }>(excluirAnuncioAdmin, {
+    sucesso: "Anúncio removido da vitrine.",
+    invalidar,
+    aoConcluir: () => setParaExcluir(null),
+  });
+
+  const criar = (categoria: CategoriaAnuncio) => {
+    setForm(formularioVazio(categoria));
+    setAberto(true);
+  };
+  const editar = (anuncio: AnuncioComunidade) => {
+    setForm({
+      id: anuncio.id,
+      categoria: anuncio.categoria,
+      titulo: anuncio.titulo,
+      descricao: anuncio.descricao,
+      imagemUrl: anuncio.imagemUrl,
+      discordUrl: anuncio.discordUrl,
+      ativo: anuncio.ativo,
+    });
+    setAberto(true);
+  };
+
+  const porCategoria = (categoria: CategoriaAnuncio) =>
+    anuncios.filter((anuncio) => anuncio.categoria === categoria);
 
   return (
-    <section className="card-gold relative overflow-hidden bg-white/92 p-5 sm:p-6">
-      <div className="absolute top-0 right-0 h-24 w-24 rounded-bl-full bg-primary/10" aria-hidden />
-      <div className="relative flex h-full flex-col">
-        <ShieldCheck className="h-7 w-7 text-primary" aria-hidden />
-        <p className="font-jp mt-5 text-xs text-primary">SEU ESPAÇO</p>
-        <h2 className="font-display mt-1 text-2xl text-foreground">Painel de gang</h2>
-        {podeAbrirPainel ? (
-          <>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Você está com acesso a <strong className="text-foreground">{gangNome ?? "sua gang"}</strong>. Entre para organizar membros, treinos, diplomacia e muito mais.
-            </p>
-            <Button className="mt-5 w-full" asChild>
-              <Link to="/painel">
-                Ir para o painel <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </>
-        ) : deveEscolher ? (
-          <>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Você possui acesso a {quantidadeDeGangs} {quantidadeDeGangs === 1 ? "gang" : "gangs"}. Escolha qual painel deseja abrir agora.
-            </p>
-            <Button className="mt-5 w-full" asChild>
-              <Link to="/selecionar-gang">
-                Escolher gang <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </>
-        ) : acao === "aguardar-acesso" ? (
-          <>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Seu acesso ao painel aguarda um cargo autorizado. Continue explorando a comunidade enquanto isso.
-            </p>
-            <Button className="mt-5 w-full" disabled>
-              Aguardando acesso
-            </Button>
-          </>
-        ) : (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Você ainda não possui um painel de gang disponível. Explore as notícias e futuras oportunidades de recrutamento.
-          </p>
-        )}
+    <>
+      <div className="space-y-12">
+        {CATEGORIAS_ANUNCIO.map((categoria) => (
+          <FaixaAnuncios
+            key={categoria}
+            categoria={categoria}
+            anuncios={porCategoria(categoria)}
+            podeAdministrar={isSuperOwner}
+            aoCriar={criar}
+            aoEditar={editar}
+            aoExcluir={setParaExcluir}
+          />
+        ))}
       </div>
-    </section>
+
+      {isSuperOwner && (admin.data ?? []).some((anuncio) => !anuncio.ativo) ? (
+        <section
+          className="card-gold mt-12 bg-white/90 p-5 sm:p-6"
+          aria-labelledby="anuncios-ocultos"
+        >
+          <div className="flex items-center gap-3">
+            <Megaphone className="h-5 w-5 text-primary" />
+            <div>
+              <h2 id="anuncios-ocultos" className="font-display text-xl text-foreground">
+                Rascunhos e anúncios pausados
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Somente você vê estas publicações. Edite-as para reativar ou remover.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {(admin.data ?? [])
+              .filter((anuncio) => !anuncio.ativo)
+              .map((anuncio) => (
+                <div
+                  key={anuncio.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/70 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-foreground">{anuncio.titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {INFORMACOES_CATEGORIA_ANUNCIO[anuncio.categoria].titulo} · Pausado
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editar(anuncio)}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setParaExcluir(anuncio)}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      ) : null}
+
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{form.id ? "Editar anúncio" : "Criar anúncio"}</DialogTitle>
+            <DialogDescription>
+              O anúncio será exibido na faixa da categoria escolhida enquanto estiver ativo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="anuncio-categoria">Categoria</Label>
+                <select
+                  id="anuncio-categoria"
+                  value={form.categoria}
+                  onChange={(event) =>
+                    setForm({ ...form, categoria: event.target.value as CategoriaAnuncio })
+                  }
+                  className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  {CATEGORIAS_ANUNCIO.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {INFORMACOES_CATEGORIA_ANUNCIO[categoria].titulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex cursor-pointer items-end gap-3 pb-2 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.ativo}
+                  onChange={(event) => setForm({ ...form, ativo: event.target.checked })}
+                  className="h-4 w-4 accent-primary"
+                />
+                Publicar imediatamente
+              </label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="anuncio-titulo">Título</Label>
+              <Input
+                id="anuncio-titulo"
+                value={form.titulo}
+                maxLength={100}
+                onChange={(event) => setForm({ ...form, titulo: event.target.value })}
+                placeholder="Ex.: Onikawa — Gakuran RP"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="anuncio-descricao">Descrição</Label>
+              <Textarea
+                id="anuncio-descricao"
+                value={form.descricao}
+                maxLength={500}
+                onChange={(event) => setForm({ ...form, descricao: event.target.value })}
+                placeholder="Explique em poucas linhas o que torna este servidor especial."
+              />
+            </div>
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Imagem recomendada: <strong>2400 × 1029 px</strong> (proporção 7:3).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="anuncio-imagem">URL pública da imagem</Label>
+              <Input
+                id="anuncio-imagem"
+                type="url"
+                value={form.imagemUrl}
+                onChange={(event) => setForm({ ...form, imagemUrl: event.target.value })}
+                placeholder="https://exemplo.com/anuncio.png"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="anuncio-discord">Link do Discord</Label>
+              <Input
+                id="anuncio-discord"
+                type="url"
+                value={form.discordUrl}
+                onChange={(event) => setForm({ ...form, discordUrl: event.target.value })}
+                placeholder="https://discord.gg/seu-servidor"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setAberto(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" disabled={salvar.isPending} onClick={() => salvar.mutate(form)}>
+              {salvar.isPending ? "Salvando..." : "Salvar anúncio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={paraExcluir !== null}
+        onOpenChange={(open) => !open && setParaExcluir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir “{paraExcluir?.titulo}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação remove definitivamente a publicação da Página Inicial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remover.isPending}
+              onClick={() => paraExcluir && remover.mutate({ id: paraExcluir.id })}
+            >
+              {remover.isPending ? "Excluindo..." : "Excluir anúncio"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
 function InicioAutenticado() {
   const sessao = useQuery(sessionQuery);
   const gangs = useQuery({ ...gangsDisponiveisQuery, enabled: Boolean(sessao.data?.user) });
-  const search = useRouterState({ select: (s) => s.location.search }) as { erro?: string };
+  const anuncios = useQuery(anunciosPublicosQuery);
+  const search = useRouterState({ select: (state) => state.location.search }) as { erro?: string };
   const user = sessao.data?.user;
 
   if (sessao.isPending) return <TelaCarregando />;
-  if (!sessao.data?.configurado) {
+  if (!sessao.data?.configurado)
     return <TelaLogin erro="O Hakuryū ainda precisa ser configurado pela administração." />;
-  }
-  if (!user) {
-    return <TelaLogin erro={search?.erro} />;
-  }
+  if (!user) return <TelaLogin erro={search?.erro} />;
 
   const quantidadeDeGangs = gangs.data?.length ?? 0;
+  const podeAdministrar = Boolean(user.isSuperOwner);
 
   return (
     <Fundo>
-      <header className="border-b border-border bg-white/82 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-8">
+      <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-3">
-            <img src={logo} alt="Hakuryū" className="h-11 w-11 shrink-0 object-contain" />
+            <img src={logo} alt="Hakuryū" className="h-10 w-10 shrink-0 object-contain" />
             <div className="min-w-0">
-              <p className="text-gold-gradient font-display text-xl font-semibold leading-tight">Hakuryū</p>
-              <p className="font-jp text-[11px] text-muted-foreground">白竜 · Community Hub</p>
+              <p className="text-gold-gradient font-display text-xl font-semibold leading-tight">
+                Hakuryū
+              </p>
+              <p className="font-jp text-[10px] text-muted-foreground">白竜 · Community Hub</p>
             </div>
           </Link>
-          <nav className="hidden items-center gap-5 text-sm text-muted-foreground md:flex" aria-label="Navegação do hub">
-            <a className="transition-colors hover:text-foreground" href="#noticias">Notícias</a>
-            <a className="transition-colors hover:text-foreground" href="#recrutamento">Recrutamento</a>
-            <a className="transition-colors hover:text-foreground" href="#explorar">Explorar</a>
+          <nav
+            className="order-3 flex w-full items-center justify-between gap-2 overflow-x-auto border-t border-border/70 pt-2 text-sm text-muted-foreground sm:order-none sm:w-auto sm:border-0 sm:pt-0"
+            aria-label="Navegação do hub"
+          >
+            {CATEGORIAS_ANUNCIO.map((categoria) => (
+              <a
+                key={categoria}
+                className="shrink-0 px-1 transition-colors hover:text-foreground"
+                href={`#${INFORMACOES_CATEGORIA_ANUNCIO[categoria].ancora}`}
+              >
+                {INFORMACOES_CATEGORIA_ANUNCIO[categoria].titulo}
+              </a>
+            ))}
+            <LinkPainel
+              permitido={Boolean(sessao.data?.permitido)}
+              quantidadeDeGangs={quantidadeDeGangs}
+            />
           </nav>
           <div className="flex min-w-0 items-center gap-2">
-            <img src={user.avatarUrl} alt="" className="h-9 w-9 rounded-full border border-primary/35 object-cover" />
-            <div className="hidden min-w-0 sm:block">
-              <p className="max-w-32 truncate text-sm font-semibold">{user.globalName ?? user.username}</p>
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="h-9 w-9 rounded-full border border-primary/35 object-cover"
+            />
+            <div className="hidden min-w-0 lg:block">
+              <p className="max-w-32 truncate text-sm font-semibold">
+                {user.globalName ?? user.username}
+              </p>
               <p className="max-w-32 truncate text-xs text-muted-foreground">@{user.username}</p>
             </div>
             <Button variant="ghost" size="icon" asChild>
@@ -259,97 +603,43 @@ function InicioAutenticado() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-10 px-4 py-7 sm:px-8 sm:py-10">
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.8fr)]">
-          <div className="card-gold relative overflow-hidden bg-white/92 p-6 sm:p-8">
-            <div className="absolute -top-14 -right-10 h-44 w-44 rounded-full bg-primary/10 blur-2xl" aria-hidden />
-            <div className="relative max-w-2xl">
-              <Badge variant="outline" className="border-primary/40">Seu ponto de encontro em Gakuran</Badge>
-              <p className="font-jp mt-6 text-xs tracking-[0.2em] text-primary">白竜 · BEM-VINDO</p>
-              <h1 className="font-display mt-2 max-w-full break-words text-3xl leading-tight text-foreground sm:text-4xl">
-                Olá, {user.globalName ?? user.username}.
-              </h1>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
-                Acompanhe as novidades da comunidade, descubra novos espaços e acesse sua gang quando quiser organizar o que importa.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild>
-                  <a href="#noticias"><Newspaper className="h-4 w-4" /> Ver notícias</a>
-                </Button>
-                <Button variant="outline" asChild>
-                  <a href="#explorar"><Compass className="h-4 w-4" /> Explorar comunidade</a>
-                </Button>
-              </div>
-            </div>
-          </div>
-          <AcessoAoPainel
-            permitido={Boolean(sessao.data?.permitido)}
-            gangId={sessao.data?.gangId ?? null}
-            gangNome={sessao.data?.gangNome ?? null}
-            quantidadeDeGangs={quantidadeDeGangs}
-          />
-        </section>
-
-        <BannerDestaque />
-
-        <section id="recrutamento" aria-labelledby="titulo-recrutamento">
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="font-jp text-xs text-primary">募集</p>
-              <h2 id="titulo-recrutamento" className="font-display text-3xl text-foreground">Recrutamento</h2>
-            </div>
-            <Badge variant="outline" className="border-primary/35 text-muted-foreground">Em preparação</Badge>
-          </div>
-          <div className="card-gold flex flex-col gap-4 bg-white/90 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex min-w-0 items-start gap-4">
-              <UsersRound className="mt-0.5 h-7 w-7 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-display text-xl">Encontre sua próxima gang</h3>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Gangs com painel ativo poderão manter um único anúncio de recrutamento, com convite seguro gerado pelo bot e controle de ativação pela própria liderança.
-                </p>
-              </div>
-            </div>
-            <Badge className="w-fit shrink-0">Novidade a caminho</Badge>
-          </div>
-        </section>
-
-        <section id="explorar" className="grid gap-5 md:grid-cols-2" aria-label="Próximos módulos do Hakuryū">
-          <ModuloEmBreve
-            icon={Compass}
-            eyebrow="探索"
-            title="Explorar servidores"
-            description="Encontre roleplays e comunidades aprovadas por etiquetas, estilo e atividade. Cada servidor terá seu próprio perfil público dentro do Hakuryū."
-          />
-          <ModuloEmBreve
-            icon={CalendarDays}
-            eyebrow="記録"
-            title="Meu perfil"
-            description="Acompanhe sua gang atual, seu histórico no painel e, no próximo ciclo, suas participações confirmadas em eventos."
-          />
-        </section>
-
-        <section id="noticias" className="card-gold bg-white/92 p-5 sm:p-7">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Megaphone className="h-5 w-5 text-primary" aria-hidden />
-              <p className="text-sm text-muted-foreground">Acompanhe os comunicados oficiais e as reportagens da comunidade.</p>
-            </div>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/noticias">Abrir jornal <ArrowRight className="h-4 w-4" /></Link>
-            </Button>
-          </div>
-          <NoticiasRecentes permitirCriar limite={3} />
-        </section>
-
-        <section className="rounded-md border border-primary/25 bg-primary/8 px-5 py-5 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:px-6">
-          <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <p className="text-sm leading-6 text-muted-foreground">
-              O Hakuryū está evoluindo para conectar gangs, roleplays e comunidades de Gakuran sem substituir a identidade de cada servidor.
+      <main className="mx-auto max-w-7xl space-y-12 px-4 py-8 sm:px-8 sm:py-11">
+        <section className="flex flex-col gap-4 border-b border-primary/20 pb-7 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <Badge variant="outline" className="border-primary/40">
+              Vitrine da comunidade
+            </Badge>
+            <p className="font-jp mt-5 text-xs tracking-[0.2em] text-primary">白竜 · CONEXÕES</p>
+            <h1 className="font-display mt-2 text-3xl leading-tight text-foreground sm:text-4xl">
+              Encontre seu próximo lugar em Gakuran.
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-base">
+              Explore divulgações selecionadas de gangs, roleplays e comunidades. Use as setas ou
+              deslize os cards para conhecer mais.
             </p>
           </div>
+          {podeAdministrar ? (
+            <Badge className="w-fit">
+              <Megaphone className="h-3.5 w-3.5" /> Modo de edição ativo
+            </Badge>
+          ) : null}
         </section>
+
+        {anuncios.isPending ? (
+          <div className="space-y-12">
+            <Skeleton className="h-56 w-full" />
+            <Skeleton className="h-56 w-full" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+        ) : null}
+        {anuncios.error ? (
+          <div className="card-gold border-destructive/35 bg-destructive/5 p-5 text-sm text-destructive">
+            Não foi possível carregar as divulgações: {anuncios.error.message}
+          </div>
+        ) : null}
+        {!anuncios.isPending && !anuncios.error ? (
+          <GestorAnuncios anuncios={anuncios.data ?? []} isSuperOwner={podeAdministrar} />
+        ) : null}
       </main>
     </Fundo>
   );

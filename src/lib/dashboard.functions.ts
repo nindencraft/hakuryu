@@ -83,9 +83,8 @@ export const getSession = createServerFn({ method: "GET" }).handler(
     if (!user.isSuperOwner && user.gangId != null) {
       // Cargos são revalidados e canonizados pelos IDs salvos em gang_config.
       const { fetchRolesAtuais } = await import("./discord.server");
-      const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } = await import(
-        "./cargos.server"
-      );
+      const { mapaCargos, canonizarCargos, temCargoConfiguradoComAcesso } =
+        await import("./cargos.server");
       const cargosAtuais = await fetchRolesAtuais(user.id, user.guildId);
       if (cargosAtuais && user.gangId != null) {
         const mapa = await mapaCargos(user.gangId);
@@ -120,11 +119,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       gangNome,
       // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
       // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
-      permitido: acessoGangPermitido(
-        user.gangId,
-        user.isSuperOwner,
-        temCargoDeAcessoConfigurado,
-      ),
+      permitido: acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado),
       user: {
         id: user.id,
         username: user.username,
@@ -166,9 +161,8 @@ export const fetchTreinos = createServerFn({ method: "GET" }).handler(
 export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
   async (): Promise<BannerGlobal | null> => {
     await svc.requireUserSemGang(getRequest());
-    const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig } = await import(
-      "./settings.server"
-    );
+    const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig } =
+      await import("./settings.server");
     const [imagemUrl, discordUrl] = await Promise.all([
       lerConfig(CHAVE_BANNER_IMAGEM_URL),
       lerConfig(CHAVE_BANNER_DISCORD_URL),
@@ -177,6 +171,13 @@ export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
     return { imagemUrl, discordUrl };
   },
 );
+
+/** Anúncios ativos da Página Inicial, disponíveis a qualquer usuário autenticado. */
+export const fetchAnunciosPublicos = createServerFn({ method: "GET" }).handler(async () => {
+  await svc.requireUserSemGang(getRequest());
+  const { listarAnunciosPublicos } = await import("./anuncios.server");
+  return listarAnunciosPublicos();
+});
 
 export const fetchDivisoes = createServerFn({ method: "GET" }).handler(
   async (): Promise<Divisao[]> => {
@@ -216,10 +217,10 @@ export const fetchHistoricoAtributos = createServerFn({ method: "POST" })
   });
 
 export const salvarAtributosMembro = createServerFn({ method: "POST" })
-  .inputValidator(
-    (data: { membroId: string; valores: AtributosMembroValores }) => data,
-  )
-  .handler(async ({ data }) => svc.salvarAtributosMembro(await svc.requireUser(getRequest()), data));
+  .inputValidator((data: { membroId: string; valores: AtributosMembroValores }) => data)
+  .handler(async ({ data }) =>
+    svc.salvarAtributosMembro(await svc.requireUser(getRequest()), data),
+  );
 
 export const fetchMinhaInscricao = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
@@ -242,9 +243,7 @@ export const trocarCargo = createServerFn({ method: "POST" })
 
 export const alterarStatusMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string; status: string }) => data)
-  .handler(async ({ data }) =>
-    svc.alterarStatusMembro(await svc.requireUser(getRequest()), data),
-  );
+  .handler(async ({ data }) => svc.alterarStatusMembro(await svc.requireUser(getRequest()), data));
 
 export const removerMembro = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string }) => data)
@@ -265,7 +264,6 @@ export const criarTreino = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => svc.criarTreino(await svc.requireUser(getRequest()), data));
-
 
 export const deletarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
@@ -315,9 +313,7 @@ export const atualizarDivisao = createServerFn({ method: "POST" })
 
 export const removerMembroDivisao = createServerFn({ method: "POST" })
   .inputValidator((data: { membroId: string }) => data)
-  .handler(async ({ data }) =>
-    svc.removerMembroDivisao(await svc.requireUser(getRequest()), data),
-  );
+  .handler(async ({ data }) => svc.removerMembroDivisao(await svc.requireUser(getRequest()), data));
 
 export const deletarDivisao = createServerFn({ method: "POST" })
   .inputValidator((data: { divisaoId: number }) => data)
@@ -349,7 +345,6 @@ export const salvarParceria = createServerFn({ method: "POST" })
 export const deletarParceria = createServerFn({ method: "POST" })
   .inputValidator((data: { id: number }) => data)
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
-
 
 export const atualizarMeusDados = createServerFn({ method: "POST" })
   .inputValidator(

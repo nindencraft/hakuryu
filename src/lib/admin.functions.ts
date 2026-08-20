@@ -123,11 +123,7 @@ export const salvarBannerAdmin = createServerFn({ method: "POST" })
     await requireSuperOwner();
     const [
       { normalizarLinkEvento },
-      {
-        CHAVE_BANNER_DISCORD_URL,
-        CHAVE_BANNER_IMAGEM_URL,
-        salvarConfiguracoes,
-      },
+      { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes },
     ] = await Promise.all([import("./event-link"), import("./settings.server")]);
 
     const imagemUrl = normalizarLinkEvento(data.imagemUrl, "A URL da imagem do anúncio");
@@ -146,12 +142,46 @@ export const salvarBannerAdmin = createServerFn({ method: "POST" })
 /** Remove o anúncio global sem alterar outras configurações do painel. */
 export const removerBannerAdmin = createServerFn({ method: "POST" }).handler(async () => {
   await requireSuperOwner();
-  const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes } = await import(
-    "./settings.server"
-  );
+  const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes } =
+    await import("./settings.server");
   await salvarConfiguracoes({
     [CHAVE_BANNER_IMAGEM_URL]: "",
     [CHAVE_BANNER_DISCORD_URL]: "",
   });
   return { ok: true };
 });
+
+/** Lista inclusive os anúncios inativos para a gestão editorial do Super Owner. */
+export const fetchAnunciosAdmin = createServerFn({ method: "GET" }).handler(async () => {
+  await requireSuperOwner();
+  const { listarAnunciosAdmin } = await import("./anuncios.server");
+  return listarAnunciosAdmin();
+});
+
+/** Cria ou atualiza uma publicação que será exibida na Página Inicial. */
+export const salvarAnuncioAdmin = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: {
+      id?: number | null;
+      categoria: "gang" | "roleplay" | "comunidade";
+      titulo: string;
+      descricao: string;
+      imagemUrl: string;
+      discordUrl: string;
+      ativo: boolean;
+    }) => input,
+  )
+  .handler(async ({ data }) => {
+    await requireSuperOwner();
+    const { salvarAnuncio } = await import("./anuncios.server");
+    return salvarAnuncio(data);
+  });
+
+/** Exclui definitivamente uma publicação da vitrine. */
+export const excluirAnuncioAdmin = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data }) => {
+    await requireSuperOwner();
+    const { excluirAnuncio } = await import("./anuncios.server");
+    return excluirAnuncio(data.id);
+  });
