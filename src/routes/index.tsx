@@ -1,20 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ExternalLink,
-  LogIn,
-  LogOut,
   Megaphone,
   Pencil,
   Plus,
-  ShieldCheck,
   Trash2,
 } from "lucide-react";
 
-import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
-import logo from "@/assets/hakuryu-logo.png";
-import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
+import { CabecalhoHub, FundoHub, TelaHubCarregando, TelaHubLogin } from "@/components/hakuryu/HubLayout";
 import { useAcao } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,7 +49,6 @@ import {
   type CategoriaAnuncio,
 } from "@/lib/anuncios";
 import type { AnuncioComunidade, EntradaAnuncioComunidade } from "@/lib/anuncios.server";
-import { acaoPainelHome } from "@/lib/home-hub";
 import { anunciosPublicosQuery, gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/")({
@@ -73,100 +67,6 @@ export const Route = createFileRoute("/")({
   }),
   component: InicioPage,
 });
-
-function Fundo({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
-      style={{ backgroundImage: `url(${mainBgAsset.url})` }}
-    >
-      <div className="min-h-screen bg-background/62">{children}</div>
-    </div>
-  );
-}
-
-function TelaCarregando() {
-  return (
-    <Fundo>
-      <div className="mx-auto max-w-7xl space-y-7 px-4 py-8 sm:px-8 sm:py-10">
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-9 w-72" />
-        <Skeleton className="h-56 w-full" />
-        <Skeleton className="h-56 w-full" />
-      </div>
-    </Fundo>
-  );
-}
-
-function TelaLogin({ erro }: { erro?: string }) {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
-      style={{ backgroundImage: `url(${bgAsset.url})` }}
-    >
-      <section className="card-gold w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm sm:p-10">
-        <img
-          src={logo}
-          alt="Emblema do dragão branco Hakuryū"
-          className="mx-auto h-28 w-28 object-contain"
-        />
-        <p className="font-jp mt-5 text-xs text-primary">白竜 · Gakuran Community Hub</p>
-        <h1 className="text-gold-gradient font-display mt-2 text-4xl font-semibold">Hakuryū</h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Descubra gangs, roleplays e comunidades em um só lugar.
-        </p>
-        {erro ? (
-          <p className="mt-5 rounded-md border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {erro}
-          </p>
-        ) : null}
-        <Button className="mt-7 w-full" size="lg" asChild>
-          <a href="/api/public/auth/discord/login">
-            <LogIn className="h-4 w-4" /> Entrar com Discord
-          </a>
-        </Button>
-      </section>
-    </div>
-  );
-}
-
-function LinkPainel({
-  permitido,
-  quantidadeDeGangs,
-}: {
-  permitido: boolean;
-  quantidadeDeGangs: number;
-}) {
-  const acao = acaoPainelHome({ permitido, gangId: null, quantidadeDeGangs });
-  if (acao === "abrir-painel") {
-    return (
-      <Button variant="outline" size="sm" asChild>
-        <Link to="/painel">
-          <ShieldCheck className="h-4 w-4" /> Painel
-        </Link>
-      </Button>
-    );
-  }
-  if (acao === "escolher-gang") {
-    return (
-      <Button variant="outline" size="sm" asChild>
-        <Link to="/selecionar-gang">
-          <ShieldCheck className="h-4 w-4" /> Painel
-        </Link>
-      </Button>
-    );
-  }
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled
-      title="Seu acesso ao painel ainda não está disponível."
-    >
-      <ShieldCheck className="h-4 w-4" /> Painel
-    </Button>
-  );
-}
 
 function CardAnuncio({
   anuncio,
@@ -543,56 +443,23 @@ function InicioAutenticado() {
   const search = useRouterState({ select: (state) => state.location.search }) as { erro?: string };
   const user = sessao.data?.user;
 
-  if (sessao.isPending) return <TelaCarregando />;
+  if (sessao.isPending) return <TelaHubCarregando />;
   if (!sessao.data?.configurado)
-    return <TelaLogin erro="O Hakuryū ainda precisa ser configurado pela administração." />;
-  if (!user) return <TelaLogin erro={search?.erro} />;
+    return <TelaHubLogin erro="O Hakuryū ainda precisa ser configurado pela administração." />;
+  if (!user) return <TelaHubLogin erro={search?.erro} />;
 
   const quantidadeDeGangs = gangs.data?.length ?? 0;
   const podeAdministrar = Boolean(user.isSuperOwner);
 
   return (
-    <Fundo>
-      <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <img src={logo} alt="Hakuryū" className="h-10 w-10 shrink-0 object-contain" />
-            <div className="min-w-0">
-              <p className="text-gold-gradient font-display text-xl font-semibold leading-tight">
-                Hakuryū
-              </p>
-              <p className="font-jp text-[10px] text-muted-foreground">白竜 · Community Hub</p>
-            </div>
-          </Link>
-          <nav
-            className="order-2 flex flex-1 items-center justify-end sm:justify-center"
-            aria-label="Navegação do hub"
-          >
-            <LinkPainel
-              permitido={Boolean(sessao.data?.permitido)}
-              quantidadeDeGangs={quantidadeDeGangs}
-            />
-          </nav>
-          <div className="order-3 flex min-w-0 items-center gap-2">
-            <img
-              src={user.avatarUrl}
-              alt=""
-              className="h-9 w-9 rounded-full border border-primary/35 object-cover"
-            />
-            <div className="hidden min-w-0 lg:block">
-              <p className="max-w-32 truncate text-sm font-semibold">
-                {user.globalName ?? user.username}
-              </p>
-              <p className="max-w-32 truncate text-xs text-muted-foreground">@{user.username}</p>
-            </div>
-            <Button variant="ghost" size="icon" asChild>
-              <a href="/api/public/auth/logout" aria-label="Sair">
-                <LogOut className="h-4 w-4" />
-              </a>
-            </Button>
-          </div>
-        </div>
-      </header>
+    <FundoHub>
+      <CabecalhoHub
+        usuario={user}
+        permitido={Boolean(sessao.data?.permitido)}
+        quantidadeDeGangs={quantidadeDeGangs}
+        abaAtiva="inicio"
+        permitirSair
+      />
 
       <main className="mx-auto max-w-7xl space-y-12 px-4 py-8 sm:px-8 sm:py-11">
         <section className="flex flex-col gap-4 border-b border-primary/20 pb-7 sm:flex-row sm:items-end sm:justify-between">
@@ -632,7 +499,7 @@ function InicioAutenticado() {
           <GestorAnuncios anuncios={anuncios.data ?? []} isSuperOwner={podeAdministrar} />
         ) : null}
       </main>
-    </Fundo>
+    </FundoHub>
   );
 }
 

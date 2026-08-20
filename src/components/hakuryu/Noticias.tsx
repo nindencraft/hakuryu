@@ -243,7 +243,7 @@ function ExcluirNoticiaButton({ noticia }: { noticia: NoticiaPublica }) {
   );
 }
 
-export function NoticiasRecentes({ permitirCriar = false, limite }: { permitirCriar?: boolean; limite?: number }) {
+export function NoticiasRecentes({ permitirCriar = false, limite, ampla = false }: { permitirCriar?: boolean; limite?: number; ampla?: boolean }) {
   const noticias = useQuery({ queryKey: ["noticias-publicas"], queryFn: () => fetchNoticiasPublicas(), staleTime: 30_000 });
   const permissao = useQuery({ queryKey: ["permissao-jornal"], queryFn: () => fetchPermissaoJornal(), enabled: permitirCriar });
   const itens = limite ? (noticias.data ?? []).slice(0, limite) : (noticias.data ?? []);
@@ -268,7 +268,7 @@ export function NoticiasRecentes({ permitirCriar = false, limite }: { permitirCr
       ) : itens.length === 0 ? (
         <EmptyState title="Nenhuma notícia publicada" description="Quando uma reportagem for publicada, ela aparecerá aqui." />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className={`grid gap-4 sm:grid-cols-2 ${ampla ? "xl:grid-cols-3 2xl:grid-cols-4" : "xl:grid-cols-3"}`}>
           {itens.map((noticia) => (
             <article key={noticia.id} className="card-gold overflow-hidden">
               <img src={noticia.imagemUrl} alt={`Imagem principal de ${noticia.titulo}`} className="aspect-video w-full object-cover" />

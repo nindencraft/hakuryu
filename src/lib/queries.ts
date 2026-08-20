@@ -16,6 +16,7 @@ import {
   fetchBannerGlobal,
   getSession,
 } from "./dashboard.functions";
+import { fetchRecrutamentosPublicos } from "./recrutamento.functions";
 
 export const sessionQuery = queryOptions({
   queryKey: ["session"],
@@ -33,6 +34,12 @@ export const bannerGlobalQuery = queryOptions({
 export const anunciosPublicosQuery = queryOptions({
   queryKey: ["anuncios-comunidade"],
   queryFn: () => fetchAnunciosPublicos(),
+  staleTime: 30_000,
+});
+
+export const recrutamentosPublicosQuery = queryOptions({
+  queryKey: ["recrutamentos-publicos"],
+  queryFn: () => fetchRecrutamentosPublicos(),
   staleTime: 30_000,
 });
 
