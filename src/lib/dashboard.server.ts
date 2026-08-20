@@ -15,19 +15,20 @@ import {
 import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
 import { acessoGangPermitido } from "./acesso-gang";
-import type {
-  AliadoResolvido,
-  Divisao,
-  GuildAtual,
-  LogPartida,
-  Membro,
-  MembroAtributos,
-  HistoricoAtributosMembro,
-  AtributosMembroValores,
-  Parceria,
-  PresencaTreino,
-  Punicao,
-  Treino,
+import {
+  TIPO_TREINO_OPCOES,
+  type AliadoResolvido,
+  type Divisao,
+  type GuildAtual,
+  type LogPartida,
+  type Membro,
+  type MembroAtributos,
+  type HistoricoAtributosMembro,
+  type AtributosMembroValores,
+  type Parceria,
+  type PresencaTreino,
+  type Punicao,
+  type Treino,
 } from "./types";
 
 
@@ -765,24 +766,24 @@ export async function criarTreino(
     local: string;
     link_servidor_privado?: string;
     divisao_responsavel: string;
-    aliado: string;
+    aliado?: string;
   },
 ) {
   assert(podeGerenciarTreinos(user));
+  if (!TIPO_TREINO_OPCOES.includes(input.tipo as (typeof TIPO_TREINO_OPCOES)[number])) {
+    throw new Error("Treinos amistosos devem ser solicitados pelo painel de alianças.");
+  }
   const db = getDb();
   const { mapaCargos } = await import("./cargos.server");
   const roleIdMembro = (await mapaCargos(gid(user))).porCargo.get("Membro");
   if (!roleIdMembro) {
     throw new Error("Configure o ID Discord do cargo Membro antes de criar um treino.");
   }
-  const aliado = input.tipo === "Amistoso" ? input.aliado.trim() : "";
   const linkServidorPrivado = normalizarLinkEvento(
     input.link_servidor_privado,
     "O link do servidor privado Roblox",
   );
-  const marca = aliado ? `[ALIADO|${aliado.replace(/[|\]\n]/g, " ")}]` : "";
-  const descricao =
-    `${input.descricao ? `${input.descricao.trim()}\n` : ""}${marca}`.trim() || null;
+  const descricao = input.descricao.trim() || null;
 
   const { error } = await db.from("treinos").insert({
     titulo: input.titulo,
@@ -814,7 +815,6 @@ export async function criarTreino(
         ? [{ name: "Servidor privado Roblox", value: linkServidorPrivado }]
         : []),
       { name: "Divisão", value: input.divisao_responsavel || "Geral", inline: true },
-      ...(aliado ? [{ name: "Gang aliada", value: aliado, inline: true }] : []),
       {
         name: "Criado por",
         value: user.nomeRp || user.globalName || user.username,
@@ -1584,7 +1584,9 @@ export async function loadConfiguracoesPainel(user: SessionUser) {
     "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
   );
   const { loadConfiguracoes } = await import("./settings.server");
-  return loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
+  const configuracoes = await loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
+  if (!user.isSuperOwner) delete configuracoes.canais.canal_divulgacao;
+  return configuracoes;
 }
 
 export async function salvarConfiguracoesPainel(
@@ -1595,8 +1597,11 @@ export async function salvarConfiguracoesPainel(
     owners: string;
     guildId: string;
   },
-) {
+  ) {
   assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
+  if (!user.isSuperOwner && Object.hasOwn(input.canais, "canal_divulgacao")) {
+    throw new Error("Somente o Super Owner pode alterar o canal de divulgação global.");
+  }
   const { salvarConfiguracoesDaGang, chaveCargo } = await import("./settings.server");
   const valores: Record<string, string> = { owner_ids: input.owners };
   for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;

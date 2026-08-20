@@ -16,6 +16,7 @@ export const CHAVES_CANAIS_CONFIG = [
   "canal_treinos",
   "canal_aliancas",
   "canal_advertencias",
+  "canal_divulgacao",
 ] as const;
 
 export const CHAVES_CANAIS = CHAVES_CANAIS_CONFIG;

@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisoesQuery, parceriasQuery, treinosQuery } from "@/lib/queries";
+import { divisoesQuery, treinosQuery } from "@/lib/queries";
 import {
   ausentarSe,
   atualizarPresenca,
@@ -333,7 +333,6 @@ function TreinoCard({
 
 function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const divisoes = useQuery(divisoesQuery);
-  const aliancas = useQuery(parceriasQuery);
   const [form, setForm] = useState({
     titulo: "",
     descricao: "",
@@ -343,7 +342,6 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
     local: "",
     link_servidor_privado: "",
     divisao_responsavel: "Todas",
-    aliado: "",
   });
 
 
@@ -432,29 +430,6 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
               </Select>
             </div>
           </div>
-          {form.tipo === "Amistoso" ? (
-            <div className="space-y-2">
-              <Label>Gang aliada</Label>
-              <Select
-                value={form.aliado || "nenhuma"}
-                onValueChange={(v) => setForm({ ...form, aliado: v === "nenhuma" ? "" : v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a gang" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nenhuma">Nenhuma</SelectItem>
-                  {(aliancas.data?.parcerias ?? [])
-                    .filter((p) => p.relacao !== "Inimiga")
-                    .map((p) => (
-                    <SelectItem key={p.id} value={p.nome}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
           <div className="space-y-2">
             <Label htmlFor="local">Local</Label>
             <Input

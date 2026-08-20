@@ -20,6 +20,7 @@ import { Route as ParceriasRouteImport } from './routes/parcerias'
 import { Route as SelecionarGangRouteImport } from './routes/selecionar-gang'
 import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
 import { Route as TreinosRouteImport } from './routes/treinos'
+import { Route as AdminDivulgacaoRouteImport } from './routes/admin/divulgacao'
 import { Route as AdminGangsRouteImport } from './routes/admin/gangs'
 import { Route as AdminJornalistasRouteImport } from './routes/admin/jornalistas'
 import { Route as ApiPublicAuthLogoutRouteImport } from './routes/api/public/auth/logout'
@@ -82,6 +83,11 @@ const TreinosRoute = TreinosRouteImport.update({
   path: '/treinos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDivulgacaoRoute = AdminDivulgacaoRouteImport.update({
+  id: '/admin/divulgacao',
+  path: '/admin/divulgacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminGangsRoute = AdminGangsRouteImport.update({
   id: '/admin/gangs',
   path: '/admin/gangs',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
+  '/admin/divulgacao': typeof AdminDivulgacaoRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
+  '/admin/divulgacao': typeof AdminDivulgacaoRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/selecionar-gang': typeof SelecionarGangRoute
   '/solicitacoes': typeof SolicitacoesRoute
   '/treinos': typeof TreinosRoute
+  '/admin/divulgacao': typeof AdminDivulgacaoRoute
   '/admin/gangs': typeof AdminGangsRoute
   '/admin/jornalistas': typeof AdminJornalistasRoute
   '/api/public/auth/logout': typeof ApiPublicAuthLogoutRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
+    | '/admin/divulgacao'
     | '/admin/gangs'
     | '/admin/jornalistas'
     | '/api/public/auth/logout'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
+    | '/admin/divulgacao'
     | '/admin/gangs'
     | '/admin/jornalistas'
     | '/api/public/auth/logout'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/selecionar-gang'
     | '/solicitacoes'
     | '/treinos'
+    | '/admin/divulgacao'
     | '/admin/gangs'
     | '/admin/jornalistas'
     | '/api/public/auth/logout'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   SelecionarGangRoute: typeof SelecionarGangRoute
   SolicitacoesRoute: typeof SolicitacoesRoute
   TreinosRoute: typeof TreinosRoute
+  AdminDivulgacaoRoute: typeof AdminDivulgacaoRoute
   AdminGangsRoute: typeof AdminGangsRoute
   AdminJornalistasRoute: typeof AdminJornalistasRoute
   ApiPublicAuthLogoutRoute: typeof ApiPublicAuthLogoutRoute
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TreinosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/divulgacao': {
+      id: '/admin/divulgacao'
+      path: '/admin/divulgacao'
+      fullPath: '/admin/divulgacao'
+      preLoaderRoute: typeof AdminDivulgacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/gangs': {
       id: '/admin/gangs'
       path: '/admin/gangs'
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   SelecionarGangRoute: SelecionarGangRoute,
   SolicitacoesRoute: SolicitacoesRoute,
   TreinosRoute: TreinosRoute,
+  AdminDivulgacaoRoute: AdminDivulgacaoRoute,
   AdminGangsRoute: AdminGangsRoute,
   AdminJornalistasRoute: AdminJornalistasRoute,
   ApiPublicAuthLogoutRoute: ApiPublicAuthLogoutRoute,

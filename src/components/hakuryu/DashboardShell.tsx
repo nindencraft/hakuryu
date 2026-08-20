@@ -15,6 +15,7 @@ import {
   Repeat,
   Mails,
   Mic2,
+  Megaphone,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -51,6 +52,7 @@ const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Setti
 
 const NAV_OWNER = [
   { to: "/admin/gangs", label: "Gangs registradas", icon: Crown },
+  { to: "/admin/divulgacao", label: "Divulgação global", icon: Megaphone },
   { to: "/admin/jornalistas", label: "Jornalistas", icon: Mic2 },
 ];
 

@@ -194,17 +194,24 @@ export type EmbedDiscord = {
   color?: number | undefined;
   fields?: { name: string; value: string; inline?: boolean }[] | undefined;
   thumbnail?: { url: string } | undefined;
+  image?: { url: string } | undefined;
   timestamp?: string | undefined;
 };
 
-/** Publica um embed no canal configurado para a gang. Best-effort. */
-export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, mensagem: EmbedDiscord): Promise<void> {
+export type ResultadoEnvioDiscord = { ok: true } | { ok: false; motivo: string };
+
+/** Publica em um canal conhecido e informa a causa quando o Discord recusar a mensagem. */
+export async function enviarMensagemParaCanal(
+  canalIdBruto: string,
+  mensagem: EmbedDiscord,
+): Promise<ResultadoEnvioDiscord> {
+  const canalId = canalIdBruto.replace(/\D/g, "");
+  if (!canalId) return { ok: false, motivo: "ID de canal inválido." };
+
   try {
-    const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
-    if (!canalId) return;
     const config = getConfig();
     const { content, allowedRoleIds, ...embed } = mensagem;
-    await fetch(`https://discord.com/api/v10/channels/${canalId}/messages`, {
+    const resposta = await fetch(`https://discord.com/api/v10/channels/${canalId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bot ${config.discordBotToken}`,
@@ -218,6 +225,23 @@ export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, m
         embeds: [{ color: 0xd4af37, ...embed }],
       }),
     });
+    if (resposta.ok) return { ok: true };
+    const detalhe = (await resposta.text()).replace(/\s+/g, " ").slice(0, 180);
+    return {
+      ok: false,
+      motivo: `Discord respondeu ${resposta.status}${detalhe ? `: ${detalhe}` : "."}`,
+    };
+  } catch (erro) {
+    return { ok: false, motivo: erro instanceof Error ? erro.message : "Falha de conexão." };
+  }
+}
+
+/** Publica um embed no canal configurado para a gang. Best-effort. */
+export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, mensagem: EmbedDiscord): Promise<void> {
+  try {
+    const canalId = (await lerConfigEscopo(ctx.gangId ?? null, chaveCanal))?.replace(/\D/g, "");
+    if (!canalId) return;
+    await enviarMensagemParaCanal(canalId, mensagem);
   } catch {
     /* best-effort */
   }

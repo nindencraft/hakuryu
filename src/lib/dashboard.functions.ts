@@ -261,7 +261,7 @@ export const criarTreino = createServerFn({ method: "POST" })
       local: string;
       link_servidor_privado: string;
       divisao_responsavel: string;
-      aliado: string;
+      aliado?: string;
     }) => data,
   )
   .handler(async ({ data }) => svc.criarTreino(await svc.requireUser(getRequest()), data));

@@ -171,7 +171,7 @@ export type AliadoResolvido = {
 
 
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
-export const TIPO_TREINO_OPCOES = ["Interno", "Amistoso", "Obrigatório"] as const;
+export const TIPO_TREINO_OPCOES = ["Interno", "Obrigatório"] as const;
 export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
 export const RELACAO_GANG_OPCOES = ["Aliada", "Inimiga"] as const;
@@ -191,6 +191,12 @@ export const CANAIS_CONFIG = [
   { chave: "canal_aliancas", rotulo: "Canal de alianças" },
   { chave: "canal_advertencias", rotulo: "Canal de advertências" },
 ] as const;
+
+/** Configuração administrativa, exibida somente ao Super Owner. */
+export const CANAL_DIVULGACAO_CONFIG = {
+  chave: "canal_divulgacao",
+  rotulo: "Canal de divulgação global",
+} as const;
 
 /* ========== Diplomacia entre gangs ========== */
 

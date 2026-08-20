@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { configuracoesQuery } from "@/lib/queries";
 import { salvarConfiguracoes } from "@/lib/dashboard.functions";
 import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
-import { CANAIS_CONFIG } from "@/lib/types";
+import { CANAIS_CONFIG, CANAL_DIVULGACAO_CONFIG } from "@/lib/types";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({
@@ -171,6 +171,31 @@ function Configuracoes() {
                 ))}
               </div>
             </section>
+
+            {user?.isSuperOwner ? (
+              <section className="card-gold p-5">
+                <h2 className="font-display text-xl">Divulgação global</h2>
+                <p className="text-sm text-muted-foreground">
+                  Somente o Super Owner define o canal que receberá as divulgações enviadas para
+                  todas as gangs.
+                </p>
+                <GoldRule className="my-4" />
+                <div className="space-y-1.5">
+                  <Label htmlFor={CANAL_DIVULGACAO_CONFIG.chave}>
+                    {CANAL_DIVULGACAO_CONFIG.rotulo}
+                  </Label>
+                  <Input
+                    id={CANAL_DIVULGACAO_CONFIG.chave}
+                    inputMode="numeric"
+                    placeholder="ID do canal"
+                    value={canais[CANAL_DIVULGACAO_CONFIG.chave] ?? ""}
+                    onChange={(e) =>
+                      setCanais({ ...canais, [CANAL_DIVULGACAO_CONFIG.chave]: e.target.value })
+                    }
+                  />
+                </div>
+              </section>
+            ) : null}
 
             <section className="card-gold p-5">
               <h2 className="font-display text-xl">Donos do painel</h2>
