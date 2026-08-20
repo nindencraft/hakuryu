@@ -330,24 +330,40 @@ function SetupScreen({ faltando }: { faltando: string[] }) {
 
 function BlockedScreen({ user }: { user: SessionUserView }) {
   return (
-    <CenteredCard>
-      <img
-        src={user.avatarUrl}
-        alt=""
-        width={72}
-        height={72}
-        className="ring-gold mx-auto h-18 w-18 rounded-full object-cover"
-      />
-      <h1 className="text-gold-gradient font-display mt-4 text-2xl font-semibold">Notícias Recentes</h1>
-      <div className="rule-gold my-5" aria-hidden />
-      <p className="text-sm text-muted-foreground">
-        Você não pertence a nenhuma gang.
-      </p>
-      <div className="mt-6 text-left"><NoticiasRecentes permitirCriar limite={3} /></div>
-      <Button variant="outline" className="mt-6" asChild>
-        <a href="/api/public/auth/logout">Sair</a>
-      </Button>
-    </CenteredCard>
+    <div
+      className="flex min-h-screen bg-cover bg-center bg-no-repeat bg-scroll px-4 py-6 sm:px-8 sm:py-10 lg:bg-fixed"
+      style={{ backgroundImage: `url(${bgAsset.url})` }}
+    >
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 sm:gap-7">
+        <header className="card-gold flex flex-col gap-5 bg-white/94 p-5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-7">
+          <div className="flex min-w-0 items-center gap-4">
+            <img
+              src={user.avatarUrl}
+              alt=""
+              width={72}
+              height={72}
+              className="ring-gold h-16 w-16 shrink-0 rounded-full object-cover sm:h-18 sm:w-18"
+            />
+            <div className="min-w-0">
+              <p className="font-jp text-xs text-primary">新聞 · Hakuryū</p>
+              <h1 className="text-gold-gradient font-display mt-1 text-3xl font-semibold sm:text-4xl">
+                Notícias Recentes
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Você não pertence a nenhuma gang. Acompanhe os comunicados da comunidade.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" className="shrink-0" asChild>
+            <a href="/api/public/auth/logout">Sair</a>
+          </Button>
+        </header>
+
+        <section className="card-gold bg-white/94 p-5 text-left backdrop-blur-sm sm:p-7 lg:p-9">
+          <NoticiasRecentes permitirCriar />
+        </section>
+      </div>
+    </div>
   );
 }
 
