@@ -266,7 +266,7 @@ function InicioAutenticado() {
             <div className="relative max-w-2xl">
               <Badge variant="outline" className="border-primary/40">Seu ponto de encontro em Gakuran</Badge>
               <p className="font-jp mt-6 text-xs tracking-[0.2em] text-primary">白竜 · BEM-VINDO</p>
-              <h1 className="font-display mt-2 text-4xl leading-tight text-foreground sm:text-5xl">
+              <h1 className="font-display mt-2 max-w-full break-words text-3xl leading-tight text-foreground sm:text-4xl">
                 Olá, {user.globalName ?? user.username}.
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">

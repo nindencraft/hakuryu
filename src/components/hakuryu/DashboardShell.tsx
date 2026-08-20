@@ -12,10 +12,8 @@ import {
   Shield,
   Users,
   Crown,
-  Home,
   Repeat,
   Mails,
-  Newspaper,
   Mic2,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -40,7 +38,6 @@ import { cn } from "@/lib/utils";
 import { NoticiasRecentes } from "@/components/hakuryu/Noticias";
 
 const NAV = [
-  { to: "/", label: "Página Inicial", icon: Home },
   { to: "/painel", label: "Visão Geral", icon: LayoutDashboard },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
@@ -48,7 +45,6 @@ const NAV = [
   { to: "/parcerias", label: "Alianças", icon: Handshake },
   { to: "/solicitacoes", label: "Solicitações", icon: Mails },
   { to: "/logs", label: "Logs", icon: ScrollText },
-  { to: "/noticias", label: "Notícias", icon: Newspaper },
 ];
 
 const NAV_ADMIN = [{ to: "/configuracoes", label: "Configurações", icon: Settings }];
@@ -60,7 +56,11 @@ const NAV_OWNER = [
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3 px-2 py-4">
+    <Link
+      to="/"
+      aria-label="Ir para a Página Inicial do Hakuryū"
+      className="flex items-center gap-3 rounded-md px-2 py-4 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
       <img
         src={logo}
         alt="Emblema do dragão branco Hakuryū"
@@ -74,7 +74,7 @@ function Brand() {
         </p>
         <p className="font-jp text-xs text-muted-foreground">白竜 · painel da gang</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
