@@ -44,9 +44,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { membrosQuery } from "@/lib/queries";
+import { cargosPainelPersonalizadosQuery, membrosQuery } from "@/lib/queries";
 import {
   advertirMembro,
+  alterarCargoPainelMembro,
   alterarStatusMembro,
   buscarMembrosDiscord,
   cadastrarMembroDiscord,
@@ -68,7 +69,7 @@ import {
   rotuloCargo,
 } from "@/lib/permissions";
 import { ATRIBUTOS_MEMBRO, NIVEIS_ATRIBUTO, TIPO_PUNICAO_OPCOES, type AtributosMembroValores } from "@/lib/types";
-import type { HistoricoAtributosMembro, Membro, MembroAtributos, Punicao } from "@/lib/types";
+import type { CargoPainelPersonalizado, HistoricoAtributosMembro, Membro, MembroAtributos, Punicao } from "@/lib/types";
 
 const TODOS = "__todos__";
 const STATUS_OPCOES = ["Ativo", "Inativo", "Afastado", "Em Analise"];
@@ -104,7 +105,11 @@ function Membros() {
   const podePunir = podeAdvertir(user);
   const podeVerRegistro = podeVerRegistroPunicoes(user);
   const cargosPermitidos = cargosAtribuiveis(user);
-  const podeTrocarCargo = cargosPermitidos.length > 0;
+  const { data: cargosPersonalizados = [] } = useQuery({
+    ...cargosPainelPersonalizadosQuery,
+    enabled: podeGerenciar,
+  });
+  const podeTrocarCargo = cargosPermitidos.length > 0 || (podeGerenciar && cargosPersonalizados.length > 0);
   const { data, isPending, error } = useQuery(membrosQuery);
 
   const [busca, setBusca] = useState("");
@@ -325,7 +330,7 @@ function Membros() {
       <AtributosDialog membro={avaliando} onClose={() => setAvaliando(null)} />
       <HistoricoAtributosDialog membro={historicoAtributos} onClose={() => setHistoricoAtributos(null)} />
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
-      <TrocarCargoDialog membro={trocando} onClose={() => setTrocando(null)} />
+      <TrocarCargoDialog membro={trocando} cargosPersonalizados={cargosPersonalizados} onClose={() => setTrocando(null)} />
       <HistoricoDialog membro={historico} onClose={() => setHistorico(null)} />
 
       <AlertDialog open={!!removendo} onOpenChange={(o) => !o && setRemovendo(null)}>
@@ -680,11 +685,12 @@ function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: (
   );
 }
 
-function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+function TrocarCargoDialog({ membro, cargosPersonalizados, onClose }: { membro: Membro | null; cargosPersonalizados: CargoPainelPersonalizado[]; onClose: () => void }) {
   const user = useSessionUser();
   const opcoesCargo = cargosAtribuiveis(user);
   const podeStatus = podeGerenciarMembros(user);
   const [cargos, setCargos] = useState<string[]>(parseCargos(membro?.cargo));
+  const [cargosPainelIds, setCargosPainelIds] = useState<string[]>(membro?.cargos_painel_ids ?? []);
   const [status, setStatus] = useState(membro?.status ?? "Ativo");
   const cargoAcao = useAcao<{ membroId: string; cargos: string[] }>(trocarCargo, {
     sucesso: "Cargos atualizados.",
@@ -693,6 +699,10 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
   const statusAcao = useAcao<{ membroId: string; status: string }>(alterarStatusMembro, {
     sucesso: "Status atualizado.",
     invalidar: [["membros"]],
+  });
+  const cargoPainelAcao = useAcao<{ membroId: string; cargoPainelId: number; ativo: boolean }>(alterarCargoPainelMembro, {
+    sucesso: "Cargo personalizado atualizado no Discord.",
+    invalidar: [["membros"], ["session"]],
   });
 
   const alternar = (c: string) =>
@@ -707,6 +717,7 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
         if (!o) onClose();
         else if (membro) {
           setCargos(parseCargos(membro.cargo));
+          setCargosPainelIds(membro.cargos_painel_ids ?? []);
           setStatus(membro.status);
         }
       }}
@@ -749,6 +760,40 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
               </p>
             ) : null}
           </div>
+          {cargosPersonalizados.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Cargos personalizados</Label>
+              <p className="text-xs text-muted-foreground">
+                Estes cargos são adicionados ou removidos diretamente no Discord e liberam as permissões configuradas para a gang.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {cargosPersonalizados.map((cargoPainel) => {
+                  const ativo = cargosPainelIds.includes(cargoPainel.discordRoleId);
+                  return (
+                    <button
+                      key={cargoPainel.id}
+                      type="button"
+                      aria-pressed={ativo}
+                      onClick={() =>
+                        setCargosPainelIds((atuais) =>
+                          ativo
+                            ? atuais.filter((id) => id !== cargoPainel.discordRoleId)
+                            : [...atuais, cargoPainel.discordRoleId],
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        ativo
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      {cargoPainel.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2" hidden={!podeStatus}>
             <Label>Status</Label>
             <Select value={status} onValueChange={setStatus} disabled={!podeStatus}>
@@ -770,7 +815,7 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
             Cancelar
           </Button>
           <Button
-            disabled={cargoAcao.isPending || statusAcao.isPending || cargos.length === 0}
+            disabled={cargoAcao.isPending || cargoPainelAcao.isPending || statusAcao.isPending || (cargos.length === 0 && cargosPainelIds.length === 0)}
             onClick={async () => {
               if (!membro) return;
               const mudouCargos =
@@ -781,6 +826,19 @@ function TrocarCargoDialog({ membro, onClose }: { membro: Membro | null; onClose
                   .join(",");
               if (mudouCargos)
                 await cargoAcao.mutateAsync({ membroId: membro.discord_id, cargos });
+              const antigosCargosPainel = new Set(membro.cargos_painel_ids ?? []);
+              const novosCargosPainel = new Set(cargosPainelIds);
+              for (const cargoPainel of cargosPersonalizados) {
+                const tinha = antigosCargosPainel.has(cargoPainel.discordRoleId);
+                const tem = novosCargosPainel.has(cargoPainel.discordRoleId);
+                if (tinha !== tem) {
+                  await cargoPainelAcao.mutateAsync({
+                    membroId: membro.discord_id,
+                    cargoPainelId: cargoPainel.id,
+                    ativo: tem,
+                  });
+                }
+              }
               if (status !== membro.status)
                 await statusAcao.mutateAsync({ membroId: membro.discord_id, status });
               onClose();

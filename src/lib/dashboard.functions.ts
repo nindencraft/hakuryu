@@ -407,6 +407,12 @@ export const excluirCargoPainelPersonalizado = createServerFn({ method: "POST" }
     svc.excluirCargoPainelPersonalizado(await svc.requireUser(getRequest()), data.id),
   );
 
+export const alterarCargoPainelMembro = createServerFn({ method: "POST" })
+  .inputValidator((data: { membroId: string; cargoPainelId: number; ativo: boolean }) => data)
+  .handler(async ({ data }) =>
+    svc.alterarCargoPainelMembro(await svc.requireUser(getRequest()), data),
+  );
+
 export const fetchLogs = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ logs: LogPartida[]; tabelaAusente: boolean }> => {
     const user = await svc.requireUser(getRequest());

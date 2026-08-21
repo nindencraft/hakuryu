@@ -224,19 +224,27 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
   // O Discord é a fonte da verdade dos cargos (o banco guarda só o principal).
   const { fetchRolesDeTodos } = await import("./discord.server");
   const { mapaCargos, canonizarCargos } = await import("./cargos.server");
-  const [rolesDiscord, mapa] = await Promise.all([
+  const { listarCargosPainel } = await import("./cargos-painel.server");
+  const [rolesDiscord, mapa, cargosPainel] = await Promise.all([
     fetchRolesDeTodos(user.guildId),
     mapaCargos(g),
+    listarCargosPainel(g),
   ]);
 
   return membros.map((m) => ({
     ...m,
-    cargo: (() => {
-      const doDiscord = rolesDiscord?.get(m.discord_id);
-      const lista = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
-      return lista.length ? lista.join(", ") : m.cargo;
-    })(),
-    divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
+      cargo: (() => {
+        const doDiscord = rolesDiscord?.get(m.discord_id);
+        const lista = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
+        return lista.length ? lista.join(", ") : m.cargo;
+      })(),
+      cargos_painel_ids: (() => {
+        const ids = new Set(rolesDiscord?.get(m.discord_id)?.ids ?? []);
+        return cargosPainel
+          .filter((cargoPainel) => ids.has(cargoPainel.discordRoleId))
+          .map((cargoPainel) => cargoPainel.discordRoleId);
+      })(),
+      divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
     warns: warns.get(m.discord_id) ?? 0,
     stats: stats.get(m.discord_id) ?? { internos: 0, amistosos: 0, guerras: 0 },
     atributos: atributosPadrao(m.discord_id),
@@ -756,6 +764,49 @@ export async function trocarCargo(
     }
   }
 
+  return { ok: true };
+}
+
+/**
+ * Atribui ou remove um cargo personalizado diretamente no Discord. Esses cargos
+ * continuam fora da coluna curta `membros.cargo`, reservada à hierarquia legada.
+ */
+export async function alterarCargoPainelMembro(
+  user: SessionUser,
+  input: { membroId: string; cargoPainelId: number; ativo: boolean },
+) {
+  assert(podeGerenciarMembros(user), "Você não pode gerenciar os cargos deste membro.");
+  const g = gid(user);
+  const membroId = (input.membroId ?? "").replace(/\D/g, "");
+  assert(/^\d{17,20}$/.test(membroId), "Membro inválido.");
+  assert(Number.isInteger(input.cargoPainelId) && input.cargoPainelId > 0, "Cargo personalizado inválido.");
+
+  const db = getDb();
+  const { data: membro, error: erroMembro } = await db
+    .from("membros")
+    .select("discord_id")
+    .eq("gang_id", g)
+    .eq("discord_id", membroId)
+    .maybeSingle();
+  if (erroMembro) throw new Error(erroMembro.message);
+  assert(!!membro, "Este usuário não está cadastrado nesta gang.");
+
+  const { listarCargosPainel } = await import("./cargos-painel.server");
+  const cargoPainel = (await listarCargosPainel(g)).find((cargo) => cargo.id === input.cargoPainelId);
+  assert(!!cargoPainel, "Cargo personalizado não encontrado nesta gang.");
+
+  const { ajustarCargoPorId, fetchRolesAtuais } = await import("./discord.server");
+  const atuais = await fetchRolesAtuais(membroId, user.guildId);
+  if (!atuais) throw new Error("Não foi possível confirmar os cargos atuais deste usuário no Discord.");
+  const jaPossui = atuais.ids.includes(cargoPainel.discordRoleId);
+  if (jaPossui !== input.ativo) {
+    await ajustarCargoPorId(
+      membroId,
+      cargoPainel.discordRoleId,
+      input.ativo ? "add" : "remove",
+      user.guildId,
+    );
+  }
   return { ok: true };
 }
 

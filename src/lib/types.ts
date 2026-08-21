@@ -60,6 +60,7 @@ export type Membro = {
   status: string;
   data_entrada: string | null;
   avatar_hash: string | null;
+  cargos_painel_ids: string[];
   warns: number;
   stats: { internos: number; amistosos: number; guerras: number };
   atributos: MembroAtributos;
