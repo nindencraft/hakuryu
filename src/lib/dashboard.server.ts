@@ -286,12 +286,20 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
   ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
 
   const inscricoes = unwrap(
-    await db.from("presencas_treino").select("treino_id, inscricao").eq("gang_id", g),
-  ) as { treino_id: number; inscricao: string | null }[];
+    await db
+      .from("presencas_treino")
+      .select("treino_id, inscricao, presenca, justificativa")
+      .eq("gang_id", g),
+  ) as {
+    treino_id: number;
+    inscricao: string | null;
+    presenca: string | null;
+    justificativa: string | null;
+  }[];
 
   const contagem = new Map<number, number>();
   for (const i of inscricoes) {
-    if (i.inscricao === "Confirmado") {
+    if (i.inscricao === "Confirmado" && i.presenca === "Pendente" && !i.justificativa) {
       contagem.set(i.treino_id, (contagem.get(i.treino_id) ?? 0) + 1);
     }
   }
@@ -1036,7 +1044,7 @@ export async function encerrarTreino(user: SessionUser, input: { treinoId: numbe
       treino_id: input.treinoId,
       membro_id: m.discord_id,
       gang_id: g,
-      inscricao: "Sem resposta",
+      inscricao: "Confirmado",
       presenca: "Ausente",
       justificativa: null,
       justificativa_status: "Nenhuma",
@@ -1193,7 +1201,7 @@ export async function ausentarSe(
         treino_id: input.treinoId,
         membro_id: membroId,
         gang_id: g,
-        inscricao: "Sem resposta",
+        inscricao: "Confirmado",
         presenca: "Pendente",
         justificativa: motivo,
         justificativa_status: "Pendente",
@@ -1248,7 +1256,7 @@ export async function atualizarPresenca(
         treino_id: input.treinoId,
         membro_id: input.membroId,
         gang_id: g,
-        inscricao: registroAtual?.inscricao === "Confirmado" ? "Confirmado" : "Sem resposta",
+        inscricao: "Confirmado",
         presenca: input.presenca,
         justificativa,
         justificativa_status: justificativaStatus,
