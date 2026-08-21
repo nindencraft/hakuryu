@@ -3,6 +3,15 @@ import { guildIdAtivo, lerConfigEscopo, chaveCargo } from "./settings.server";
 
 type GuildMember = { roles: string[]; nick?: string | null };
 type GuildRole = { id: string; name: string };
+const TEMPO_LIMITE_DISCORD_MS = 8_000;
+
+/** Impede que indisponibilidade externa mantenha uma rota autenticada carregando indefinidamente. */
+export function requisitarDiscord(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(TEMPO_LIMITE_DISCORD_MS),
+  });
+}
 
 /** Contexto da gang usada na chamada (servidor Discord + configurações). */
 export type CtxDiscord = {
@@ -32,14 +41,14 @@ export async function fetchCargosAtuais(discordId: string, guildIdSessao?: strin
   try {
     const guildId = await resolverGuild(guildIdSessao);
     if (!guildId) return null;
-    const memberRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`, {
+    const memberRes = await requisitarDiscord(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`, {
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
     if (memberRes.status === 404) return [];
     if (!memberRes.ok) return null;
     const member = (await memberRes.json()) as GuildMember;
 
-    const rolesRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+    const rolesRes = await requisitarDiscord(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
     if (!rolesRes.ok) return null;
@@ -66,7 +75,7 @@ export async function fetchRolesAtuais(
     const guildId = await resolverGuild(guildIdSessao);
     if (!guildId) return null;
     const headers = { Authorization: `Bot ${config.discordBotToken}` };
-    const memberRes = await fetch(
+    const memberRes = await requisitarDiscord(
       `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
       { headers },
     );
@@ -74,7 +83,7 @@ export async function fetchRolesAtuais(
     if (!memberRes.ok) return null;
     const member = (await memberRes.json()) as GuildMember;
 
-    const rolesRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+    const rolesRes = await requisitarDiscord(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
       headers,
     });
     const allRoles = rolesRes.ok ? ((await rolesRes.json()) as GuildRole[]) : [];
@@ -426,7 +435,7 @@ export async function fetchGuildInfo(guildId?: string): Promise<GuildInfo | null
   try {
     const id = await resolverGuild(guildId);
     if (!id) return null;
-    const res = await fetch(`https://discord.com/api/v10/guilds/${id}`, {
+    const res = await requisitarDiscord(`https://discord.com/api/v10/guilds/${id}`, {
       headers: { Authorization: `Bot ${config.discordBotToken}` },
     });
     if (!res.ok) return null;
