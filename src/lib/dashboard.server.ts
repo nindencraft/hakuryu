@@ -373,11 +373,14 @@ export async function loadPresencas(
     avaliado_em: string | null;
   }[];
 
+  if (presencas.length === 0) return [];
+
   const membros = unwrap(
     await db
       .from("membros")
       .select("discord_id, discord_username, nome_rp, avatar_hash, status")
-      .eq("gang_id", g),
+      .eq("gang_id", g)
+      .in("discord_id", presencas.map((presenca) => presenca.membro_id)),
   ) as {
     discord_id: string;
     discord_username: string | null;
@@ -386,22 +389,21 @@ export async function loadPresencas(
     status: string | null;
   }[];
 
-  const porId = new Map(presencas.map((p) => [p.membro_id, p]));
-  return membros
-    .filter((m) => !m.status || m.status === "Ativo")
-    .map((m) => {
-      const p = porId.get(m.discord_id);
+  const porId = new Map(membros.map((membro) => [membro.discord_id, membro]));
+  return presencas.flatMap((p) => {
+      const m = porId.get(p.membro_id);
+      if (!m) return [];
       return {
-        membro_id: m.discord_id,
+        membro_id: p.membro_id,
         discord_username: m.discord_username,
         nome_rp: m.nome_rp,
         avatar_hash: m.avatar_hash,
-        inscricao: p?.inscricao ?? null,
-        presenca: p?.presenca ?? "Pendente",
-        justificativa: p?.justificativa ?? null,
-        justificativa_status: p?.justificativa_status ?? "Nenhuma",
-        avaliado_por: p?.avaliado_por ?? null,
-        avaliado_em: p?.avaliado_em ?? null,
+        inscricao: p.inscricao,
+        presenca: p.presenca ?? "Pendente",
+        justificativa: p.justificativa,
+        justificativa_status: p.justificativa_status ?? "Nenhuma",
+        avaliado_por: p.avaliado_por,
+        avaliado_em: p.avaliado_em,
       };
     });
 }
@@ -1094,9 +1096,22 @@ export async function adiarTreino(
   return { ok: true };
 }
 
+async function idDoMembroNaGang(user: SessionUser): Promise<string> {
+  const { data, error } = await getDb()
+    .from("membros")
+    .select("discord_id")
+    .eq("gang_id", gid(user))
+    .eq("discord_id", user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  assert(!!data, "Você precisa estar cadastrado como membro desta gang para responder ao evento.");
+  return String((data as { discord_id: string }).discord_id);
+}
+
 export async function inscreverSe(user: SessionUser, input: { treinoId: number }) {
   const db = getDb();
   const g = gid(user);
+  const membroId = await idDoMembroNaGang(user);
   const { data: treino } = await db
     .from("treinos")
     .select("status")
@@ -1114,7 +1129,7 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
     .select("membro_id")
     .eq("gang_id", g)
     .eq("treino_id", input.treinoId)
-    .eq("membro_id", user.id)
+    .eq("membro_id", membroId)
     .maybeSingle();
   if (errSel) throw new Error(errSel.message);
 
@@ -1131,14 +1146,14 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
       })
       .eq("gang_id", g)
       .eq("treino_id", input.treinoId)
-      .eq("membro_id", user.id);
+      .eq("membro_id", membroId);
     if (error) throw new Error(error.message);
     return { ok: true };
   }
 
   const { error } = await db.from("presencas_treino").insert({
     treino_id: input.treinoId,
-    membro_id: user.id,
+    membro_id: membroId,
     inscricao: "Confirmado",
     presenca: "Pendente",
     justificativa: null,
@@ -1159,6 +1174,7 @@ export async function ausentarSe(
   }
   const db = getDb();
   const g = gid(user);
+  const membroId = await idDoMembroNaGang(user);
   const { data: treino, error: erroTreino } = await db
     .from("treinos")
     .select("status")
@@ -1175,7 +1191,7 @@ export async function ausentarSe(
     .upsert(
       {
         treino_id: input.treinoId,
-        membro_id: user.id,
+        membro_id: membroId,
         gang_id: g,
         inscricao: "Não vou",
         presenca: "Pendente",
@@ -1246,12 +1262,13 @@ export async function minhaInscricao(
   input: { treinoId: number },
 ): Promise<string | null> {
   const db = getDb();
+  const membroId = await idDoMembroNaGang(user);
   const { data, error } = await db
     .from("presencas_treino")
     .select("inscricao")
     .eq("gang_id", gid(user))
     .eq("treino_id", input.treinoId)
-    .eq("membro_id", user.id)
+    .eq("membro_id", membroId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as { inscricao: string | null } | null)?.inscricao ?? null;
