@@ -823,7 +823,9 @@ export async function alterarCargoPainelMembro(
 
   const { listarCargosPainel } = await import("./cargos-painel.server");
   const cargoPainel = (await listarCargosPainel(g)).find((cargo) => cargo.id === input.cargoPainelId);
-  assert(!!cargoPainel, "Cargo personalizado não encontrado nesta gang.");
+  if (!cargoPainel) {
+    throw new Error("Cargo personalizado não encontrado nesta gang.");
+  }
 
   const { ajustarCargoPorId, fetchRolesAtuais } = await import("./discord.server");
   const atuais = await fetchRolesAtuais(membroId, user.guildId);
@@ -1819,9 +1821,9 @@ export async function salvarParceria(
   const linhasExistentes = unwrap(
     await db
       .from("parcerias")
-      .select(`${colunaId}, nome, tag, link_servidor`)
+      .select("*")
       .eq("gang_id", g),
-  ) as ({ nome: string | null; tag: string | null; link_servidor: string | null } & Record<string, unknown>)[];
+  ) as unknown as ({ nome: string | null; tag: string | null; link_servidor: string | null } & Record<string, unknown>)[];
   const duplicada = encontrarParceriaDuplicada(
     linhasExistentes.map((linha) => ({
       id: Number(linha[colunaId]),
@@ -2098,7 +2100,7 @@ export async function loadConfiguracoesPainel(user: SessionUser) {
   );
   const { loadConfiguracoes } = await import("./settings.server");
   const configuracoes = await loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
-  if (!user.isSuperOwner) delete configuracoes.canais.canal_divulgacao;
+  if (!user.isSuperOwner) delete configuracoes.canais["canal_divulgacao"];
   return configuracoes;
 }
 
