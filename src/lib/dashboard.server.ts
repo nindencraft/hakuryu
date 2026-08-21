@@ -26,6 +26,9 @@ import {
   type MembroAtributos,
   type HistoricoAtributosMembro,
   type AtributosMembroValores,
+  type ConfigInatividade,
+  type RegistroAtividade,
+  type ResumoAtividade,
   type Parceria,
   type PresencaTreino,
   type Punicao,
@@ -357,34 +360,50 @@ export async function loadPresencas(
   const presencas = unwrap(
     await db
       .from("presencas_treino")
-      .select("membro_id, inscricao, presenca")
+      .select("membro_id, inscricao, presenca, justificativa, justificativa_status, avaliado_por, avaliado_em")
       .eq("gang_id", g)
       .eq("treino_id", treinoId),
-  ) as { membro_id: string; inscricao: string | null; presenca: string | null }[];
-
-  if (presencas.length === 0) return [];
+  ) as {
+    membro_id: string;
+    inscricao: string | null;
+    presenca: string | null;
+    justificativa: string | null;
+    justificativa_status: "Nenhuma" | "Pendente" | "Aceita" | "Recusada" | null;
+    avaliado_por: string | null;
+    avaliado_em: string | null;
+  }[];
 
   const membros = unwrap(
     await db
       .from("membros")
-      .select("discord_id, discord_username, nome_rp, avatar_hash")
-      .eq("gang_id", g)
-      .in(
-        "discord_id",
-        presencas.map((p) => p.membro_id),
-      ),
-  ) as { discord_id: string; discord_username: string | null; nome_rp: string | null; avatar_hash: string | null }[];
+      .select("discord_id, discord_username, nome_rp, avatar_hash, status")
+      .eq("gang_id", g),
+  ) as {
+    discord_id: string;
+    discord_username: string | null;
+    nome_rp: string | null;
+    avatar_hash: string | null;
+    status: string | null;
+  }[];
 
-  const porId = new Map(membros.map((m) => [m.discord_id, m]));
-
-  return presencas.map((p) => ({
-    membro_id: p.membro_id,
-    discord_username: porId.get(p.membro_id)?.discord_username ?? null,
-    nome_rp: porId.get(p.membro_id)?.nome_rp ?? null,
-    avatar_hash: porId.get(p.membro_id)?.avatar_hash ?? null,
-    inscricao: p.inscricao,
-    presenca: p.presenca ?? "Pendente",
-  }));
+  const porId = new Map(presencas.map((p) => [p.membro_id, p]));
+  return membros
+    .filter((m) => !m.status || m.status === "Ativo")
+    .map((m) => {
+      const p = porId.get(m.discord_id);
+      return {
+        membro_id: m.discord_id,
+        discord_username: m.discord_username,
+        nome_rp: m.nome_rp,
+        avatar_hash: m.avatar_hash,
+        inscricao: p?.inscricao ?? null,
+        presenca: p?.presenca ?? "Pendente",
+        justificativa: p?.justificativa ?? null,
+        justificativa_status: p?.justificativa_status ?? "Nenhuma",
+        avaliado_por: p?.avaliado_por ?? null,
+        avaliado_em: p?.avaliado_em ?? null,
+      };
+    });
 }
 
 export async function loadHistorico(
@@ -999,9 +1018,53 @@ export async function encerrarTreino(user: SessionUser, input: { treinoId: numbe
   assert(podeGerenciarTreinos(user));
   await requireDonoTreino(user, input.treinoId);
   const db = getDb();
+  const g = gid(user);
+
+  // Todo membro ativo elegível que não respondeu fica registrado como ausente.
+  // ignoreDuplicates preserva respostas e avaliações existentes.
+  const membros = unwrap(
+    await db
+      .from("membros")
+      .select("discord_id, status")
+      .eq("gang_id", g),
+  ) as { discord_id: string; status: string | null }[];
+  const ausenciasAutomaticas = membros
+    .filter((m) => !m.status || m.status === "Ativo")
+    .map((m) => ({
+      treino_id: input.treinoId,
+      membro_id: m.discord_id,
+      gang_id: g,
+      inscricao: "Sem resposta",
+      presenca: "Ausente",
+      justificativa: null,
+      justificativa_status: "Nenhuma",
+    }));
+
+  if (ausenciasAutomaticas.length > 0) {
+    const { error: erroAusencias } = await db
+      .from("presencas_treino")
+      .upsert(ausenciasAutomaticas, {
+        onConflict: "treino_id,membro_id",
+        ignoreDuplicates: true,
+      });
+    if (erroAusencias) throw new Error(erroAusencias.message);
+  }
+
   const { error } = await db
     .from("treinos")
     .update({ status: "Encerrado" })
+    .eq("gang_id", g)
+    .eq("id_treino", input.treinoId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function reabrirTreino(user: SessionUser, input: { treinoId: number }) {
+  assert(user.isSuperOwner, "Apenas o Super Owner pode reabrir um evento encerrado.");
+  const db = getDb();
+  const { error } = await db
+    .from("treinos")
+    .update({ status: "Aberto" })
     .eq("gang_id", gid(user))
     .eq("id_treino", input.treinoId);
   if (error) throw new Error(error.message);
@@ -1058,7 +1121,14 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
   if (existente) {
     const { error } = await db
       .from("presencas_treino")
-      .update({ inscricao: "Confirmado" })
+      .update({
+        inscricao: "Confirmado",
+        presenca: "Pendente",
+        justificativa: null,
+        justificativa_status: "Nenhuma",
+        avaliado_por: null,
+        avaliado_em: null,
+      })
       .eq("gang_id", g)
       .eq("treino_id", input.treinoId)
       .eq("membro_id", user.id);
@@ -1071,20 +1141,51 @@ export async function inscreverSe(user: SessionUser, input: { treinoId: number }
     membro_id: user.id,
     inscricao: "Confirmado",
     presenca: "Pendente",
+    justificativa: null,
+    justificativa_status: "Nenhuma",
     gang_id: g,
   });
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
-export async function ausentarSe(user: SessionUser, input: { treinoId: number }) {
+export async function ausentarSe(
+  user: SessionUser,
+  input: { treinoId: number; justificativa: string },
+) {
+  const motivo = input.justificativa.trim();
+  if (motivo.length < 3) {
+    throw new Error("Explique o motivo da ausência antes de enviar a justificativa.");
+  }
   const db = getDb();
+  const g = gid(user);
+  const { data: treino, error: erroTreino } = await db
+    .from("treinos")
+    .select("status")
+    .eq("gang_id", g)
+    .eq("id_treino", input.treinoId)
+    .maybeSingle();
+  if (erroTreino) throw new Error(erroTreino.message);
+  if (!treino || (treino.status && treino.status !== "Aberto")) {
+    throw new Error("Este evento não aceita mais justificativas.");
+  }
+
   const { error } = await db
     .from("presencas_treino")
-    .delete()
-    .eq("gang_id", gid(user))
-    .eq("treino_id", input.treinoId)
-    .eq("membro_id", user.id);
+    .upsert(
+      {
+        treino_id: input.treinoId,
+        membro_id: user.id,
+        gang_id: g,
+        inscricao: "Não vou",
+        presenca: "Pendente",
+        justificativa: motivo,
+        justificativa_status: "Pendente",
+        avaliado_por: null,
+        avaliado_em: null,
+      },
+      { onConflict: "treino_id,membro_id" },
+    );
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -1094,14 +1195,48 @@ export async function atualizarPresenca(
   input: { treinoId: number; membroId: string; presenca: string },
 ) {
   assert(podeGerenciarTreinos(user));
-  await requireDonoTreino(user, input.treinoId);
+  const treino = await requireDonoTreino(user, input.treinoId);
+  if (treino.status === "Encerrado" || treino.status === "Cancelado") {
+    throw new Error("O evento está encerrado. Apenas o Super Owner pode reabri-lo.");
+  }
   const db = getDb();
+  const g = gid(user);
+  const { data: atual, error: erroAtual } = await db
+    .from("presencas_treino")
+    .select("justificativa, justificativa_status")
+    .eq("gang_id", g)
+    .eq("treino_id", input.treinoId)
+    .eq("membro_id", input.membroId)
+    .maybeSingle();
+  if (erroAtual) throw new Error(erroAtual.message);
+  const justificativa = (atual as { justificativa?: string | null } | null)?.justificativa ?? null;
+  if (input.presenca === "Justificado" && !justificativa) {
+    throw new Error("Só é possível justificar uma ausência que tenha um motivo enviado pelo membro.");
+  }
+  const justificativaStatus =
+    input.presenca === "Justificado"
+      ? "Aceita"
+      : justificativa
+        ? input.presenca === "Ausente"
+          ? "Recusada"
+          : "Pendente"
+        : "Nenhuma";
   const { error } = await db
     .from("presencas_treino")
-    .update({ presenca: input.presenca })
-    .eq("gang_id", gid(user))
-    .eq("treino_id", input.treinoId)
-    .eq("membro_id", input.membroId);
+    .upsert(
+      {
+        treino_id: input.treinoId,
+        membro_id: input.membroId,
+        gang_id: g,
+        inscricao: "Avaliado pela liderança",
+        presenca: input.presenca,
+        justificativa,
+        justificativa_status: justificativaStatus,
+        avaliado_por: user.id,
+        avaliado_em: new Date().toISOString(),
+      },
+      { onConflict: "treino_id,membro_id" },
+    );
   if (error) throw new Error(error.message);
   return { ok: true };
 }
@@ -1120,6 +1255,175 @@ export async function minhaInscricao(
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as { inscricao: string | null } | null)?.inscricao ?? null;
+}
+
+/* ========== Atividade e inatividade ========== */
+
+const CONFIG_INATIVIDADE_PADRAO: ConfigInatividade = {
+  dias_limite: 30,
+  percentual_minimo: 50,
+  alerta_ativo: true,
+};
+
+export type FiltroAtividade = {
+  membroId?: string | null;
+  inicio?: string | null;
+  fim?: string | null;
+  tipoEvento?: string | null;
+};
+
+export async function loadConfigInatividade(user: SessionUser): Promise<ConfigInatividade> {
+  const { data, error } = await getDb()
+    .from("config_inatividade")
+    .select("dias_limite, percentual_minimo, alerta_ativo")
+    .eq("gang_id", gid(user))
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return CONFIG_INATIVIDADE_PADRAO;
+  return {
+    dias_limite: data.dias_limite ?? CONFIG_INATIVIDADE_PADRAO.dias_limite,
+    percentual_minimo: data.percentual_minimo ?? CONFIG_INATIVIDADE_PADRAO.percentual_minimo,
+    alerta_ativo: data.alerta_ativo ?? CONFIG_INATIVIDADE_PADRAO.alerta_ativo,
+  };
+}
+
+export async function salvarConfigInatividade(
+  user: SessionUser,
+  input: ConfigInatividade,
+) {
+  assert(podeGerenciarTreinos(user), "Você não pode alterar os alertas de atividade.");
+  const dias = Math.trunc(Number(input.dias_limite));
+  const percentual = Math.trunc(Number(input.percentual_minimo));
+  if (dias < 7 || dias > 365) throw new Error("O limite de inatividade deve estar entre 7 e 365 dias.");
+  if (percentual < 0 || percentual > 100) throw new Error("O percentual mínimo deve estar entre 0% e 100%.");
+
+  const { error } = await getDb().from("config_inatividade").upsert(
+    {
+      gang_id: gid(user),
+      dias_limite: dias,
+      percentual_minimo: percentual,
+      alerta_ativo: !!input.alerta_ativo,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "gang_id" },
+  );
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) {
+  const db = getDb();
+  const g = gid(user);
+  let consulta = db
+    .from("presencas_treino")
+    .select(
+      "treino_id, membro_id, presenca, justificativa, justificativa_status, avaliado_por, avaliado_em, treinos!inner(titulo, tipo, data_treino, status)",
+    )
+    .eq("gang_id", g);
+  if (filtro.membroId) consulta = consulta.eq("membro_id", filtro.membroId);
+  const { data, error } = await consulta;
+  if (error) throw new Error(error.message);
+
+  const membros = unwrap(
+    await db
+      .from("membros")
+      .select("discord_id, discord_username, nome_rp, avatar_hash, status")
+      .eq("gang_id", g),
+  ) as {
+    discord_id: string;
+    discord_username: string | null;
+    nome_rp: string | null;
+    avatar_hash: string | null;
+    status: string | null;
+  }[];
+  const porMembro = new Map(membros.map((m) => [m.discord_id, m]));
+
+  const registros = ((data ?? []) as {
+    treino_id: number;
+    membro_id: string;
+    presenca: string | null;
+    justificativa: string | null;
+    justificativa_status: "Nenhuma" | "Pendente" | "Aceita" | "Recusada" | null;
+    avaliado_por: string | null;
+    avaliado_em: string | null;
+    treinos: { titulo: string; tipo: string; data_treino: string; status: string | null } | {
+      titulo: string;
+      tipo: string;
+      data_treino: string;
+      status: string | null;
+    }[];
+  }[])
+    .map((linha) => {
+      const evento = Array.isArray(linha.treinos) ? linha.treinos[0] : linha.treinos;
+      const membro = porMembro.get(linha.membro_id);
+      return {
+        id: linha.treino_id,
+        treino_id: linha.treino_id,
+        membro_id: linha.membro_id,
+        titulo_evento: evento?.titulo ?? "Evento removido",
+        tipo_evento: evento?.tipo ?? "Treino",
+        data_evento: evento?.data_treino ?? "",
+        status: (linha.presenca ?? "Pendente") as RegistroAtividade["status"],
+        justificativa: linha.justificativa,
+        justificativa_status: linha.justificativa_status ?? "Nenhuma",
+        avaliado_por: linha.avaliado_por,
+        avaliado_em: linha.avaliado_em,
+        discord_username: membro?.discord_username ?? null,
+        nome_rp: membro?.nome_rp ?? null,
+        avatar_hash: membro?.avatar_hash ?? null,
+        encerrado: evento?.status === "Encerrado",
+      };
+    })
+    .filter((r) => r.encerrado)
+    .filter((r) => !filtro.inicio || r.data_evento >= filtro.inicio)
+    .filter((r) => !filtro.fim || r.data_evento <= filtro.fim)
+    .filter((r) => !filtro.tipoEvento || r.tipo_evento === filtro.tipoEvento)
+    .map(({ encerrado: _encerrado, ...registro }) => registro as RegistroAtividade)
+    .sort((a, b) => b.data_evento.localeCompare(a.data_evento));
+
+  const config = await loadConfigInatividade(user);
+  const limite = new Date();
+  limite.setDate(limite.getDate() - config.dias_limite);
+  const limiteIso = limite.toISOString().slice(0, 10);
+  const agrupados = new Map<string, RegistroAtividade[]>();
+  for (const registro of registros) {
+    agrupados.set(registro.membro_id, [...(agrupados.get(registro.membro_id) ?? []), registro]);
+  }
+
+  const resumos = membros
+    .filter((m) => !m.status || m.status === "Ativo")
+    .filter((m) => !filtro.membroId || m.discord_id === filtro.membroId)
+    .map<ResumoAtividade>((membro) => {
+      const itens = agrupados.get(membro.discord_id) ?? [];
+      const presente = itens.filter((i) => i.status === "Presente").length;
+      const ausente = itens.filter((i) => i.status === "Ausente").length;
+      const justificado = itens.filter((i) => i.status === "Justificado").length;
+      const pendente = itens.filter((i) => i.status === "Pendente").length;
+      const total = itens.length;
+      const percentual = total > 0 ? Math.round(((presente + justificado) / total) * 100) : 0;
+      const recentes = itens.filter((i) => i.data_evento >= limiteIso);
+      const semPresencaRecente = recentes.length > 0 && !recentes.some(
+        (i) => i.status === "Presente" || i.status === "Justificado",
+      );
+      return {
+        membro_id: membro.discord_id,
+        discord_username: membro.discord_username,
+        nome_rp: membro.nome_rp,
+        avatar_hash: membro.avatar_hash,
+        presente,
+        ausente,
+        justificado,
+        pendente,
+        total,
+        percentual_presenca: percentual,
+        inativo: config.alerta_ativo && recentes.length > 0 && (
+          semPresencaRecente || percentual < config.percentual_minimo
+        ),
+      };
+    })
+    .sort((a, b) => Number(b.inativo) - Number(a.inativo) || a.nome_rp?.localeCompare(b.nome_rp ?? "") || 0);
+
+  return { registros, resumos, config };
 }
 
 /* ========== Escrita: divisões ========== */

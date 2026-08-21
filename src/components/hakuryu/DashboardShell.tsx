@@ -2,6 +2,7 @@ import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
+  ChartNoAxesCombined,
   Handshake,
   LayoutDashboard,
   Menu,
@@ -41,6 +42,7 @@ const NAV = [
   { to: "/painel", label: "Visão Geral", icon: LayoutDashboard },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/treinos", label: "Treinos", icon: CalendarDays },
+  { to: "/atividade", label: "Atividade", icon: ChartNoAxesCombined },
   { to: "/divisoes", label: "Divisões", icon: Shield },
   { to: "/parcerias", label: "Alianças", icon: Handshake },
   { to: "/solicitacoes", label: "Solicitações", icon: Mails },
@@ -132,6 +134,7 @@ function iconeGuild(guildId: string, hash: string | null): string | null {
   return hash ? `https://cdn.discordapp.com/icons/${guildId}/${hash}.png?size=64` : null;
 }
 
+/** Servidores registrados em que o usuário está: troca rápida de painel. */
 function GangsRail({
   gangAtivaId,
   onNavigate,

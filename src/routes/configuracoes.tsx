@@ -19,10 +19,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cargosPainelPersonalizadosQuery, configuracoesQuery } from "@/lib/queries";
+import { cargosPainelPersonalizadosQuery, configInatividadeQuery, configuracoesQuery } from "@/lib/queries";
 import {
   excluirCargoPainelPersonalizado,
   salvarCargoPainelPersonalizado,
+  salvarConfigInatividade,
   salvarConfiguracoes,
 } from "@/lib/dashboard.functions";
 import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
@@ -232,6 +233,7 @@ function Configuracoes() {
             </section>
           </div>
         </div>
+        <ConfigInatividadeCard />
         <GerenciadorCargosPersonalizados
           cargos={cargosPersonalizados.data ?? []}
           carregando={cargosPersonalizados.isPending}
@@ -239,6 +241,59 @@ function Configuracoes() {
         </>
       )}
     </>
+  );
+}
+
+function ConfigInatividadeCard() {
+  const { data, isPending } = useQuery(configInatividadeQuery);
+  const [dias, setDias] = useState("30");
+  const [percentual, setPercentual] = useState("50");
+  const [ativo, setAtivo] = useState(true);
+
+  useEffect(() => {
+    if (!data) return;
+    setDias(String(data.dias_limite));
+    setPercentual(String(data.percentual_minimo));
+    setAtivo(data.alerta_ativo);
+  }, [data]);
+
+  const acao = useAcao<{ dias_limite: number; percentual_minimo: number; alerta_ativo: boolean }>(
+    salvarConfigInatividade,
+    { sucesso: "Alertas de inatividade salvos.", invalidar: [["config-inatividade"], ["atividade"]] },
+  );
+
+  return (
+    <section className="card-gold mt-5 p-5">
+      <h2 className="font-display text-xl">Alertas de inatividade</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Um membro entra em alerta quando não possui presença ou justificativa válida no período recente, ou fica abaixo do percentual mínimo configurado.
+      </p>
+      <GoldRule className="my-4" />
+      {isPending ? <Skeleton className="h-28" /> : (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="atividade-dias">Janela de análise (dias)</Label>
+            <Input id="atividade-dias" type="number" min="7" max="365" value={dias} onChange={(e) => setDias(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="atividade-percentual">Participação mínima (%)</Label>
+            <Input id="atividade-percentual" type="number" min="0" max="100" value={percentual} onChange={(e) => setPercentual(e.target.value)} />
+          </div>
+          <div className="flex items-end gap-3 pb-2">
+            <Checkbox id="atividade-alerta" checked={ativo} onCheckedChange={(valor) => setAtivo(valor === true)} />
+            <Label htmlFor="atividade-alerta" className="cursor-pointer">Ativar alertas de inatividade</Label>
+          </div>
+        </div>
+      )}
+      <div className="mt-4 flex justify-end">
+        <Button
+          disabled={acao.isPending || isPending}
+          onClick={() => acao.mutate({ dias_limite: Number(dias), percentual_minimo: Number(percentual), alerta_ativo: ativo })}
+        >
+          Salvar alertas
+        </Button>
+      </div>
+    </section>
   );
 }
 

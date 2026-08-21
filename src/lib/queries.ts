@@ -15,6 +15,8 @@ import {
   fetchGuerras,
   fetchAnunciosPublicos,
   fetchBannerGlobal,
+  fetchAtividade,
+  fetchConfigInatividade,
   getSession,
 } from "./dashboard.functions";
 import { fetchRecrutamentosPublicos } from "./recrutamento.functions";
@@ -91,6 +93,20 @@ export const treinosQuery = queryOptions({
   queryFn: () => fetchTreinos(),
   staleTime: 30_000,
 });
+
+export const configInatividadeQuery = queryOptions({
+  queryKey: ["config-inatividade"],
+  queryFn: () => fetchConfigInatividade(),
+  staleTime: 10_000,
+});
+
+export function atividadeQuery(input: { membroId?: string | null; inicio?: string | null; fim?: string | null; tipoEvento?: string | null }) {
+  return queryOptions({
+    queryKey: ["atividade", input.membroId ?? null, input.inicio ?? null, input.fim ?? null, input.tipoEvento ?? null],
+    queryFn: () => fetchAtividade({ data: input }),
+    staleTime: 10_000,
+  });
+}
 
 export const divisoesQuery = queryOptions({
   queryKey: ["divisoes"],

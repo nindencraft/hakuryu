@@ -9,6 +9,7 @@ import { acessoGangPermitido } from "./acesso-gang";
 import type { SessionUserView } from "./permissions";
 import type {
   ConfiguracoesPainel,
+  ConfigInatividade,
   Divisao,
   GuildAtual,
   HistoricoAtributosMembro,
@@ -242,6 +243,18 @@ export const fetchMinhaInscricao = createServerFn({ method: "POST" })
     return { inscricao: await svc.minhaInscricao(user, data) };
   });
 
+export const fetchAtividade = createServerFn({ method: "POST" })
+  .inputValidator((data: { membroId?: string | null; inicio?: string | null; fim?: string | null; tipoEvento?: string | null }) => data)
+  .handler(async ({ data }) => svc.loadAtividade(await svc.requireUser(getRequest()), data));
+
+export const fetchConfigInatividade = createServerFn({ method: "GET" }).handler(async () =>
+  svc.loadConfigInatividade(await svc.requireUser(getRequest())),
+);
+
+export const salvarConfigInatividade = createServerFn({ method: "POST" })
+  .inputValidator((data: ConfigInatividade) => data)
+  .handler(async ({ data }) => svc.salvarConfigInatividade(await svc.requireUser(getRequest()), data));
+
 export const revogarPunicao = createServerFn({ method: "POST" })
   .inputValidator((data: { punicaoId: number }) => data)
   .handler(async ({ data }) => svc.revogarPunicao(await svc.requireUser(getRequest()), data));
@@ -286,6 +299,10 @@ export const encerrarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
   .handler(async ({ data }) => svc.encerrarTreino(await svc.requireUser(getRequest()), data));
 
+export const reabrirTreino = createServerFn({ method: "POST" })
+  .inputValidator((data: { treinoId: number }) => data)
+  .handler(async ({ data }) => svc.reabrirTreino(await svc.requireUser(getRequest()), data));
+
 export const adiarTreino = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number; data_treino: string; horario: string }) => data)
   .handler(async ({ data }) => svc.adiarTreino(await svc.requireUser(getRequest()), data));
@@ -295,7 +312,7 @@ export const inscreverSe = createServerFn({ method: "POST" })
   .handler(async ({ data }) => svc.inscreverSe(await svc.requireUser(getRequest()), data));
 
 export const ausentarSe = createServerFn({ method: "POST" })
-  .inputValidator((data: { treinoId: number }) => data)
+  .inputValidator((data: { treinoId: number; justificativa: string }) => data)
   .handler(async ({ data }) => svc.ausentarSe(await svc.requireUser(getRequest()), data));
 
 export const atualizarPresenca = createServerFn({ method: "POST" })

@@ -47,6 +47,7 @@ import {
   fetchPresencas,
   inscreverSe,
   encerrarTreino,
+  reabrirTreino,
   adiarTreino,
 } from "@/lib/dashboard.functions";
 import { podeGerenciarTreinos } from "@/lib/permissions";
@@ -85,6 +86,7 @@ function Treinos() {
   const [presencaDe, setPresencaDe] = useState<Treino | null>(null);
   const [deletando, setDeletando] = useState<Treino | null>(null);
   const [adiando, setAdiando] = useState<Treino | null>(null);
+  const [justificando, setJustificando] = useState<Treino | null>(null);
 
   const encerrarAcao = useAcao<{ treinoId: number }>(encerrarTreino, {
     sucesso: "Treino encerrado.",
@@ -94,6 +96,11 @@ function Treinos() {
   const deletarAcao = useAcao<{ treinoId: number }>(deletarTreino, {
     sucesso: "Treino removido.",
     invalidar: [["treinos"]],
+  });
+
+  const reabrirAcao = useAcao<{ treinoId: number }>(reabrirTreino, {
+    sucesso: "Evento reaberto para atualização de presença.",
+    invalidar: [["treinos"], ["atividade"]],
   });
 
   const treinos = [...(data ?? [])].sort((a, b) => b.data_treino.localeCompare(a.data_treino));
@@ -139,6 +146,9 @@ function Treinos() {
                 onDeletar={() => setDeletando(t)}
                 onAdiar={() => setAdiando(t)}
                 onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+                onJustificar={() => setJustificando(t)}
+                podeReabrir={!!user?.isSuperOwner}
+                onReabrir={() => reabrirAcao.mutate({ treinoId: t.id_treino })}
               />
             ))}
           </ul>
@@ -156,6 +166,9 @@ function Treinos() {
                     onDeletar={() => setDeletando(t)}
                     onAdiar={() => setAdiando(t)}
                     onEncerrar={() => encerrarAcao.mutate({ treinoId: t.id_treino })}
+                    onJustificar={() => setJustificando(t)}
+                    podeReabrir={!!user?.isSuperOwner}
+                    onReabrir={() => reabrirAcao.mutate({ treinoId: t.id_treino })}
                   />
                 ))}
               </ul>
@@ -169,6 +182,7 @@ function Treinos() {
 
       <CriarTreinoDialog open={criando} onClose={() => setCriando(false)} />
       <PresencaDialog treino={presencaDe} onClose={() => setPresencaDe(null)} />
+      <JustificativaDialog treino={justificando} onClose={() => setJustificando(null)} />
 
       <AlertDialog open={!!deletando} onOpenChange={(o) => !o && setDeletando(null)}>
         <AlertDialogContent>
@@ -202,6 +216,9 @@ function TreinoCard({
   onDeletar,
   onAdiar,
   onEncerrar,
+  onJustificar,
+  podeReabrir,
+  onReabrir,
 }: {
   treino: Treino;
   podeGerir: boolean;
@@ -209,6 +226,9 @@ function TreinoCard({
   onDeletar: () => void;
   onAdiar: () => void;
   onEncerrar: () => void;
+  onJustificar: () => void;
+  podeReabrir: boolean;
+  onReabrir: () => void;
 }) {
   const encerrado = treino.status === "Encerrado" || treino.status === "Cancelado";
   const { data } = useQuery({
@@ -219,10 +239,6 @@ function TreinoCard({
 
   const inscrever = useAcao<{ treinoId: number }>(inscreverSe, {
     sucesso: "Inscrição confirmada.",
-    invalidar: [["treinos"], ["inscricao", treino.id_treino]],
-  });
-  const ausentar = useAcao<{ treinoId: number }>(ausentarSe, {
-    sucesso: "Ausência registrada.",
     invalidar: [["treinos"], ["inscricao", treino.id_treino]],
   });
 
@@ -304,8 +320,8 @@ function TreinoCard({
         <Button
           size="sm"
           variant="outline"
-          disabled={ausentar.isPending || encerrado}
-          onClick={() => ausentar.mutate({ treinoId: treino.id_treino })}
+          disabled={encerrado}
+          onClick={onJustificar}
         >
           Não vou
         </Button>
@@ -323,6 +339,11 @@ function TreinoCard({
                   Encerrar
                 </Button>
               </>
+            ) : null}
+            {encerrado && podeReabrir ? (
+              <Button size="sm" variant="ghost" onClick={onReabrir}>
+                Reabrir
+              </Button>
             ) : null}
           </>
         ) : null}
@@ -482,18 +503,23 @@ function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: (
   );
 
   const lista = (data ?? []) as PresencaTreino[];
+  const encerrado = treino?.status === "Encerrado" || treino?.status === "Cancelado";
 
   return (
     <Dialog open={!!treino} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Presença — {treino?.titulo}</DialogTitle>
-          <DialogDescription>Marque a presença dos inscritos.</DialogDescription>
+          <DialogDescription>
+            {encerrado
+              ? "O evento está encerrado e o histórico não pode mais ser alterado."
+              : "Avalie as inscrições e justificativas enviadas pelos membros."}
+          </DialogDescription>
         </DialogHeader>
         {isPending ? (
           <Skeleton className="h-32" />
         ) : lista.length === 0 ? (
-          <EmptyState title="Ninguém inscrito" description="Ainda não há inscrições no treino." />
+          <EmptyState title="Nenhum membro elegível" description="Não há membros ativos registrados nesta gang." />
         ) : (
           <ul className="space-y-2">
             {lista.map((p) => (
@@ -514,9 +540,18 @@ function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: (
                   <p className="truncate text-xs text-muted-foreground">
                     {p.inscricao ?? "Sem inscrição"}
                   </p>
+                  {p.justificativa ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      Justificativa: {p.justificativa} ({p.justificativa_status})
+                    </p>
+                  ) : null}
                 </div>
+                <span aria-label={`Estado: ${p.presenca}`} className="text-base">
+                  {p.presenca === "Presente" ? "🟢" : p.presenca === "Justificado" ? "🟡" : p.presenca === "Ausente" ? "🔴" : "⚪"}
+                </span>
                 <Select
                   value={p.presenca}
+                  disabled={encerrado || acao.isPending}
                   onValueChange={(v) =>
                     treino &&
                     acao.mutate({
@@ -541,6 +576,54 @@ function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: (
             ))}
           </ul>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function JustificativaDialog({ treino, onClose }: { treino: Treino | null; onClose: () => void }) {
+  const [justificativa, setJustificativa] = useState("");
+  const acao = useAcao<{ treinoId: number; justificativa: string }>(ausentarSe, {
+    sucesso: "Justificativa enviada para avaliação da liderança.",
+    invalidar: [["treinos"], ["inscricao", treino?.id_treino ?? 0], ["presencas", treino?.id_treino ?? 0]],
+  });
+
+  return (
+    <Dialog
+      open={!!treino}
+      onOpenChange={(aberto) => {
+        if (!aberto) {
+          setJustificativa("");
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Justificar ausência</DialogTitle>
+          <DialogDescription>
+            Informe o motivo de não poder participar de “{treino?.titulo}”. A liderança avaliará o pedido antes de registrar a situação final.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="justificativa-ausencia">Motivo da ausência</Label>
+          <Textarea
+            id="justificativa-ausencia"
+            value={justificativa}
+            onChange={(event) => setJustificativa(event.target.value)}
+            placeholder="Explique de forma objetiva o motivo da ausência."
+            minLength={3}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button
+            disabled={justificativa.trim().length < 3 || acao.isPending || !treino}
+            onClick={() => treino && acao.mutate({ treinoId: treino.id_treino, justificativa }, { onSuccess: onClose })}
+          >
+            Enviar justificativa
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

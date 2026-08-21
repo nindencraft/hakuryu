@@ -94,6 +94,50 @@ export type PresencaTreino = {
   avatar_hash: string | null;
   inscricao: string | null;
   presenca: string;
+  justificativa: string | null;
+  justificativa_status: JustificativaStatus;
+  avaliado_por: string | null;
+  avaliado_em: string | null;
+};
+
+export type JustificativaStatus = "Nenhuma" | "Pendente" | "Aceita" | "Recusada";
+export type StatusAtividade = "Presente" | "Ausente" | "Justificado" | "Pendente";
+
+export type RegistroAtividade = {
+  id: number;
+  treino_id: number;
+  membro_id: string;
+  titulo_evento: string;
+  tipo_evento: string;
+  data_evento: string;
+  status: StatusAtividade;
+  justificativa: string | null;
+  justificativa_status: JustificativaStatus;
+  avaliado_por: string | null;
+  avaliado_em: string | null;
+  discord_username: string | null;
+  nome_rp: string | null;
+  avatar_hash: string | null;
+};
+
+export type ResumoAtividade = {
+  membro_id: string;
+  discord_username: string | null;
+  nome_rp: string | null;
+  avatar_hash: string | null;
+  presente: number;
+  ausente: number;
+  justificado: number;
+  pendente: number;
+  total: number;
+  percentual_presenca: number;
+  inativo: boolean;
+};
+
+export type ConfigInatividade = {
+  dias_limite: number;
+  percentual_minimo: number;
+  alerta_ativo: boolean;
 };
 
 export type Divisao = {
