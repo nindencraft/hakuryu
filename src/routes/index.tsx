@@ -446,7 +446,7 @@ function InicioAutenticado() {
   if (sessao.isPending) return <TelaHubCarregando />;
   if (!sessao.data?.configurado)
     return <TelaHubLogin erro="O Hakuryū ainda precisa ser configurado pela administração." />;
-  if (!user) return <TelaHubLogin erro={search?.erro} />;
+  if (!user) return <TelaHubLogin {...(search?.erro ? { erro: search.erro } : {})} />;
 
   const quantidadeDeGangs = gangs.data?.length ?? 0;
   const podeAdministrar = Boolean(user.isSuperOwner);

@@ -1,7 +1,8 @@
 import { getConfig } from "./config.server";
+import type { PermissaoPainel } from "./permissoes-painel";
 
 export const SESSION_COOKIE = "hakuryu_session";
-const MAX_AGE = 60 * 60 * 24 * 7;
+const MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
 
 export type SessionUser = {
   id: string;
@@ -9,13 +10,19 @@ export type SessionUser = {
   globalName: string | null;
   avatarUrl: string;
   roles: string[];
+  /** Últimos IDs de cargos confirmados pelo Discord para a gang ativa. */
   roleIds: string[];
   isOwner: boolean;
+  /** Super Owner global (lista fixa + .env). Só ele administra gangs registradas. */
   isSuperOwner: boolean;
   nomeRp: string | null;
+  /** Permissões adicionais resolvidas pelos cargos internos da gang ativa. */
+  permissoes: PermissaoPainel[];
 
+  /** Servidor Discord ao qual a sessão está vinculada. */
   guildId: string | null;
 
+  /** Gang vinculada ao servidor Discord. */
   gangId: number | null;
 
   exp: number;
@@ -60,12 +67,13 @@ async function hmac(payload: string, secret: string): Promise<string> {
 }
 
 export async function signSession(
-  user: Omit<SessionUser, "exp">,
+  user: Omit<SessionUser, "exp" | "permissoes"> & { permissoes?: PermissaoPainel[] },
 ): Promise<string> {
   const { sessionSecret } = getConfig();
 
   const payload: SessionUser = {
     ...user,
+    permissoes: user.permissoes ?? [],
     exp: Date.now() + MAX_AGE * 1000,
   };
 
@@ -126,7 +134,9 @@ export async function verifySession(
       isOwner: user.isOwner === true,
       isSuperOwner: user.isSuperOwner === true,
       nomeRp: user.nomeRp ?? null,
+      permissoes: Array.isArray(user.permissoes) ? (user.permissoes as PermissaoPainel[]) : [],
 
+      // Compatibilidade com sessões antigas.
       guildId: user.guildId ?? null,
       gangId:
         typeof user.gangId === "number"
@@ -190,6 +200,8 @@ export function readCookie(
   return undefined;
 }
 
+/* ========== Permissões ========== */
+
 export const CARGOS_PERMITIDOS = [
   "Lider",
   "Vice-Lider",
@@ -239,6 +251,7 @@ export function podeGerenciarMembros(
     !!user &&
     (
       user.isOwner ||
+      user.permissoes.includes("gerenciar_membros") ||
       temCargo(user, "Lider") ||
       temCargo(user, "Vice-Lider")
     )
@@ -252,6 +265,7 @@ export function podeGerenciarTreinos(
     !!user &&
     (
       user.isOwner ||
+      user.permissoes.includes("gerenciar_eventos") ||
       temCargo(user, "Lider") ||
       temCargo(user, "Vice-Lider") ||
       temCargo(user, "Líder de Divisão") ||
@@ -265,6 +279,7 @@ export function podeAdvertir(
 ): boolean {
   return (
     podeGerenciarMembros(user) ||
+    !!user?.permissoes.includes("gerenciar_advertencias") ||
     temCargo(user, "Staff")
   );
 }
@@ -272,7 +287,7 @@ export function podeAdvertir(
 export function podeRevogarPunicao(
   user: SessionUser | null,
 ): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias");
 }
 
 export const CARGOS_DIVISAO = [
@@ -299,17 +314,21 @@ export function cargosAtribuiveis(
 export function podeCriarDivisao(
   user: SessionUser | null,
 ): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
 export function podeGerenciarDivisoes(
   user: SessionUser | null,
 ): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
 export function podeGerenciarParcerias(
   user: SessionUser | null,
 ): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeGerenciarRecrutamento(user: SessionUser | null): boolean {
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_recrutamento");
 }

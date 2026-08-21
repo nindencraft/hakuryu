@@ -9,6 +9,7 @@ import {
   fetchGuildAtual,
   fetchGangsDisponiveis,
   fetchConfiguracoes,
+  fetchCargosPainelPersonalizados,
   fetchGangsRegistradas,
   fetchSolicitacoes,
   fetchGuerras,
@@ -106,6 +107,12 @@ export const parceriasQuery = queryOptions({
 export const configuracoesQuery = queryOptions({
   queryKey: ["configuracoes"],
   queryFn: () => fetchConfiguracoes(),
+  staleTime: 10_000,
+});
+
+export const cargosPainelPersonalizadosQuery = queryOptions({
+  queryKey: ["cargos-painel-personalizados"],
+  queryFn: () => fetchCargosPainelPersonalizados(),
   staleTime: 10_000,
 });
 

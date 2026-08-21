@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { podeGerenciarMembros } from "@/lib/permissions";
+import { podeGerenciarRecrutamento } from "@/lib/permissions";
 import { fetchMeuRecrutamento, salvarMeuRecrutamento } from "@/lib/recrutamento.functions";
 import type { EntradaRecrutamentoGang } from "@/lib/recrutamento";
 import type { RecrutamentoGang } from "@/lib/recrutamento.server";
@@ -71,7 +71,7 @@ export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: Recrutam
 
 export function GestorMeuRecrutamento() {
   const sessao = useQuery(sessionQuery);
-  const podeGerenciar = podeGerenciarMembros(sessao.data?.user ?? null);
+  const podeGerenciar = podeGerenciarRecrutamento(sessao.data?.user ?? null);
   const meu = useQuery({
     queryKey: ["meu-recrutamento", sessao.data?.gangId],
     queryFn: () => fetchMeuRecrutamento(),

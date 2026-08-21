@@ -2,7 +2,7 @@ import { getDb } from "./db.server";
 import { garantirConviteInfinito } from "./discord.server";
 import { normalizarLinkEvento } from "./event-link";
 import { descricaoRecrutamentoValida, linkPublicoRecrutamento, type EntradaRecrutamentoGang } from "./recrutamento";
-import { podeGerenciarMembros, type SessionUser } from "./session.server";
+import { podeGerenciarRecrutamento, type SessionUser } from "./session.server";
 
 type LinhaRecrutamento = {
   gang_id: number;
@@ -97,8 +97,8 @@ export async function salvarRecrutamentoDaGang(
   usuario: SessionUser,
   entrada: EntradaRecrutamentoGang,
 ): Promise<RecrutamentoGang> {
-  if (!podeGerenciarMembros(usuario)) {
-    throw new Error("Apenas Líder e Vice-Líder podem gerenciar o recrutamento da gang.");
+  if (!podeGerenciarRecrutamento(usuario)) {
+    throw new Error("Você não tem permissão para gerenciar o recrutamento da gang.");
   }
   if (usuario.gangId == null) throw new Error("Selecione uma gang antes de gerenciar o recrutamento.");
 
@@ -116,6 +116,8 @@ export async function salvarRecrutamentoDaGang(
   const existente = await obterRecrutamentoDaGang(gang.id);
   let conviteAutomaticoUrl = existente?.conviteAutomaticoUrl ?? null;
 
+  // Quando não há link manual, o botão Salvar garante um convite permanente pronto
+  // para os visitantes; o fluxo não chama a API Discord ao abrir a vitrine pública.
   if (!linkServidorManual) {
     conviteAutomaticoUrl = await garantirConviteInfinito(gang.guild_id);
     if (!conviteAutomaticoUrl) {

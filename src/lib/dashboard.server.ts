@@ -73,6 +73,8 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
     const gang = await buscarGangPorId(user.gangId);
     if (gang?.lider_id && gang.lider_id === user.id) user.roles = [...user.roles, "Lider"];
   }
+  const { permissoesDoUsuario } = await import("./cargos-painel.server");
+  user.permissoes = await permissoesDoUsuario(user.gangId, user.roleIds, user.isOwner);
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
   // Só entra na gang quem possui o ID de Membro ou de cargo superior em
@@ -611,7 +613,7 @@ export async function cadastrarMembroDiscord(user: SessionUser, input: { discord
   const g = gid(user);
   const { buscarMembrosServidor, ajustarCargoDiscord } = await import("./discord.server");
   const alvo = (await buscarMembrosServidor(user.guildId, discordId)).find((membro) => membro.id === discordId);
-  assert(alvo, "Esse usuário não pertence ao servidor Discord desta gang.");
+  if (!alvo) throw new Error("Esse usuário não pertence ao servidor Discord desta gang.");
 
   const db = getDb();
   const { data: existente, error: erroExistente } = await db
@@ -1514,7 +1516,7 @@ function validarAtributos(valores: AtributosMembroValores) {
 }
 
 async function podeEditarAtributosMembro(user: SessionUser, membroId: string): Promise<boolean> {
-  if (podeGerenciarMembros(user)) return true;
+  if (podeGerenciarMembros(user) || user.permissoes.includes("avaliar_atributos")) return true;
 
   const db = getDb();
   const g = gid(user);
@@ -1685,6 +1687,37 @@ export async function salvarConfiguracoesPainel(
   for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
   for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
   await salvarConfiguracoesDaGang(gid(user), valores);
+  return { ok: true };
+}
+
+export async function loadCargosPainelPersonalizados(user: SessionUser) {
+  assert(
+    podeGerenciarMembros(user),
+    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+  );
+  const { listarCargosPainel } = await import("./cargos-painel.server");
+  return listarCargosPainel(gid(user));
+}
+
+export async function salvarCargoPainelPersonalizado(
+  user: SessionUser,
+  input: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[] },
+) {
+  assert(
+    podeGerenciarMembros(user),
+    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+  );
+  const { salvarCargoPainel } = await import("./cargos-painel.server");
+  return salvarCargoPainel(gid(user), input);
+}
+
+export async function excluirCargoPainelPersonalizado(user: SessionUser, id: number) {
+  assert(
+    podeGerenciarMembros(user),
+    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+  );
+  const { excluirCargoPainel } = await import("./cargos-painel.server");
+  await excluirCargoPainel(gid(user), id);
   return { ok: true };
 }
 

@@ -112,6 +112,9 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       }
     }
 
+    const { permissoesDoUsuario } = await import("./cargos-painel.server");
+    user.permissoes = await permissoesDoUsuario(user.gangId, user.roleIds, user.isOwner);
+
     return {
       configurado: true,
       faltando: [],
@@ -129,6 +132,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         isOwner: user.isOwner,
         isSuperOwner: user.isSuperOwner,
         nomeRp: user.nomeRp,
+        permissoes: user.permissoes,
       },
     };
   },
@@ -383,6 +387,24 @@ export const salvarConfiguracoes = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) =>
     svc.salvarConfiguracoesPainel(await svc.requireUser(getRequest()), data),
+  );
+
+export const fetchCargosPainelPersonalizados = createServerFn({ method: "GET" }).handler(
+  async () => svc.loadCargosPainelPersonalizados(await svc.requireUser(getRequest())),
+);
+
+export const salvarCargoPainelPersonalizado = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[] }) => data,
+  )
+  .handler(async ({ data }) =>
+    svc.salvarCargoPainelPersonalizado(await svc.requireUser(getRequest()), data),
+  );
+
+export const excluirCargoPainelPersonalizado = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: number }) => data)
+  .handler(async ({ data }) =>
+    svc.excluirCargoPainelPersonalizado(await svc.requireUser(getRequest()), data.id),
   );
 
 export const fetchLogs = createServerFn({ method: "GET" }).handler(

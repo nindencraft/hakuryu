@@ -1,3 +1,4 @@
+/** Espelho client-safe das permissões (a verificação real acontece no servidor). */
 
 export type SessionUserView = {
   id: string;
@@ -8,6 +9,7 @@ export type SessionUserView = {
   isOwner: boolean;
   isSuperOwner: boolean;
   nomeRp: string | null;
+  permissoes: string[];
 };
 
 export const CARGOS_PERMITIDOS = [
@@ -21,6 +23,7 @@ export const CARGOS_PERMITIDOS = [
   "Em Analise",
 ];
 
+/** Cargos atribuídos automaticamente pela liderança de uma divisão. */
 export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
 
 const ROTULOS: Record<string, string> = {
@@ -28,10 +31,12 @@ const ROTULOS: Record<string, string> = {
   "Vice-Líder de Divisão": "Vice-Capitão",
 };
 
+/** Nome exibido do cargo (o valor real no Discord/banco continua o mesmo). */
 export function rotuloCargo(cargo: string): string {
   return ROTULOS[cargo] ?? cargo;
 }
 
+/** O campo `cargo` guarda uma lista separada por vírgula. */
 export function parseCargos(valor: string | null | undefined): string[] {
   return (valor ?? "")
     .split(",")
@@ -59,13 +64,14 @@ export function podeAcessar(user: SessionUserView | null): boolean {
 }
 
 export function podeGerenciarMembros(user: SessionUserView | null): boolean {
-  return !!user && (user.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"));
+  return !!user && (user.isOwner || user.permissoes.includes("gerenciar_membros") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"));
 }
 
 export function podeGerenciarTreinos(user: SessionUserView | null): boolean {
   return (
     !!user &&
     (user.isOwner ||
+      user.permissoes.includes("gerenciar_eventos") ||
       temCargo(user, "Lider") ||
       temCargo(user, "Vice-Lider") ||
       temCargo(user, "Líder de Divisão") ||
@@ -73,8 +79,9 @@ export function podeGerenciarTreinos(user: SessionUserView | null): boolean {
   );
 }
 
+/** Staff também aplica e consulta advertências. */
 export function podeAdvertir(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || temCargo(user, "Staff");
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias") || temCargo(user, "Staff");
 }
 
 export function podeVerRegistroPunicoes(user: SessionUserView | null): boolean {
@@ -82,9 +89,10 @@ export function podeVerRegistroPunicoes(user: SessionUserView | null): boolean {
 }
 
 export function podeRevogarPunicao(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias");
 }
 
+/** Cargos que o usuário pode atribuir a outra pessoa. */
 export function cargosAtribuiveis(user: SessionUserView | null): string[] {
   if (podeGerenciarMembros(user))
     return CARGOS_PERMITIDOS.filter((c) => !CARGOS_DIVISAO.includes(c));
@@ -93,11 +101,12 @@ export function cargosAtribuiveis(user: SessionUserView | null): string[] {
 }
 
 export function podeCriarDivisao(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
 type DivisaoLideranca = { id?: number; lider_id: string | null; vice_lider_id: string | null };
 
+/** Líder e vice-líder administram a própria divisão. */
 export function podeGerenciarDivisao(
   user: SessionUserView | null,
   divisao: DivisaoLideranca,
@@ -111,6 +120,7 @@ export function podeGerenciarDivisao(
   return lideraDivisao && minhaDivisaoId != null && minhaDivisaoId === divisao.id;
 }
 
+/** Só o líder da divisão (ou a cúpula) escolhe o vice-líder. */
 export function podeDefinirLiderancaDivisao(
   user: SessionUserView | null,
   divisao: DivisaoLideranca,
@@ -124,20 +134,29 @@ export function podeDefinirLiderancaDivisao(
 }
 
 export function podeGerenciarDivisoes(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
 export function podeGerenciarParcerias(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user);
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_parcerias");
 }
 
+export function podeGerenciarRecrutamento(user: SessionUserView | null): boolean {
+  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_recrutamento");
+}
+
+/**
+ * Pode editar os atributos de combate de um membro.
+ * A cúpula pode avaliar qualquer membro; liderança de divisão só avalia a própria divisão.
+ * A checagem final de liderança (lider_id/vice_lider_id) acontece no servidor.
+ */
 export function podeAvaliarAtributos(
   user: SessionUserView | null,
   alvoDivisaoId: number | null,
   minhaDivisaoId: number | null,
 ): boolean {
   if (!user) return false;
-  if (podeGerenciarMembros(user)) return true;
+  if (podeGerenciarMembros(user) || !!user?.permissoes.includes("avaliar_atributos")) return true;
   const lideraDivisao =
     temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
   return lideraDivisao && alvoDivisaoId != null && alvoDivisaoId === minhaDivisaoId;
@@ -158,11 +177,13 @@ export function discordAvatarUrl(
   return "https://cdn.discordapp.com/embed/avatars/0.png";
 }
 
+/** Cargo mais alto do usuário dentro da hierarquia da gang. */
 export function cargoPrincipal(user: SessionUserView | null): string | null {
   if (!user) return null;
   return CARGOS_PERMITIDOS.find((c) => temCargo(user, c)) ?? null;
 }
 
+/** Cargo de maior hierarquia da lista (usado no campo curto do banco). */
 export function cargoPrimario(cargos: string[]): string {
   return CARGOS_PERMITIDOS.find((c) => cargos.includes(c)) ?? cargos[0] ?? "Em Analise";
 }

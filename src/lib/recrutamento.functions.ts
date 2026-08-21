@@ -12,6 +12,7 @@ export const fetchRecrutamentosPublicos = createServerFn({ method: "GET" }).hand
 
 export const fetchMeuRecrutamento = createServerFn({ method: "GET" }).handler(async () => {
   const usuario = await svc.requireUser(getRequest());
+  if (usuario.gangId == null) throw new Error("Selecione uma gang antes de gerenciar o recrutamento.");
   const { obterRecrutamentoDaGang } = await import("./recrutamento.server");
   return obterRecrutamentoDaGang(usuario.gangId);
 });

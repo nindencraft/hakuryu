@@ -6,12 +6,27 @@ import { DashboardShell } from "@/components/hakuryu/DashboardShell";
 import { EmptyState, GoldRule, PageTitle } from "@/components/hakuryu/ui-bits";
 import { useAcao, useSessionUser } from "@/components/hakuryu/hooks";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { configuracoesQuery } from "@/lib/queries";
-import { salvarConfiguracoes } from "@/lib/dashboard.functions";
+import { cargosPainelPersonalizadosQuery, configuracoesQuery } from "@/lib/queries";
+import {
+  excluirCargoPainelPersonalizado,
+  salvarCargoPainelPersonalizado,
+  salvarConfiguracoes,
+} from "@/lib/dashboard.functions";
 import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
+import { PERMISSOES_PAINEL } from "@/lib/permissoes-painel";
 import { CANAIS_CONFIG, CANAL_DIVULGACAO_CONFIG } from "@/lib/types";
 
 export const Route = createFileRoute("/configuracoes")({
@@ -47,6 +62,7 @@ function Configuracoes() {
   const user = useSessionUser();
   const autorizado = podeGerenciarMembros(user);
   const { data, isPending, error } = useQuery({ ...configuracoesQuery, enabled: autorizado });
+  const cargosPersonalizados = useQuery({ ...cargosPainelPersonalizadosQuery, enabled: autorizado });
 
   const [cargos, setCargos] = useState<Record<string, string>>({});
   const [canais, setCanais] = useState<Record<string, string>>({});
@@ -107,6 +123,7 @@ function Configuracoes() {
           description="Crie a tabela dashboard_config (chave TEXT PRIMARY KEY, valor TEXT) no banco da gang para habilitar esta aba."
         />
       ) : (
+        <>
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="card-gold p-5 lg:col-span-2">
             <h2 className="font-display text-xl">Servidor do Discord</h2>
@@ -215,7 +232,167 @@ function Configuracoes() {
             </section>
           </div>
         </div>
+        <GerenciadorCargosPersonalizados
+          cargos={cargosPersonalizados.data ?? []}
+          carregando={cargosPersonalizados.isPending}
+        />
+        </>
       )}
     </>
+  );
+}
+
+type CargoInterno = {
+  id: number;
+  nome: string;
+  discordRoleId: string;
+  permissoes: string[];
+  criadoEm: string;
+};
+
+const FORMULARIO_VAZIO = { id: null as number | null, nome: "", discordRoleId: "", permissoes: [] as string[] };
+
+function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: CargoInterno[]; carregando: boolean }) {
+  const [aberto, setAberto] = useState(false);
+  const [formulario, setFormulario] = useState(FORMULARIO_VAZIO);
+
+  const salvar = useAcao(salvarCargoPainelPersonalizado, {
+    sucesso: "Cargo personalizado salvo.",
+    invalidar: [["cargos-painel-personalizados"], ["session"]],
+    aoConcluir: () => {
+      setAberto(false);
+      setFormulario(FORMULARIO_VAZIO);
+    },
+  });
+  const excluir = useAcao(excluirCargoPainelPersonalizado, {
+    sucesso: "Cargo personalizado removido.",
+    invalidar: [["cargos-painel-personalizados"], ["session"]],
+  });
+
+  const abrirCriacao = () => {
+    setFormulario(FORMULARIO_VAZIO);
+    setAberto(true);
+  };
+  const abrirEdicao = (cargo: CargoInterno) => {
+    setFormulario({
+      id: cargo.id,
+      nome: cargo.nome,
+      discordRoleId: cargo.discordRoleId,
+      permissoes: cargo.permissoes,
+    });
+    setAberto(true);
+  };
+  const alternarPermissao = (chave: string, marcada: boolean) => {
+    setFormulario((atual) => ({
+      ...atual,
+      permissoes: marcada
+        ? Array.from(new Set([...atual.permissoes, chave]))
+        : atual.permissoes.filter((permissao) => permissao !== chave),
+    }));
+  };
+
+  return (
+    <section className="card-gold mt-5 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-display text-xl">Cargos personalizados do painel</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            Crie permissões adicionais para cargos que já existem no Discord. Estes cargos somam acesso e não substituem Líder, Vice-Líder, Membro, Staff ou as regras atuais.
+          </p>
+        </div>
+        <Dialog open={aberto} onOpenChange={setAberto}>
+          <DialogTrigger asChild>
+            <Button onClick={abrirCriacao}>Adicionar novo cargo</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{formulario.id ? "Editar cargo personalizado" : "Adicionar cargo personalizado"}</DialogTitle>
+              <DialogDescription>
+                O cargo do Discord precisa existir no servidor. Copie o ID dele com o modo desenvolvedor do Discord ativado.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="cargo-personalizado-nome">Nome no painel</Label>
+                <Input
+                  id="cargo-personalizado-nome"
+                  maxLength={60}
+                  placeholder="Ex.: Organizador de Eventos"
+                  value={formulario.nome}
+                  onChange={(event) => setFormulario({ ...formulario, nome: event.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cargo-personalizado-discord">ID do cargo Discord</Label>
+                <Input
+                  id="cargo-personalizado-discord"
+                  inputMode="numeric"
+                  placeholder="123456789012345678"
+                  value={formulario.discordRoleId}
+                  onChange={(event) => setFormulario({ ...formulario, discordRoleId: event.target.value })}
+                />
+              </div>
+              <div className="space-y-3">
+                <Label>Permissões no painel</Label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {PERMISSOES_PAINEL.map((permissao) => (
+                    <label
+                      key={permissao.chave}
+                      className="flex cursor-pointer gap-3 rounded-md border border-border p-3 text-sm transition-colors hover:bg-muted/40"
+                    >
+                      <Checkbox
+                        checked={formulario.permissoes.includes(permissao.chave)}
+                        onCheckedChange={(marcada) => alternarPermissao(permissao.chave, marcada === true)}
+                      />
+                      <span>
+                        <strong className="block text-foreground">{permissao.rotulo}</strong>
+                        <span className="text-xs text-muted-foreground">{permissao.descricao}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAberto(false)}>Cancelar</Button>
+              <Button
+                disabled={salvar.isPending}
+                onClick={() => salvar.mutate(formulario)}
+              >
+                {salvar.isPending ? "Salvando..." : "Salvar cargo"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <GoldRule className="my-4" />
+      {carregando ? (
+        <Skeleton className="h-28" />
+      ) : cargos.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum cargo personalizado foi criado para esta gang.</p>
+      ) : (
+        <div className="space-y-3">
+          {cargos.map((cargo) => (
+            <article key={cargo.id} className="rounded-md border border-border p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="font-medium">{cargo.nome}</h3>
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">Discord: {cargo.discordRoleId}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {cargo.permissoes
+                      .map((chave) => PERMISSOES_PAINEL.find((permissao) => permissao.chave === chave)?.rotulo ?? chave)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => abrirEdicao(cargo)}>Editar</Button>
+                  <Button variant="destructive" size="sm" disabled={excluir.isPending} onClick={() => excluir.mutate({ id: cargo.id })}>Excluir</Button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
