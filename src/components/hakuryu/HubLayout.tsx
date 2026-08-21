@@ -69,12 +69,14 @@ export function TelaHubLogin({ erro }: { erro?: string }) {
 
 function LinkPainel({
   permitido,
+  gangId,
   quantidadeDeGangs,
 }: {
   permitido: boolean;
+  gangId: number | null;
   quantidadeDeGangs: number;
 }) {
-  const acao = acaoPainelHome({ permitido, gangId: null, quantidadeDeGangs });
+  const acao = acaoPainelHome({ permitido, gangId, quantidadeDeGangs });
   if (acao === "abrir-painel") {
     return (
       <Button variant="outline" size="sm" asChild>
@@ -108,12 +110,14 @@ function LinkPainel({
 export function CabecalhoHub({
   usuario,
   permitido,
+  gangId = null,
   quantidadeDeGangs,
   abaAtiva,
   permitirSair = false,
 }: {
   usuario: SessionUserView;
   permitido: boolean;
+  gangId?: number | null;
   quantidadeDeGangs: number;
   abaAtiva: AbaHub;
   permitirSair?: boolean;
@@ -133,7 +137,7 @@ export function CabecalhoHub({
         </Link>
 
         <nav className="order-3 flex w-full items-center gap-1 sm:order-2 sm:w-auto sm:flex-1 sm:justify-center" aria-label="Navegação do hub">
-          <LinkPainel permitido={permitido} quantidadeDeGangs={quantidadeDeGangs} />
+          <LinkPainel permitido={permitido} gangId={gangId} quantidadeDeGangs={quantidadeDeGangs} />
           <Button variant="ghost" size="sm" className={classeAba("noticias")} asChild>
             <Link to="/noticias" aria-current={abaAtiva === "noticias" ? "page" : undefined}>
               Notícias

@@ -25,6 +25,7 @@ function RecrutamentoPage() {
       <CabecalhoHub
         usuario={usuario}
         permitido={Boolean(sessao.data.permitido)}
+        gangId={sessao.data.gangId}
         quantidadeDeGangs={gangs.data?.length ?? 0}
         abaAtiva="recrutamento"
       />

@@ -103,14 +103,17 @@ export const getSession = createServerFn({ method: "GET" }).handler(
     }
 
     let gangNome: string | null = null;
+    let liderRegistrado = false;
     if (user.gangId != null) {
       const { buscarGangPorId } = await import("./gangs.server");
       const gang = await buscarGangPorId(user.gangId);
       gangNome = gang?.nome ?? null;
       // Líder registrado da gang recebe o cargo "Lider" no painel.
       const { temCargo } = await import("./session.server");
-      if (gang?.lider_id === user.id && !temCargo(user, "Lider")) {
-        user.roles = [...user.roles, "Lider"];
+      liderRegistrado = gang?.lider_id === user.id;
+      if (liderRegistrado) {
+        temCargoDeAcessoConfigurado = true;
+        if (!temCargo(user, "Lider")) user.roles = [...user.roles, "Lider"];
       }
     }
 
@@ -124,7 +127,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       gangNome,
       // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
       // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
-      permitido: acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado),
+      permitido: acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado, liderRegistrado),
       user: {
         id: user.id,
         username: user.username,

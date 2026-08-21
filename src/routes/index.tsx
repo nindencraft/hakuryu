@@ -452,6 +452,7 @@ function InicioAutenticado() {
       <CabecalhoHub
         usuario={user}
         permitido={Boolean(sessao.data?.permitido)}
+        gangId={sessao.data?.gangId}
         quantidadeDeGangs={quantidadeDeGangs}
         abaAtiva="inicio"
         permitirSair

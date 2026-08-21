@@ -16,6 +16,10 @@ describe("acessoGangPermitido", () => {
     expect(acessoGangPermitido(7, false, false)).toBe(false);
   });
 
+  it("permite a liderança oficialmente registrada sem depender de uma consulta transitória ao Discord", () => {
+    expect(acessoGangPermitido(7, false, false, true)).toBe(true);
+  });
+
   it("não bloqueia uma sessão que ainda não selecionou gang", () => {
     expect(acessoGangPermitido(null, false, false)).toBe(true);
   });

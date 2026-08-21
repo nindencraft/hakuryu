@@ -51,6 +51,7 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   user.isOwner = user.isSuperOwner || (await ehDono(user.id, user.gangId));
 
   let temCargoDeAcessoConfigurado = false;
+  let liderRegistrado = false;
   if (!user.isSuperOwner && user.gangId != null) {
     // Revalida os cargos direto no Discord (a sessão pode estar defasada) e
     // traduz os cargos do servidor para os cargos do painel usando os IDs configurados.
@@ -76,7 +77,11 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   if (user.gangId != null && !temCargo(user, "Lider")) {
     const { buscarGangPorId } = await import("./gangs.server");
     const gang = await buscarGangPorId(user.gangId);
-    if (gang?.lider_id && gang.lider_id === user.id) user.roles = [...user.roles, "Lider"];
+    liderRegistrado = gang?.lider_id === user.id;
+    if (liderRegistrado) user.roles = [...user.roles, "Lider"];
+  } else if (user.gangId != null) {
+    const { buscarGangPorId } = await import("./gangs.server");
+    liderRegistrado = (await buscarGangPorId(user.gangId))?.lider_id === user.id;
   }
   const { permissoesDoUsuario } = await import("./cargos-painel.server");
   user.permissoes = await permissoesDoUsuario(user.gangId, user.roleIds, user.isOwner);
@@ -84,7 +89,7 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
   if (user.gangId == null) return user;
   // Só entra na gang quem possui o ID de Membro ou de cargo superior em
   // gang_config. O Super Owner é a exceção administrativa global.
-  if (!acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado)) {
+  if (!acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado, liderRegistrado)) {
     throw new Error("SEM_PERMISSAO");
   }
   return user;
