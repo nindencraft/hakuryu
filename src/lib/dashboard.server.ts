@@ -1193,7 +1193,7 @@ export async function ausentarSe(
         treino_id: input.treinoId,
         membro_id: membroId,
         gang_id: g,
-        inscricao: "Não vou",
+        inscricao: "Sem resposta",
         presenca: "Pendente",
         justificativa: motivo,
         justificativa_status: "Pendente",
@@ -1219,13 +1219,17 @@ export async function atualizarPresenca(
   const g = gid(user);
   const { data: atual, error: erroAtual } = await db
     .from("presencas_treino")
-    .select("justificativa, justificativa_status")
+    .select("inscricao, justificativa, justificativa_status")
     .eq("gang_id", g)
     .eq("treino_id", input.treinoId)
     .eq("membro_id", input.membroId)
     .maybeSingle();
   if (erroAtual) throw new Error(erroAtual.message);
-  const justificativa = (atual as { justificativa?: string | null } | null)?.justificativa ?? null;
+  const registroAtual = atual as {
+    inscricao?: string | null;
+    justificativa?: string | null;
+  } | null;
+  const justificativa = registroAtual?.justificativa ?? null;
   if (input.presenca === "Justificado" && !justificativa) {
     throw new Error("Só é possível justificar uma ausência que tenha um motivo enviado pelo membro.");
   }
@@ -1244,7 +1248,7 @@ export async function atualizarPresenca(
         treino_id: input.treinoId,
         membro_id: input.membroId,
         gang_id: g,
-        inscricao: "Avaliado",
+        inscricao: registroAtual?.inscricao === "Confirmado" ? "Confirmado" : "Sem resposta",
         presenca: input.presenca,
         justificativa,
         justificativa_status: justificativaStatus,
