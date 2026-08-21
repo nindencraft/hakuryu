@@ -298,9 +298,9 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
     justificativa: string | null;
   }[];
 
-  // A inscrição permanece confirmada mesmo depois de a liderança registrar
-  // Presente, Ausente ou Justificado. Portanto a badge deve contar somente
-  // `inscricao = Confirmado`, sem depender do estado da avaliação.
+  // A inscrição permanece confirmada no banco mesmo depois de a liderança
+  // registrar Presente, Ausente ou Justificado. A exceção é a justificativa
+  // enviada pelo próprio membro: ela representa “Não vou” e não entra no total.
   const contagem = contarInscricoesConfirmadas(inscricoes);
 
   return treinos.map((t) => {

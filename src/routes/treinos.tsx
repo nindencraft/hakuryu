@@ -235,7 +235,7 @@ function TreinoCard({
     queryKey: ["inscricao", treino.id_treino],
     queryFn: () => fetchMinhaInscricao({ data: { treinoId: treino.id_treino } }),
   });
-  const inscrito = data?.inscricao === "Confirmado";
+  const inscrito = data?.inscricao === "Confirmado" && !data.justificativa;
 
   const inscrever = useAcao<{ treinoId: number }>(inscreverSe, {
     sucesso: "Inscrição confirmada.",

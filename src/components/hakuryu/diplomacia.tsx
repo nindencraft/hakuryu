@@ -453,7 +453,7 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
     queryFn: () => fetchMinhaInscricao({ data: { treinoId: treinoId! } }),
     enabled: treinoId != null,
   });
-  const inscrito = minhaResposta?.inscricao === "Confirmado";
+  const inscrito = minhaResposta?.inscricao === "Confirmado" && !minhaResposta.justificativa;
   const participar = useAcao<{ treinoId: number }>(inscreverSe, {
     sucesso: "Participação na guerra confirmada.",
     invalidar: [["inscricao", "guerra", treinoId ?? 0], ["treinos"], ["guerras"]],
@@ -519,22 +519,22 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
       {treinoId != null ? (
         <div className="mt-4 border-t border-border pt-4">
           <p className="text-center text-xs text-muted-foreground">
-            {inscrito
-              ? minhaResposta?.justificativa
-                ? "Ausência justificada enviada para avaliação."
-                : minhaResposta?.presenca && minhaResposta.presenca !== "Pendente"
+            {minhaResposta?.justificativa
+              ? "Ausência justificada enviada para avaliação."
+              : inscrito
+                ? minhaResposta?.presenca && minhaResposta.presenca !== "Pendente"
                   ? `Participação avaliada: ${minhaResposta.presenca}.`
                   : "Sua participação está confirmada."
-              : "Confirme sua participação ou informe a justificativa da ausência."}
+                : "Confirme sua participação ou informe a justificativa da ausência."}
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <Button
               size="sm"
-              variant={inscrito && !minhaResposta?.justificativa ? "secondary" : "default"}
+              variant={inscrito ? "secondary" : "default"}
               disabled={participar.isPending}
               onClick={() => participar.mutate({ treinoId })}
             >
-              {inscrito && !minhaResposta?.justificativa ? "Participação confirmada" : "Participar"}
+              {inscrito ? "Participação confirmada" : "Participar"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setJustificando(true)}>
               Não vou
