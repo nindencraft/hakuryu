@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
 import * as svc from "./dashboard.server";
+import { exigirSessaoPublica } from "./acesso-publico";
 import { ConfigError, isConfigured } from "./config.server";
 import { currentUser } from "./db.server";
 import { acessoGangPermitido } from "./acesso-gang";
@@ -186,7 +187,7 @@ export const fetchBannerGlobal = createServerFn({ method: "GET" }).handler(
 
 /** Anúncios ativos da Página Inicial, disponíveis a qualquer usuário autenticado. */
 export const fetchAnunciosPublicos = createServerFn({ method: "GET" }).handler(async () => {
-  await svc.requireUserSemGang(getRequest());
+  exigirSessaoPublica(await currentUser(getRequest()));
   const { listarAnunciosPublicos } = await import("./anuncios.server");
   return listarAnunciosPublicos();
 });
