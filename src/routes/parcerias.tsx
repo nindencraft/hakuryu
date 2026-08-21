@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dumbbell, ExternalLink, Plus, Search, Swords, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -401,6 +401,10 @@ function AliancaDialog({
   onClose: () => void;
 }) {
   const [form, setForm] = useState<FormAlianca>(valor ?? VAZIA);
+
+  useEffect(() => {
+    if (valor) setForm(valor);
+  }, [valor]);
 
   const acao = useAcao<FormAlianca>(salvarParceria, {
     sucesso: "Aliança salva.",

@@ -16,6 +16,7 @@ import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
 import { acessoGangPermitido } from "./acesso-gang";
 import { buscarFichaRPG, encerrarHistoricoDeMembro } from "./perfil.server";
+import { encontrarParceriaDuplicada } from "./parcerias";
 import { contarInscricoesConfirmadas } from "./presenca";
 import {
   TIPO_TREINO_OPCOES,
@@ -289,18 +290,19 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
   const inscricoes = unwrap(
     await db
       .from("presencas_treino")
-      .select("treino_id, inscricao, presenca, justificativa")
+      .select("treino_id, inscricao, presenca, justificativa, avaliado_por")
       .eq("gang_id", g),
   ) as {
     treino_id: number;
     inscricao: string | null;
     presenca: string | null;
     justificativa: string | null;
+    avaliado_por: string | null;
   }[];
 
   // A inscrição permanece confirmada no banco mesmo depois de a liderança
-  // registrar Presente, Ausente ou Justificado. A exceção é a justificativa
-  // enviada pelo próprio membro: ela representa “Não vou” e não entra no total.
+  // registrar Presente, Ausente ou Justificado. A justificativa enviada pelo
+  // próprio membro e a ausência automática não entram no total de inscritos.
   const contagem = contarInscricoesConfirmadas(inscricoes);
 
   return treinos.map((t) => {
@@ -1813,11 +1815,29 @@ export async function salvarParceria(
   assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
   const db = getDb();
   const g = gid(user);
+  const colunaId = await colunaIdParcerias();
+  const linhasExistentes = unwrap(
+    await db
+      .from("parcerias")
+      .select(`${colunaId}, nome, tag, link_servidor`)
+      .eq("gang_id", g),
+  ) as ({ nome: string | null; tag: string | null; link_servidor: string | null } & Record<string, unknown>)[];
+  const duplicada = encontrarParceriaDuplicada(
+    linhasExistentes.map((linha) => ({
+      id: Number(linha[colunaId]),
+      nome: linha.nome,
+      tag: linha.tag,
+      link_servidor: linha.link_servidor,
+    })),
+    input,
+  );
+  if (duplicada) {
+    throw new Error(`Já existe uma aliança cadastrada para “${duplicada.nome ?? "este servidor"}”. Edite o registro existente.`);
+  }
 
   // Quem fechou é mantido no registro original ao editar.
   let fechadoPor = user.id;
   let fechadoNome = user.nomeRp || user.globalName || user.username;
-  const colunaId = await colunaIdParcerias();
   if (input.id != null) {
     const { data } = await db
       .from("parcerias")

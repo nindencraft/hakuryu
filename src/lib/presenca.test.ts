@@ -21,6 +21,15 @@ describe("contarInscricoesConfirmadas", () => {
     expect(contagem.get(10)).toBe(1);
   });
 
+  it("não conta como inscrito quem foi marcado automaticamente ausente", () => {
+    const contagem = contarInscricoesConfirmadas([
+      { treino_id: 10, inscricao: "Confirmado", presenca: "Ausente" },
+      { treino_id: 10, inscricao: "Confirmado", presenca: "Ausente", avaliado_por: "lider" },
+    ]);
+
+    expect(contagem.get(10)).toBe(1);
+  });
+
   it("ignora registros sem a inscrição confirmada", () => {
     const contagem = contarInscricoesConfirmadas([
       { treino_id: 10, inscricao: null },
