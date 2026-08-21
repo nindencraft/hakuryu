@@ -456,7 +456,7 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
   const inscrito = minhaResposta?.inscricao === "Confirmado";
   const participar = useAcao<{ treinoId: number }>(inscreverSe, {
     sucesso: "Participação na guerra confirmada.",
-    invalidar: [["inscricao", "guerra", treinoId], ["treinos"], ["guerras"]],
+    invalidar: [["inscricao", "guerra", treinoId ?? 0], ["treinos"], ["guerras"]],
   });
   const podeAvaliarPresenca = podeGerenciarTreinos(user);
   const encerrar = useAcao<{ id: number }>(encerrarGuerra, {
@@ -608,7 +608,7 @@ function JustificativaGuerraDialog({
   const [justificativa, setJustificativa] = useState("");
   const acao = useAcao<{ treinoId: number; justificativa: string }>(ausentarSe, {
     sucesso: "Justificativa enviada para avaliação da liderança.",
-    invalidar: [["inscricao", "guerra", treinoId], ["presencas", treinoId ?? 0], ["treinos"], ["guerras"]],
+    invalidar: [["inscricao", "guerra", treinoId ?? 0], ["presencas", treinoId ?? 0], ["treinos"], ["guerras"]],
   });
 
   return (
