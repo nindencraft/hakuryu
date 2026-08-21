@@ -98,6 +98,7 @@ export const alternarGangAdmin = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Exclusão definitiva de gang, disponível exclusivamente ao Super Owner. */
 export const excluirGangAdmin = createServerFn({ method: "POST" })
   .inputValidator((input: { id: number }) => input)
   .handler(async ({ data }) => {
@@ -106,6 +107,7 @@ export const excluirGangAdmin = createServerFn({ method: "POST" })
     return excluirGang(data.id);
   });
 
+/** Publica uma divulgação nos canais configurados de todas as gangs. */
 export const publicarDivulgacaoAdmin = createServerFn({ method: "POST" })
   .inputValidator((input: { imagemUrl: string }) => input)
   .handler(async ({ data }) => {
@@ -114,13 +116,14 @@ export const publicarDivulgacaoAdmin = createServerFn({ method: "POST" })
     return publicarDivulgacaoGlobal(data.imagemUrl);
   });
 
+/** Cria ou atualiza o anúncio único exibido na Visão Geral de todas as gangs. */
 export const salvarBannerAdmin = createServerFn({ method: "POST" })
   .inputValidator((input: BannerGlobalAdmin) => input)
   .handler(async ({ data }) => {
     await requireSuperOwner();
     const [
       { normalizarLinkEvento },
-      { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes },
+      { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig, salvarConfiguracoes },
     ] = await Promise.all([import("./event-link"), import("./settings.server")]);
 
     const imagemUrl = normalizarLinkEvento(data.imagemUrl, "A URL da imagem do anúncio");
@@ -129,30 +132,43 @@ export const salvarBannerAdmin = createServerFn({ method: "POST" })
       throw new Error("Informe a URL da imagem e o link do servidor Discord.");
     }
 
+    const anterior = await lerConfig(CHAVE_BANNER_IMAGEM_URL);
     await salvarConfiguracoes({
       [CHAVE_BANNER_IMAGEM_URL]: imagemUrl,
       [CHAVE_BANNER_DISCORD_URL]: discordUrl,
     });
+    if (anterior && anterior !== imagemUrl) {
+      const { deletarImagemR2PorUrl } = await import("./r2.server");
+      await deletarImagemR2PorUrl(anterior);
+    }
     return { ok: true };
   });
 
+/** Remove o anúncio global sem alterar outras configurações do painel. */
 export const removerBannerAdmin = createServerFn({ method: "POST" }).handler(async () => {
   await requireSuperOwner();
-  const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, salvarConfiguracoes } =
+  const { CHAVE_BANNER_DISCORD_URL, CHAVE_BANNER_IMAGEM_URL, lerConfig, salvarConfiguracoes } =
     await import("./settings.server");
+  const anterior = await lerConfig(CHAVE_BANNER_IMAGEM_URL);
   await salvarConfiguracoes({
     [CHAVE_BANNER_IMAGEM_URL]: "",
     [CHAVE_BANNER_DISCORD_URL]: "",
   });
+  if (anterior) {
+    const { deletarImagemR2PorUrl } = await import("./r2.server");
+    await deletarImagemR2PorUrl(anterior);
+  }
   return { ok: true };
 });
 
+/** Lista inclusive os anúncios inativos para a gestão editorial do Super Owner. */
 export const fetchAnunciosAdmin = createServerFn({ method: "GET" }).handler(async () => {
   await requireSuperOwner();
   const { listarAnunciosAdmin } = await import("./anuncios.server");
   return listarAnunciosAdmin();
 });
 
+/** Cria ou atualiza uma publicação que será exibida na Página Inicial. */
 export const salvarAnuncioAdmin = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
@@ -171,6 +187,7 @@ export const salvarAnuncioAdmin = createServerFn({ method: "POST" })
     return salvarAnuncio(data);
   });
 
+/** Exclui definitivamente uma publicação da vitrine. */
 export const excluirAnuncioAdmin = createServerFn({ method: "POST" })
   .inputValidator((input: { id: number }) => input)
   .handler(async ({ data }) => {

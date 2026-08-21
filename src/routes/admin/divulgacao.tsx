@@ -4,11 +4,10 @@ import { ImagePlus, Send } from "lucide-react";
 import { useState } from "react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { EmptyState, GoldRule, PageTitle } from "@/components/hakuryu/ui-bits";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { publicarDivulgacaoAdmin } from "@/lib/admin.functions";
 import type { ResultadoDivulgacao } from "@/lib/divulgacao.server";
 import { URL_SITE_HAKURYU } from "@/lib/divulgacao";
@@ -72,21 +71,14 @@ function Divulgacao() {
             </p>
           </div>
           <GoldRule />
-          <div className="space-y-2">
-            <Label htmlFor="imagem-divulgacao">URL pública da imagem</Label>
-            <Input
-              id="imagem-divulgacao"
-              type="url"
-              inputMode="url"
-              placeholder="https://exemplo.com/divulgacao.png"
-              value={imagemUrl}
-              onChange={(event) => setImagemUrl(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Use uma imagem hospedada em uma URL pública para que ela seja exibida corretamente no
-              Discord.
-            </p>
-          </div>
+          <CampoImagemR2
+            id="imagem-divulgacao"
+            label="Imagem de divulgação"
+            pasta="banners"
+            value={imagemUrl}
+            onChange={setImagemUrl}
+            descricao="A imagem será enviada ao armazenamento permanente e publicada no Discord por uma URL pública estável."
+          />
           {publicar.error ? (
             <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {publicar.error.message}

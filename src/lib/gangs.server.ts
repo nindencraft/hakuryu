@@ -10,6 +10,9 @@ export type Gang = {
   criado_por: string | null;
 };
 
+/**
+ * Busca uma gang pelo ID interno do banco.
+ */
 export async function buscarGangPorId(gangId: number): Promise<Gang | null> {
   const db = getDb();
 
@@ -26,6 +29,9 @@ export async function buscarGangPorId(gangId: number): Promise<Gang | null> {
   return (data as Gang | null) ?? null;
 }
 
+/**
+ * Busca uma gang pelo ID do servidor Discord.
+ */
 export async function buscarGangPorGuildId(
   guildId: string,
 ): Promise<Gang | null> {
@@ -45,6 +51,11 @@ export async function buscarGangPorGuildId(
   return (data as Gang | null) ?? null;
 }
 
+/**
+ * Lista todas as gangs cadastradas.
+ *
+ * Usada principalmente pelo Super Owner.
+ */
 export async function listarGangs(): Promise<Gang[]> {
   const db = getDb();
 
@@ -60,6 +71,9 @@ export async function listarGangs(): Promise<Gang[]> {
   return (data as Gang[]) ?? [];
 }
 
+/**
+ * Lista somente as gangs ativas.
+ */
 export async function listarGangsAtivas(): Promise<Gang[]> {
   const db = getDb();
 
@@ -76,6 +90,10 @@ export async function listarGangsAtivas(): Promise<Gang[]> {
   return (data as Gang[]) ?? [];
 }
 
+/**
+ * Lista as gangs ativas associadas aos servidores Discord
+ * dos quais o usuário participa.
+ */
 export async function listarGangsDoUsuario(
   guildIds: string[],
 ): Promise<Gang[]> {
@@ -101,6 +119,9 @@ export async function listarGangsDoUsuario(
   return (data as Gang[]) ?? [];
 }
 
+/**
+ * Cria uma nova gang.
+ */
 export async function criarGang(params: {
   nome: string;
   guildId: string;
@@ -149,6 +170,9 @@ export async function criarGang(params: {
   return data as Gang;
 }
 
+/**
+ * Atualiza os dados básicos de uma gang.
+ */
 export async function atualizarGang(
   gangId: number,
   dados: {
@@ -214,6 +238,9 @@ export async function atualizarGang(
   return data as Gang;
 }
 
+/**
+ * Define o líder da gang.
+ */
 export async function definirLiderGang(
   gangId: number,
   discordId: string | null,
@@ -223,18 +250,27 @@ export async function definirLiderGang(
   });
 }
 
+/**
+ * Desativa uma gang sem apagar os dados.
+ */
 export async function desativarGang(gangId: number): Promise<Gang> {
   return atualizarGang(gangId, {
     ativo: false,
   });
 }
 
+/**
+ * Ativa novamente uma gang.
+ */
 export async function ativarGang(gangId: number): Promise<Gang> {
   return atualizarGang(gangId, {
     ativo: true,
   });
 }
 
+/**
+ * Verifica se um usuário é o líder cadastrado de uma gang.
+ */
 export async function ehLiderDaGang(
   gangId: number,
   discordId: string,
@@ -248,6 +284,15 @@ export async function ehLiderDaGang(
   return gang.lider_id === discordId;
 }
 
+/**
+ * Retorna a gang pertencente ao servidor Discord.
+ *
+ * Essa será a função principal utilizada pelo bot:
+ *
+ * guild_id do Discord
+ *       ↓
+ * gang
+ */
 export async function gangDoServidor(
   guildId: string,
 ): Promise<Gang | null> {
@@ -266,10 +311,29 @@ async function apagarRegistrosDaGang(db: ReturnType<typeof getDb>, tabela: strin
   }
 }
 
+/**
+ * Remove definitivamente uma gang e todos os seus registros dependentes.
+ * A função também cobre instalações antigas em que algumas FKs não possuem
+ * `ON DELETE CASCADE`, mantendo a remoção segura por ordem de dependência.
+ */
 export async function excluirGang(gangId: number): Promise<{ ok: true }> {
   const db = getDb();
   const gang = await buscarGangPorId(gangId);
   if (!gang) throw new Error("Gang não encontrada.");
+
+  const logos = await db.from("divisoes").select("logo_url").eq("gang_id", gangId);
+  if (logos.error && !tabelaPodeEstarAusente(logos.error)) {
+    throw new Error(`Não foi possível localizar logos de divisão: ${logos.error.message}`);
+  }
+  const urlsDosLogos = ((logos.data ?? []) as { logo_url: string | null }[]).map((divisao) => divisao.logo_url);
+  const recrutamento = await db
+    .from("recrutamentos_gang")
+    .select("imagem_url")
+    .eq("gang_id", gangId)
+    .maybeSingle();
+  if (recrutamento.error && !tabelaPodeEstarAusente(recrutamento.error)) {
+    throw new Error(`Não foi possível localizar o banner de recrutamento: ${recrutamento.error.message}`);
+  }
 
   const { encerrarHistoricosDaGang } = await import("./perfil.server");
   await encerrarHistoricosDaGang(gangId);
@@ -287,6 +351,7 @@ export async function excluirGang(gangId: number): Promise<{ ok: true }> {
     `gang_origem_id.eq.${gangId},gang_destino_id.eq.${gangId}`,
   );
 
+  // Remove os dados mais dependentes antes de membros, treinos e divisões.
   for (const tabela of [
     "avaliacoes_treino",
     "avaliacoes_lideranca",
@@ -305,10 +370,12 @@ export async function excluirGang(gangId: number): Promise<{ ok: true }> {
     "logs_partidas",
     "config_cargos",
     "gang_config",
+    "recrutamentos_gang",
   ]) {
     await apagarRegistrosDaGang(db, tabela, gangId);
   }
 
+  // Libera as FKs de liderança antes de remover os membros da gang.
   const { error: erroLideranca } = await db
     .from("divisoes")
     .update({ lider_id: null, vice_lider_id: null })
@@ -322,5 +389,7 @@ export async function excluirGang(gangId: number): Promise<{ ok: true }> {
 
   const { error } = await db.from("gangs").delete().eq("id", gangId);
   if (error) throw new Error(`Não foi possível excluir a gang: ${error.message}`);
+  const { deletarImagensR2PorUrl } = await import("./r2.server");
+  await deletarImagensR2PorUrl([...urlsDosLogos, recrutamento.data?.imagem_url ?? null]);
   return { ok: true };
 }

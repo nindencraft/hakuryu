@@ -116,6 +116,9 @@ export async function salvarAnuncio(input: EntradaAnuncioComunidade) {
   }
 
   if (!Number.isInteger(input.id) || input.id < 1) throw new Error("Anúncio inválido.");
+  const anterior = await db.from("anuncios_comunidade").select("imagem_url").eq("id", input.id).maybeSingle();
+  if (anterior.error) throw new Error(anterior.error.message);
+  if (!anterior.data) throw new Error("Anúncio não encontrado.");
   const { error } = await db
     .from("anuncios_comunidade")
     .update({
@@ -129,12 +132,22 @@ export async function salvarAnuncio(input: EntradaAnuncioComunidade) {
     })
     .eq("id", input.id);
   if (error) throw new Error(error.message);
+  if (anterior.data.imagem_url !== anuncio.imagemUrl) {
+    const { deletarImagemR2PorUrl } = await import("./r2.server");
+    await deletarImagemR2PorUrl(anterior.data.imagem_url);
+  }
   return { ok: true };
 }
 
 export async function excluirAnuncio(id: number) {
   if (!Number.isInteger(id) || id < 1) throw new Error("Anúncio inválido.");
-  const { error } = await getDb().from("anuncios_comunidade").delete().eq("id", id);
+  const db = getDb();
+  const anterior = await db.from("anuncios_comunidade").select("imagem_url").eq("id", id).maybeSingle();
+  if (anterior.error) throw new Error(anterior.error.message);
+  if (!anterior.data) throw new Error("Anúncio não encontrado.");
+  const { error } = await db.from("anuncios_comunidade").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(anterior.data.imagem_url);
   return { ok: true };
 }

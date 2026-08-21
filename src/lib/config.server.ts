@@ -1,3 +1,8 @@
+/**
+ * Leitura de configuração — server-only.
+ * Nunca leia process.env no escopo de módulo: no runtime de edge as
+ * variáveis só existem no momento da requisição.
+ */
 
 export type AppConfig = {
   supabaseUrl: string;
@@ -9,6 +14,11 @@ export type AppConfig = {
   discordGuildId: string;
   discordOwnerId: string;
   sessionSecret: string;
+  r2AccountId: string;
+  r2AccessKeyId: string;
+  r2SecretAccessKey: string;
+  r2Bucket: string;
+  r2PublicUrl: string;
 };
 
 export class ConfigError extends Error {
@@ -37,6 +47,11 @@ export function getConfig(): AppConfig {
     discordGuildId: read("DISCORD_GUILD_ID"),
     discordOwnerId: read("DISCORD_OWNER_ID"),
     sessionSecret: read("HAKURYU_SESSION_SECRET"),
+    r2AccountId: read("CLOUDFLARE_R2_ACCOUNT_ID"),
+    r2AccessKeyId: read("CLOUDFLARE_R2_ACCESS_KEY_ID"),
+    r2SecretAccessKey: read("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
+    r2Bucket: read("CLOUDFLARE_R2_BUCKET"),
+    r2PublicUrl: read("CLOUDFLARE_R2_PUBLIC_URL"),
   };
 
   const required: (keyof AppConfig)[] = [
@@ -57,6 +72,11 @@ export function getConfig(): AppConfig {
     discordRedirectUri: "DISCORD_REDIRECT_URI",
     discordGuildId: "DISCORD_GUILD_ID",
     sessionSecret: "HAKURYU_SESSION_SECRET",
+    r2AccountId: "CLOUDFLARE_R2_ACCOUNT_ID",
+    r2AccessKeyId: "CLOUDFLARE_R2_ACCESS_KEY_ID",
+    r2SecretAccessKey: "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+    r2Bucket: "CLOUDFLARE_R2_BUCKET",
+    r2PublicUrl: "CLOUDFLARE_R2_PUBLIC_URL",
   };
 
   const missing = required.filter((k) => !values[k]).map((k) => envNames[k]!);

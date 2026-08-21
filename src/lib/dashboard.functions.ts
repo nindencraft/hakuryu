@@ -319,6 +319,7 @@ export const atualizarDivisao = createServerFn({ method: "POST" })
       liderId: string | null;
       viceLiderId: string | null;
       novosMembros: string[];
+      logoUrl?: string | null;
     }) => data,
   )
   .handler(async ({ data }) => svc.atualizarDivisao(await svc.requireUser(getRequest()), data));

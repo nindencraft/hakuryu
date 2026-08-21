@@ -1124,7 +1124,12 @@ export async function minhaInscricao(
 
 /* ========== Escrita: divisões ========== */
 
-type LiderancaDivisao = { id: number; lider_id: string | null; vice_lider_id: string | null };
+type LiderancaDivisao = {
+  id: number;
+  lider_id: string | null;
+  vice_lider_id: string | null;
+  logo_url: string | null;
+};
 
 async function carregarLideranca(
   user: SessionUser,
@@ -1133,7 +1138,7 @@ async function carregarLideranca(
   const db = getDb();
   const { data, error } = await db
     .from("divisoes")
-    .select("id, lider_id, vice_lider_id")
+    .select("id, lider_id, vice_lider_id, logo_url")
     .eq("gang_id", gid(user))
     .eq("id", divisaoId)
     .maybeSingle();
@@ -1234,6 +1239,7 @@ export async function atualizarDivisao(
     liderId: string | null;
     viceLiderId: string | null;
     novosMembros: string[];
+    logoUrl?: string | null;
   },
 ) {
   const g = gid(user);
@@ -1250,12 +1256,21 @@ export async function atualizarDivisao(
       (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
   const viceLiderId = podeDefinirVice ? input.viceLiderId : divisao.vice_lider_id;
 
+  const logoUrl = input.logoUrl === undefined ? undefined : input.logoUrl?.trim() || null;
   const { error } = await db
     .from("divisoes")
-    .update({ lider_id: liderId, vice_lider_id: viceLiderId })
+    .update({
+      lider_id: liderId,
+      vice_lider_id: viceLiderId,
+      ...(logoUrl === undefined ? {} : { logo_url: logoUrl }),
+    })
     .eq("gang_id", g)
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
+  if (logoUrl !== undefined && logoUrl !== divisao.logo_url) {
+    const { deletarImagemR2PorUrl } = await import("./r2.server");
+    await deletarImagemR2PorUrl(divisao.logo_url);
+  }
 
   const entrando = Array.from(
     new Set([
@@ -1424,6 +1439,8 @@ export async function deletarDivisao(user: SessionUser, input: { divisaoId: numb
     .eq("gang_id", g)
     .eq("id", input.divisaoId);
   if (error) throw new Error(error.message);
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(lideranca.logo_url);
   return { ok: true };
 }
 

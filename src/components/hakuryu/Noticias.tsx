@@ -3,6 +3,7 @@ import { FileText, Newspaper, PenLine, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { EmptyState } from "@/components/hakuryu/ui-bits";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,10 +119,14 @@ export function CriarNoticiaDialog() {
             <Label htmlFor="titulo-noticia">Título</Label>
             <Input id="titulo-noticia" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título da reportagem" />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="imagem-noticia">URL da imagem principal</Label>
-            <Input id="imagem-noticia" value={imagemUrl} onChange={(e) => setImagemUrl(e.target.value)} placeholder="https://..." />
-          </div>
+          <CampoImagemR2
+            id="imagem-noticia"
+            label="Imagem principal"
+            pasta="noticias"
+            value={imagemUrl}
+            onChange={setImagemUrl}
+            descricao="Envie a imagem da reportagem. Ela será otimizada e permanecerá disponível no jornal."
+          />
           <div className="space-y-1.5">
             <Label htmlFor="descricao-noticia">Descrição do acontecimento</Label>
             <Textarea id="descricao-noticia" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={7} placeholder="Descreva o que aconteceu..." />
@@ -181,10 +186,14 @@ function EditarNoticiaDialog({ noticia }: { noticia: NoticiaPublica }) {
             <Label htmlFor={`editar-titulo-${noticia.id}`}>Título</Label>
             <Input id={`editar-titulo-${noticia.id}`} value={titulo} onChange={(e) => setTitulo(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`editar-imagem-${noticia.id}`}>URL da imagem principal</Label>
-            <Input id={`editar-imagem-${noticia.id}`} value={imagemUrl} onChange={(e) => setImagemUrl(e.target.value)} />
-          </div>
+          <CampoImagemR2
+            id={`editar-imagem-${noticia.id}`}
+            label="Imagem principal"
+            pasta="noticias"
+            value={imagemUrl}
+            onChange={setImagemUrl}
+            descricao="Use “Substituir imagem” para trocar a mídia. A anterior será removida ao salvar a reportagem."
+          />
           <div className="space-y-1.5">
             <Label htmlFor={`editar-descricao-${noticia.id}`}>Descrição do acontecimento</Label>
             <Textarea id={`editar-descricao-${noticia.id}`} value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={7} />

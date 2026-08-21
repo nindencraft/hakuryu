@@ -113,6 +113,13 @@ export async function salvarRecrutamentoDaGang(
   }
 
   const gang = await buscarGang(usuario.gangId);
+  const db = getDb();
+  const anterior = await db
+    .from("recrutamentos_gang")
+    .select("imagem_url")
+    .eq("gang_id", gang.id)
+    .maybeSingle();
+  if (anterior.error) throw new Error(anterior.error.message);
   const existente = await obterRecrutamentoDaGang(gang.id);
   let conviteAutomaticoUrl = existente?.conviteAutomaticoUrl ?? null;
 
@@ -135,11 +142,14 @@ export async function salvarRecrutamentoDaGang(
     ativo: Boolean(entrada.ativo),
     atualizado_em: agora,
   };
-  const db = getDb();
   const { error } = existente
     ? await db.from("recrutamentos_gang").update(registro).eq("gang_id", gang.id)
     : await db.from("recrutamentos_gang").insert({ ...registro, criado_em: agora });
   if (error) throw new Error(error.message);
+  if (anterior.data?.imagem_url && anterior.data.imagem_url !== imagemUrl) {
+    const { deletarImagemR2PorUrl } = await import("./r2.server");
+    await deletarImagemR2PorUrl(anterior.data.imagem_url);
+  }
 
   const salvo = await obterRecrutamentoDaGang(gang.id);
   if (!salvo) throw new Error("Não foi possível carregar o anúncio de recrutamento salvo.");

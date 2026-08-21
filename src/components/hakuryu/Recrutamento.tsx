@@ -3,6 +3,7 @@ import { ExternalLink, Megaphone, Pencil, Plus, Save, UsersRound } from "lucide-
 import { useState } from "react";
 
 import { useAcao } from "@/components/hakuryu/hooks";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -145,17 +146,15 @@ export function GestorMeuRecrutamento() {
               />
               Exibir este recrutamento publicamente
             </label>
-            <div className="space-y-2">
-              <Label htmlFor="recrutamento-imagem">URL pública do banner</Label>
-              <Input
-                id="recrutamento-imagem"
-                type="url"
-                value={formulario.imagemUrl}
-                onChange={(event) => setFormulario({ ...formulario, imagemUrl: event.target.value })}
-                placeholder="https://exemplo.com/banner.png"
-              />
-              <p className="text-xs text-muted-foreground">Recomendado: 2400 × 1029 px, na proporção 7:3.</p>
-            </div>
+            <CampoImagemR2
+              id="recrutamento-imagem"
+              label="Banner de recrutamento"
+              pasta="banners"
+              finalidade="recrutamento"
+              value={formulario.imagemUrl}
+              onChange={(imagemUrl) => setFormulario({ ...formulario, imagemUrl })}
+              descricao="Recomendado: 2400 × 1029 px, na proporção 7:3. A imagem será otimizada e salva permanentemente."
+            />
             <div className="space-y-2">
               <Label htmlFor="recrutamento-descricao">Descrição</Label>
               <Textarea

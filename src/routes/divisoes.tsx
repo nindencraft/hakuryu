@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { EmptyState, GoldRule, MemberAvatar, PageTitle } from "@/components/hakuryu/ui-bits";
 import { useAcao, useSessionUser } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
@@ -212,6 +213,7 @@ function Divisoes() {
                 );
               })()}
 
+
               {podeGerenciar || podeCriar ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {podeGerenciar ? (
@@ -320,14 +322,14 @@ function CriarDivisaoDialog({ open, onClose }: { open: boolean; onClose: () => v
               onChange={(e) => setForm({ ...form, discord_role_id: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="logo">URL do logo</Label>
-            <Input
-              id="logo"
-              value={form.logo_url}
-              onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-            />
-          </div>
+          <CampoImagemR2
+            id="logo"
+            label="Logo da divisão"
+            pasta="divisoes"
+            value={form.logo_url}
+            onChange={(logo_url) => setForm({ ...form, logo_url })}
+            descricao="O logo será otimizado e armazenado permanentemente. Você poderá substituí-lo depois."
+          />
           <div className="space-y-2">
             <Label htmlFor="funcao">Função principal</Label>
             <Input
@@ -371,12 +373,15 @@ function GerenciarDivisaoDialog({
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
   const [novos, setNovos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState(divisao?.logo_url ?? "");
 
+  // Preenche os campos com a liderança atual sempre que abrir outra divisão.
   useEffect(() => {
     if (!divisao) return;
     setLider(divisao.lider_id ?? NENHUM);
     setVice(divisao.vice_lider_id ?? NENHUM);
     setNovos([]);
+    setLogoUrl(divisao.logo_url ?? "");
   }, [divisao]);
 
   const acao = useAcao<{
@@ -384,6 +389,7 @@ function GerenciarDivisaoDialog({
     liderId: string | null;
     viceLiderId: string | null;
     novosMembros: string[];
+    logoUrl?: string | null;
   }>(atualizarDivisao, {
     sucesso: "Divisão atualizada.",
     invalidar: [["divisoes"], ["membros"]],
@@ -400,6 +406,7 @@ function GerenciarDivisaoDialog({
           setLider(divisao.lider_id ?? NENHUM);
           setVice(divisao.vice_lider_id ?? NENHUM);
           setNovos([]);
+          setLogoUrl(divisao.logo_url ?? "");
         }
       }}
     >
@@ -410,6 +417,14 @@ function GerenciarDivisaoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          <CampoImagemR2
+            id={`logo-divisao-${divisao?.id ?? "nova"}`}
+            label="Logo da divisão"
+            pasta="divisoes"
+            value={logoUrl}
+            onChange={setLogoUrl}
+            descricao="Use “Substituir imagem” para trocar logos antigos. A mídia anterior será removida ao salvar."
+          />
           <div className="space-y-2" hidden={!podeTrocarLider}>
             <Label>Capitão</Label>
             <Select value={lider} onValueChange={setLider} disabled={!podeTrocarLider}>
@@ -505,6 +520,7 @@ function GerenciarDivisaoDialog({
                   liderId: lider === NENHUM ? null : lider,
                   viceLiderId: vice === NENHUM ? null : vice,
                   novosMembros: novos,
+                  logoUrl,
                 },
                 { onSuccess: onClose },
               );

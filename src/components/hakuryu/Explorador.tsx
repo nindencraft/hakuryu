@@ -3,6 +3,7 @@ import { Check, ExternalLink, FilePlus2, Pause, Search, Send, ShieldCheck, Tag, 
 import { useMemo, useState } from "react";
 
 import { formatarData, useAcao } from "@/components/hakuryu/hooks";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -158,7 +159,15 @@ export function GestorMeuServidorExplorador() {
           <div className="space-y-4">
             <div className="space-y-2"><Label htmlFor="explorador-categoria">Categoria</Label><select id="explorador-categoria" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={formulario.categoria} onChange={(event) => setFormulario({ ...formulario, categoria: event.target.value as EntradaServidorExplorador["categoria"] })}><option value="roleplay">Roleplay</option><option value="comunidade">Comunidade</option></select></div>
             <div className="space-y-2"><Label htmlFor="explorador-titulo">Nome do servidor</Label><Input id="explorador-titulo" maxLength={100} value={formulario.titulo} onChange={(event) => setFormulario({ ...formulario, titulo: event.target.value })} placeholder="Nome exibido no Explorador" /></div>
-            <div className="space-y-2"><Label htmlFor="explorador-imagem">URL pública do banner</Label><Input id="explorador-imagem" type="url" value={formulario.imagemUrl} onChange={(event) => setFormulario({ ...formulario, imagemUrl: event.target.value })} placeholder="https://exemplo.com/banner.png" /><p className="text-xs text-muted-foreground">Recomendado: 2400 × 1029 px, proporção 7:3.</p></div>
+            <CampoImagemR2
+              id="explorador-imagem"
+              label="Banner do servidor"
+              pasta="banners"
+              finalidade="explorador"
+              value={formulario.imagemUrl}
+              onChange={(imagemUrl) => setFormulario({ ...formulario, imagemUrl })}
+              descricao="Recomendado: 2400 × 1029 px, proporção 7:3. O banner será otimizado e salvo permanentemente."
+            />
             <div className="space-y-2"><Label htmlFor="explorador-discord">Convite do Discord</Label><Input id="explorador-discord" type="url" value={formulario.discordUrl} onChange={(event) => setFormulario({ ...formulario, discordUrl: event.target.value })} placeholder="https://discord.gg/seu-servidor" /></div>
             <div className="space-y-2"><Label htmlFor="explorador-etiquetas">Etiquetas</Label><Input id="explorador-etiquetas" value={formulario.etiquetas.join(", ")} onChange={(event) => setFormulario({ ...formulario, etiquetas: event.target.value.split(",") })} placeholder="Escolar, sério, gangs" /><p className="text-xs text-muted-foreground">Separe até cinco etiquetas por vírgula.</p></div>
             <div className="space-y-2"><Label htmlFor="explorador-descricao">Descrição completa</Label><Textarea id="explorador-descricao" rows={7} maxLength={1500} value={formulario.descricao} onChange={(event) => setFormulario({ ...formulario, descricao: event.target.value })} placeholder="Explique a proposta, os destaques e o tipo de comunidade que o servidor oferece." /></div>

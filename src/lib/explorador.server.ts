@@ -144,6 +144,10 @@ export async function salvarMeuServidorExplorador(user: SessionUserView, input: 
       .eq("id", atual.id)
       .eq("responsavel_discord_id", user.id);
     if (error) throw new Error(error.message);
+    if (atual.imagemUrl !== servidor.imagemUrl) {
+      const { deletarImagemR2PorUrl } = await import("./r2.server");
+      await deletarImagemR2PorUrl(atual.imagemUrl);
+    }
     return { ok: true, status };
   }
 
@@ -182,7 +186,13 @@ export async function moderarServidorExplorador(id: number, statusBruto: string,
 
 export async function excluirServidorExploradorAdmin(id: number) {
   if (!Number.isInteger(id) || id < 1) throw new Error("Servidor inválido.");
-  const { error } = await getDb().from("servidores_explorador").delete().eq("id", id);
+  const db = getDb();
+  const anterior = await db.from("servidores_explorador").select("imagem_url").eq("id", id).maybeSingle();
+  if (anterior.error) throw new Error(anterior.error.message);
+  if (!anterior.data) throw new Error("Servidor não encontrado.");
+  const { error } = await db.from("servidores_explorador").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(anterior.data.imagem_url);
   return { ok: true };
 }

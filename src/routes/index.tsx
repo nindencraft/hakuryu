@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { CabecalhoHub, FundoHub, TelaHubCarregando, TelaHubLogin } from "@/components/hakuryu/HubLayout";
+import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { useAcao } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -375,19 +376,14 @@ function GestorAnuncios({
                 placeholder="Explique em poucas linhas o que torna este servidor especial."
               />
             </div>
-            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              Imagem recomendada: <strong>2400 × 1029 px</strong> (proporção 7:3).
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="anuncio-imagem">URL pública da imagem</Label>
-              <Input
-                id="anuncio-imagem"
-                type="url"
-                value={form.imagemUrl}
-                onChange={(event) => setForm({ ...form, imagemUrl: event.target.value })}
-                placeholder="https://exemplo.com/anuncio.png"
-              />
-            </div>
+            <CampoImagemR2
+              id="anuncio-imagem"
+              label="Imagem do anúncio"
+              pasta="anuncios"
+              value={form.imagemUrl}
+              onChange={(imagemUrl) => setForm({ ...form, imagemUrl })}
+              descricao="Imagem recomendada: 2400 × 1029 px (proporção 7:3). O arquivo será otimizado e salvo permanentemente."
+            />
             <div className="space-y-2">
               <Label htmlFor="anuncio-discord">Link do Discord</Label>
               <Input

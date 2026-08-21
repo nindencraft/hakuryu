@@ -147,10 +147,10 @@ function validarConteudoNoticia(input: { titulo: string; imagemUrl: string; desc
 async function buscarNoticiaParaPermissao(id: number) {
   if (!Number.isInteger(id) || id < 1) throw new Error("Notícia inválida.");
   const db = getDb();
-  const res = await db.from("noticias").select("id, autor_discord_id").eq("id", id).maybeSingle();
+  const res = await db.from("noticias").select("id, autor_discord_id, imagem_url").eq("id", id).maybeSingle();
   if (res.error) throw new Error(res.error.message);
   if (!res.data) throw new Error("A reportagem não foi encontrada.");
-  return res.data as { id: number; autor_discord_id: string };
+  return res.data as { id: number; autor_discord_id: string; imagem_url: string };
 }
 
 export async function criarNoticia(
@@ -210,14 +210,24 @@ export async function editarNoticia(
     .update({ titulo, imagem_url: imagemUrl, descricao })
     .eq("id", noticia.id);
   if (res.error) throw new Error(res.error.message);
+  if (noticia.imagem_url !== imagemUrl) {
+    const { deletarImagemR2PorUrl } = await import("./r2.server");
+    await deletarImagemR2PorUrl(noticia.imagem_url);
+  }
   return { ok: true };
 }
 
 export async function excluirNoticia(request: Request, id: number) {
   await requireSuperOwnerJornal(request);
   if (!Number.isInteger(id) || id < 1) throw new Error("Notícia inválida.");
-  const res = await getDb().from("noticias").delete().eq("id", id);
+  const db = getDb();
+  const anterior = await db.from("noticias").select("imagem_url").eq("id", id).maybeSingle();
+  if (anterior.error) throw new Error(anterior.error.message);
+  if (!anterior.data) throw new Error("A reportagem não foi encontrada.");
+  const res = await db.from("noticias").delete().eq("id", id);
   if (res.error) throw new Error(res.error.message);
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(anterior.data.imagem_url);
   return { ok: true };
 }
 
