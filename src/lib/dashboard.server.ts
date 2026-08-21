@@ -1244,7 +1244,7 @@ export async function atualizarPresenca(
         treino_id: input.treinoId,
         membro_id: input.membroId,
         gang_id: g,
-        inscricao: "Avaliado pela liderança",
+        inscricao: "Avaliado",
         presenca: input.presenca,
         justificativa,
         justificativa_status: justificativaStatus,
