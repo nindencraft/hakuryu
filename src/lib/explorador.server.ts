@@ -196,3 +196,24 @@ export async function excluirServidorExploradorAdmin(id: number) {
   await deletarImagemR2PorUrl(anterior.data.imagem_url);
   return { ok: true };
 }
+
+export async function excluirServidorExploradorAutorizado(user: SessionUserView, id: number) {
+  if (!Number.isInteger(id) || id < 1) throw new Error("Servidor inválido.");
+  const db = getDb();
+  const { data: anterior, error: erroBusca } = await db
+    .from("servidores_explorador")
+    .select("imagem_url, responsavel_discord_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (erroBusca) throw new Error(erroBusca.message);
+  if (!anterior) throw new Error("Servidor não encontrado.");
+  if (!user.isSuperOwner && anterior.responsavel_discord_id !== user.id) {
+    throw new Error("Você não tem permissão para excluir este servidor.");
+  }
+
+  const { error } = await db.from("servidores_explorador").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(anterior.imagem_url);
+  return { ok: true };
+}

@@ -50,3 +50,11 @@ export const excluirServidorExploradorAdmin = createServerFn({ method: "POST" })
     const { excluirServidorExploradorAdmin: excluir } = await import("./explorador.server");
     return excluir(data.id);
   });
+
+export const excluirServidorExplorador = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data }) => {
+    const user = await dashboard.requireUserSemGang(getRequest());
+    const { excluirServidorExploradorAutorizado: excluir } = await import("./explorador.server");
+    return excluir(user, data.id);
+  });

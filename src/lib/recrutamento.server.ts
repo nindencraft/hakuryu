@@ -155,3 +155,27 @@ export async function salvarRecrutamentoDaGang(
   if (!salvo) throw new Error("Não foi possível carregar o anúncio de recrutamento salvo.");
   return salvo;
 }
+
+export async function excluirRecrutamentoDaGang(usuario: SessionUser, gangId: number) {
+  if (!Number.isInteger(gangId) || gangId < 1) throw new Error("Recrutamento inválido.");
+  const podeExcluirDaGangAtiva = usuario.gangId === gangId && podeGerenciarRecrutamento(usuario);
+  if (!usuario.isSuperOwner && !podeExcluirDaGangAtiva) {
+    throw new Error("Você não tem permissão para excluir este recrutamento.");
+  }
+
+  const db = getDb();
+  const { data: anterior, error: erroBusca } = await db
+    .from("recrutamentos_gang")
+    .select("imagem_url")
+    .eq("gang_id", gangId)
+    .maybeSingle();
+  if (erroBusca) throw new Error(erroBusca.message);
+  if (!anterior) throw new Error("Recrutamento não encontrado.");
+
+  const { error } = await db.from("recrutamentos_gang").delete().eq("gang_id", gangId);
+  if (error) throw new Error(error.message);
+
+  const { deletarImagemR2PorUrl } = await import("./r2.server");
+  await deletarImagemR2PorUrl(anterior.imagem_url);
+  return { ok: true };
+}

@@ -1,18 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Megaphone, Pencil, Plus, Save, UsersRound } from "lucide-react";
+import { ExternalLink, Megaphone, Pencil, Plus, Save, Trash2, UsersRound } from "lucide-react";
 import { useState } from "react";
 
 import { useAcao } from "@/components/hakuryu/hooks";
 import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { podeExcluirRecrutamentoPublico } from "@/lib/exclusao-publicacoes";
 import { podeGerenciarRecrutamento } from "@/lib/permissions";
-import { fetchMeuRecrutamento, salvarMeuRecrutamento } from "@/lib/recrutamento.functions";
+import { excluirRecrutamento, fetchMeuRecrutamento, salvarMeuRecrutamento } from "@/lib/recrutamento.functions";
 import type { EntradaRecrutamentoGang } from "@/lib/recrutamento";
 import type { RecrutamentoGang } from "@/lib/recrutamento.server";
 import { sessionQuery } from "@/lib/queries";
@@ -31,6 +33,11 @@ function formularioDo(recrutamento: RecrutamentoGang): EntradaRecrutamentoGang {
 }
 
 export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: RecrutamentoGang[] }) {
+  const sessao = useQuery(sessionQuery);
+  const remover = useAcao<{ gangId: number }>(excluirRecrutamento, {
+    sucesso: "Recrutamento removido.",
+    invalidar: [["recrutamentos-publicos"], ["meu-recrutamento"]],
+  });
   if (recrutamentos.length === 0) {
     return (
       <div className="card-gold border-dashed bg-white/70 p-8 text-center">
@@ -46,7 +53,24 @@ export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: Recrutam
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {recrutamentos.map((recrutamento) => (
-        <article key={recrutamento.gangId} className="card-gold overflow-hidden bg-white/95 p-0">
+        <article key={recrutamento.gangId} className="card-gold relative overflow-hidden bg-white/95 p-0">
+          {podeExcluirRecrutamentoPublico({
+            gangId: sessao.data?.gangId,
+            isSuperOwner: sessao.data?.user?.isSuperOwner,
+            podeGerenciarRecrutamento: podeGerenciarRecrutamento(sessao.data?.user ?? null),
+          }, recrutamento.gangId) ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" size="icon" variant="destructive" className="absolute right-3 top-3 z-10 h-8 w-8 rounded-full shadow-md" aria-label={`Excluir recrutamento de ${recrutamento.gangNome}`}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Excluir recrutamento?</AlertDialogTitle><AlertDialogDescription>Essa ação remove o card público e o banner salvo permanentemente. A gang poderá criar outro anúncio depois.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => remover.mutate({ gangId: recrutamento.gangId })}>Excluir</AlertDialogAction></AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
           <img
             src={recrutamento.imagemUrl}
             alt={`Banner de recrutamento da gang ${recrutamento.gangNome}`}

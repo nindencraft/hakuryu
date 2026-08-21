@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, ExternalLink, FilePlus2, Pause, Search, Send, ShieldCheck, Tag, X } from "lucide-react";
+import { Check, ExternalLink, FilePlus2, Pause, Search, Send, ShieldCheck, Tag, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { formatarData, useAcao } from "@/components/hakuryu/hooks";
 import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,10 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { EntradaServidorExplorador } from "@/lib/explorador";
+import { podeExcluirServidorExploradorPublico } from "@/lib/exclusao-publicacoes";
 import type { ServidorExplorador } from "@/lib/explorador.server";
 import {
   fetchMeuServidorExplorador,
   excluirServidorExploradorAdmin,
+  excluirServidorExplorador,
   moderarServidorExplorador,
   salvarMeuServidorExplorador,
 } from "@/lib/explorador.functions";
@@ -52,6 +55,11 @@ function categoriaLabel(categoria: ServidorExplorador["categoria"]) {
 }
 
 export function VitrineExplorador({ servidores }: { servidores: ServidorExplorador[] }) {
+  const sessao = useQuery(sessionQuery);
+  const remover = useAcao<{ id: number }>(excluirServidorExplorador, {
+    sucesso: "Servidor removido do Explorador.",
+    invalidar: [["servidores-explorador-publicos"], ["meu-servidor-explorador"], ["servidores-explorador-admin"]],
+  });
   const [categoria, setCategoria] = useState<(typeof categorias)[number]["valor"]>("todos");
   const [busca, setBusca] = useState("");
   const [detalhe, setDetalhe] = useState<ServidorExplorador | null>(null);
@@ -90,7 +98,13 @@ export function VitrineExplorador({ servidores }: { servidores: ServidorExplorad
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {visiveis.map((servidor) => (
-            <article key={servidor.id} className="card-gold flex overflow-hidden bg-white/95 p-0">
+            <article key={servidor.id} className="card-gold relative flex overflow-hidden bg-white/95 p-0">
+              {podeExcluirServidorExploradorPublico({ discordId: sessao.data?.user?.id, isSuperOwner: sessao.data?.user?.isSuperOwner }, servidor.responsavelDiscordId) ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild><Button type="button" size="icon" variant="destructive" className="absolute right-3 top-3 z-10 h-8 w-8 rounded-full shadow-md" aria-label={`Excluir ${servidor.titulo}`}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                  <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir publicação?</AlertDialogTitle><AlertDialogDescription>O servidor será removido do Explorador e seu banner persistente será apagado. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => remover.mutate({ id: servidor.id })}>Excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                </AlertDialog>
+              ) : null}
               <div className="flex w-full flex-col">
                 <img src={servidor.imagemUrl} alt={`Banner do servidor ${servidor.titulo}`} className="aspect-[7/3] w-full object-cover" />
                 <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">

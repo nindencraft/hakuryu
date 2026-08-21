@@ -24,3 +24,11 @@ export const salvarMeuRecrutamento = createServerFn({ method: "POST" })
     const { salvarRecrutamentoDaGang } = await import("./recrutamento.server");
     return salvarRecrutamentoDaGang(usuario, data);
   });
+
+export const excluirRecrutamento = createServerFn({ method: "POST" })
+  .inputValidator((input: { gangId: number }) => input)
+  .handler(async ({ data }) => {
+    const usuario = await svc.requireUser(getRequest());
+    const { excluirRecrutamentoDaGang } = await import("./recrutamento.server");
+    return excluirRecrutamentoDaGang(usuario, data.gangId);
+  });
