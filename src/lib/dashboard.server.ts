@@ -16,6 +16,7 @@ import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
 import { acessoGangPermitido } from "./acesso-gang";
 import { buscarFichaRPG, encerrarHistoricoDeMembro } from "./perfil.server";
+import { contarInscricoesConfirmadas } from "./presenca";
 import {
   TIPO_TREINO_OPCOES,
   type AliadoResolvido,
@@ -297,12 +298,10 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
     justificativa: string | null;
   }[];
 
-  const contagem = new Map<number, number>();
-  for (const i of inscricoes) {
-    if (i.inscricao === "Confirmado" && i.presenca === "Pendente" && !i.justificativa) {
-      contagem.set(i.treino_id, (contagem.get(i.treino_id) ?? 0) + 1);
-    }
-  }
+  // A inscrição permanece confirmada mesmo depois de a liderança registrar
+  // Presente, Ausente ou Justificado. Portanto a badge deve contar somente
+  // `inscricao = Confirmado`, sem depender do estado da avaliação.
+  const contagem = contarInscricoesConfirmadas(inscricoes);
 
   return treinos.map((t) => {
     const { descricao, adiamento, aliado } = separarAdiamento(t.descricao);
@@ -1269,21 +1268,34 @@ export async function atualizarPresenca(
   return { ok: true };
 }
 
+export type MinhaRespostaEvento = {
+  inscricao: string | null;
+  presenca: string | null;
+  justificativa: string | null;
+  justificativa_status: "Nenhuma" | "Pendente" | "Aceita" | "Recusada" | null;
+};
+
 export async function minhaInscricao(
   user: SessionUser,
   input: { treinoId: number },
-): Promise<string | null> {
+): Promise<MinhaRespostaEvento> {
   const db = getDb();
   const membroId = await idDoMembroNaGang(user);
   const { data, error } = await db
     .from("presencas_treino")
-    .select("inscricao")
+    .select("inscricao, presenca, justificativa, justificativa_status")
     .eq("gang_id", gid(user))
     .eq("treino_id", input.treinoId)
     .eq("membro_id", membroId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as { inscricao: string | null } | null)?.inscricao ?? null;
+  const resposta = data as MinhaRespostaEvento | null;
+  return {
+    inscricao: resposta?.inscricao ?? null,
+    presenca: resposta?.presenca ?? null,
+    justificativa: resposta?.justificativa ?? null,
+    justificativa_status: resposta?.justificativa_status ?? null,
+  };
 }
 
 /* ========== Atividade e inatividade ========== */

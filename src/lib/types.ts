@@ -299,6 +299,8 @@ export type SolicitacaoGang = {
 
 export type GuerraAtiva = {
   id: number;
+  /** Evento de presença da gang que está consultando a guerra. */
+  treino_id_presenca: number | null;
   motivo: string | null;
   data_evento: string | null;
   horario: string | null;

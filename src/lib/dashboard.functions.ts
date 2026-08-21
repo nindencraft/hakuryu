@@ -238,9 +238,9 @@ export const salvarAtributosMembro = createServerFn({ method: "POST" })
 
 export const fetchMinhaInscricao = createServerFn({ method: "POST" })
   .inputValidator((data: { treinoId: number }) => data)
-  .handler(async ({ data }): Promise<{ inscricao: string | null }> => {
+  .handler(async ({ data }): Promise<svc.MinhaRespostaEvento> => {
     const user = await svc.requireUser(getRequest());
-    return { inscricao: await svc.minhaInscricao(user, data) };
+    return svc.minhaInscricao(user, data);
   });
 
 export const fetchAtividade = createServerFn({ method: "POST" })

@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,9 +26,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { gangsRegistradasQuery, guerrasQuery } from "@/lib/queries";
-import { criarSolicitacao, encerrarGuerra } from "@/lib/dashboard.functions";
-import { podeGerenciarParcerias } from "@/lib/permissions";
-import type { GangRegistrada, GuerraAtiva, RelacaoGang } from "@/lib/types";
+import {
+  ausentarSe,
+  atualizarPresenca,
+  criarSolicitacao,
+  encerrarGuerra,
+  fetchMinhaInscricao,
+  fetchPresencas,
+  inscreverSe,
+} from "@/lib/dashboard.functions";
+import { podeGerenciarParcerias, podeGerenciarTreinos } from "@/lib/permissions";
+import { PRESENCA_OPCOES, type GangRegistrada, type GuerraAtiva, type PresencaTreino, type RelacaoGang } from "@/lib/types";
 
 export function guildIcon(guildId: string | null, iconHash: string | null): string | null {
   if (!guildId || !iconHash) return null;
@@ -64,6 +79,7 @@ export function GangAvatar({
   );
 }
 
+/** Card de uma gang registrada que já é aliada ou inimiga (seções do topo). */
 export function GangDiplomaticaCard({
   gang,
   onDeletar,
@@ -165,6 +181,8 @@ function badgeRelacao(relacao: RelacaoGang) {
   return <Badge variant="secondary">🟢 Neutra</Badge>;
 }
 
+/* ================= Gangs registradas ================= */
+
 export function GangsRegistradas() {
   const { data, isPending, error } = useQuery(gangsRegistradasQuery);
   const [busca, setBusca] = useState("");
@@ -237,6 +255,7 @@ export function GangsRegistradas() {
     </section>
   );
 }
+
 
 export function SolicitacaoDialog({
   valor,
@@ -408,6 +427,8 @@ export function SolicitacaoDialog({
   );
 }
 
+/* ================= Aviso de guerra (visão geral) ================= */
+
 export function AvisosDeGuerra() {
   const { data } = useQuery(guerrasQuery);
   const guerras = data?.guerras ?? [];
@@ -424,6 +445,20 @@ export function AvisosDeGuerra() {
 function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
   const user = useSessionUser();
   const [aberto, setAberto] = useState(false);
+  const [justificando, setJustificando] = useState(false);
+  const [avaliandoPresenca, setAvaliandoPresenca] = useState(false);
+  const treinoId = g.treino_id_presenca;
+  const { data: minhaResposta } = useQuery({
+    queryKey: ["inscricao", "guerra", treinoId],
+    queryFn: () => fetchMinhaInscricao({ data: { treinoId: treinoId! } }),
+    enabled: treinoId != null,
+  });
+  const inscrito = minhaResposta?.inscricao === "Confirmado";
+  const participar = useAcao<{ treinoId: number }>(inscreverSe, {
+    sucesso: "Participação na guerra confirmada.",
+    invalidar: [["inscricao", "guerra", treinoId], ["treinos"], ["guerras"]],
+  });
+  const podeAvaliarPresenca = podeGerenciarTreinos(user);
   const encerrar = useAcao<{ id: number }>(encerrarGuerra, {
     sucesso: "Pedido de encerramento registrado. A guerra encerra quando as duas gangs confirmarem.",
     invalidar: [["guerras"], ["gangs-registradas"], ["solicitacoes"]],
@@ -481,6 +516,38 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
         ) : null}
       </div>
 
+      {treinoId != null ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-center text-xs text-muted-foreground">
+            {inscrito
+              ? minhaResposta?.justificativa
+                ? "Ausência justificada enviada para avaliação."
+                : minhaResposta?.presenca && minhaResposta.presenca !== "Pendente"
+                  ? `Participação avaliada: ${minhaResposta.presenca}.`
+                  : "Sua participação está confirmada."
+              : "Confirme sua participação ou informe a justificativa da ausência."}
+          </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <Button
+              size="sm"
+              variant={inscrito && !minhaResposta?.justificativa ? "secondary" : "default"}
+              disabled={participar.isPending}
+              onClick={() => participar.mutate({ treinoId })}
+            >
+              {inscrito && !minhaResposta?.justificativa ? "Participação confirmada" : "Participar"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setJustificando(true)}>
+              Não vou
+            </Button>
+            {podeAvaliarPresenca ? (
+              <Button size="sm" variant="ghost" onClick={() => setAvaliandoPresenca(true)}>
+                Avaliar presença
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {aberto ? (
         <dl className="mt-4 grid gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
           <Detalhe rotulo="Solicitada por" valor={g.solicitante_nome ?? "—"} />
@@ -510,7 +577,151 @@ function CardGuerra({ guerra: g }: { guerra: GuerraAtiva }) {
           {g.motivo ? <Detalhe rotulo="Motivo" valor={g.motivo} /> : null}
         </dl>
       ) : null}
+
+      <JustificativaGuerraDialog
+        guerra={g}
+        treinoId={treinoId}
+        open={justificando}
+        onClose={() => setJustificando(false)}
+      />
+      <PresencaGuerraDialog
+        guerra={g}
+        treinoId={treinoId}
+        open={avaliandoPresenca}
+        onClose={() => setAvaliandoPresenca(false)}
+      />
     </div>
+  );
+}
+
+function JustificativaGuerraDialog({
+  guerra,
+  treinoId,
+  open,
+  onClose,
+}: {
+  guerra: GuerraAtiva;
+  treinoId: number | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [justificativa, setJustificativa] = useState("");
+  const acao = useAcao<{ treinoId: number; justificativa: string }>(ausentarSe, {
+    sucesso: "Justificativa enviada para avaliação da liderança.",
+    invalidar: [["inscricao", "guerra", treinoId], ["presencas", treinoId ?? 0], ["treinos"], ["guerras"]],
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(aberto) => {
+        if (!aberto) {
+          setJustificativa("");
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Justificar ausência na guerra</DialogTitle>
+          <DialogDescription>
+            Informe por que não poderá participar da guerra contra {guerra.eles.nome}. A liderança avaliará o pedido antes de registrar a situação final.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor={`justificativa-guerra-${guerra.id}`}>Motivo da ausência</Label>
+          <Textarea
+            id={`justificativa-guerra-${guerra.id}`}
+            value={justificativa}
+            onChange={(event) => setJustificativa(event.target.value)}
+            placeholder="Explique de forma objetiva o motivo da ausência."
+            minLength={3}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button
+            disabled={treinoId == null || justificativa.trim().length < 3 || acao.isPending}
+            onClick={() => treinoId != null && acao.mutate({ treinoId, justificativa }, { onSuccess: onClose })}
+          >
+            Enviar justificativa
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PresencaGuerraDialog({
+  guerra,
+  treinoId,
+  open,
+  onClose,
+}: {
+  guerra: GuerraAtiva;
+  treinoId: number | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data, isPending } = useQuery({
+    queryKey: ["presencas", treinoId],
+    queryFn: () => fetchPresencas({ data: { treinoId: treinoId! } }),
+    enabled: open && treinoId != null,
+  });
+  const acao = useAcao<{ treinoId: number; membroId: string; presenca: string }>(atualizarPresenca, {
+    sucesso: "Presença atualizada.",
+    invalidar: [["presencas", treinoId ?? 0], ["treinos"], ["guerras"], ["atividade"]],
+  });
+  const lista = (data ?? []) as PresencaTreino[];
+
+  return (
+    <Dialog open={open} onOpenChange={(aberto) => !aberto && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Presença — Guerra contra {guerra.eles.nome}</DialogTitle>
+          <DialogDescription>Avalie as participações e justificativas enviadas pelos membros.</DialogDescription>
+        </DialogHeader>
+        {isPending ? (
+          <Skeleton className="h-32" />
+        ) : lista.length === 0 ? (
+          <EmptyState title="Nenhuma resposta recebida" description="As inscrições e justificativas dos membros aparecerão aqui." />
+        ) : (
+          <ul className="space-y-2">
+            {lista.map((p) => (
+              <li key={p.membro_id} className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-2">
+                <MemberAvatar
+                  discordId={p.membro_id}
+                  avatarHash={p.avatar_hash}
+                  size={36}
+                  alt={`Avatar de ${p.discord_username ?? p.membro_id}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{p.nome_rp || p.discord_username || p.membro_id}</p>
+                  {p.justificativa ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      Justificativa: {p.justificativa} ({p.justificativa_status})
+                    </p>
+                  ) : null}
+                </div>
+                <span aria-label={`Estado: ${p.presenca}`} className="text-base">
+                  {p.presenca === "Presente" ? "🟢" : p.presenca === "Justificado" ? "🟡" : p.presenca === "Ausente" ? "🔴" : "⚪"}
+                </span>
+                <Select
+                  value={p.presenca}
+                  disabled={acao.isPending || treinoId == null}
+                  onValueChange={(presenca) => treinoId != null && acao.mutate({ treinoId, membroId: p.membro_id, presenca })}
+                >
+                  <SelectTrigger className="w-36" aria-label="Presença"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PRESENCA_OPCOES.map((opcao) => <SelectItem key={opcao} value={opcao}>{opcao}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

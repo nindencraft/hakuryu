@@ -3,6 +3,8 @@ import { podeGerenciarParcerias, type SessionUser } from "./session.server";
 import type { GangRegistrada, GuerraAtiva, SolicitacaoGang } from "./types";
 import { normalizarLinkEvento } from "./event-link";
 
+/* ========== utilidades ========== */
+
 function gid(user: SessionUser): number {
   if (user.gangId == null) throw new Error("SEM_GANG");
   return user.gangId;
@@ -58,6 +60,12 @@ async function gangsAtivas(): Promise<GangLinha[]> {
   return (data ?? []) as GangLinha[];
 }
 
+/**
+ * Link do servidor de cada gang.
+ *
+ * Usa o convite salvo em `gangs.convite`.
+ * Quando não existe, pede ao bot um convite permanente e guarda no banco.
+ */
 async function convitesDasGangs(gangs: GangLinha[]): Promise<Map<number, string>> {
   const db = getDb();
   const mapa = new Map<number, string>();
@@ -140,6 +148,15 @@ async function relacoesDaGang(gangId: number): Promise<{
   };
 }
 
+/**
+ * Remove manualmente uma relação diplomática.
+ *
+ * IMPORTANTE:
+ * Guerra não chama mais esta função.
+ *
+ * Ela continua existindo apenas para a ação manual
+ * "remover relação" da página de alianças.
+ */
 async function limparRelacao(gangId: number, outraGangId: number) {
   const db = getDb();
 
@@ -151,6 +168,8 @@ async function limparRelacao(gangId: number, outraGangId: number) {
     throw new Error(error.message);
   }
 }
+
+/* ========== leitura ========== */
 
 export async function listarGangsRegistradas(user: SessionUser): Promise<{
   gangs: GangRegistrada[];
@@ -165,6 +184,17 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     iconesPorGuild(),
   ]);
 
+  /*
+   * Relações diplomáticas reais.
+   *
+   * IMPORTANTE:
+   * Guerra não altera este mapa.
+   *
+   * Portanto:
+   *
+   * Aliada + Guerra = continua Aliada
+   * Neutra + Guerra = continua Neutra
+   */
   const relacaoDe = new Map<number, string>();
 
   for (const r of relacoes) {
@@ -173,6 +203,10 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     relacaoDe.set(outra, r.tipo);
   }
 
+  /*
+   * Solicitações pendentes envolvendo a minha gang.
+   * Serve para impedir solicitações duplicadas.
+   */
   const pendentes = new Map<
     number,
     {
@@ -205,6 +239,9 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
     ]);
   }
 
+  /*
+   * Contagem de membros, treinos e divisões.
+   */
   const contagem = new Map<number, number>();
   const treinosPorGang = new Map<number, number>();
   const divisoesPorGang = new Map<number, number>();
@@ -241,6 +278,15 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
 
   const convites = await convitesDasGangs(todas.filter((g) => g.id !== minha));
 
+  /*
+   * Solicitação aceita que originou cada relação.
+   *
+   * ATENÇÃO:
+   * Guerra não cria mais relação diplomática.
+   *
+   * Esta parte serve somente para descobrir os dados
+   * da aliança que já existe.
+   */
   const acordo = new Map<number, SolicitacaoLinha>();
 
   if (relacaoDe.size > 0) {
@@ -287,6 +333,11 @@ export async function listarGangsRegistradas(user: SessionUser): Promise<{
 
         convite: convites.get(g.id) ?? null,
 
+        /*
+         * A relação vem EXCLUSIVAMENTE de gang_relacoes.
+         *
+         * Guerra não altera esse valor.
+         */
         relacao: (relacaoDe.get(g.id) as GangRegistrada["relacao"]) ?? "Neutra",
 
         pendencias: pendentes.get(g.id) ?? [],
@@ -332,6 +383,8 @@ type SolicitacaoLinha = {
   criado_em: string | null;
   encerrar_origem?: boolean | null;
   encerrar_destino?: boolean | null;
+  treino_origem_id?: number | null;
+  treino_destino_id?: number | null;
   representante_id?: string | null;
   representante_nome?: string | null;
   representante_avatar?: string | null;
@@ -424,6 +477,11 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
   const db = getDb();
   const minha = gid(user);
 
+  /*
+   * Guerra é determinada pela solicitação aceita.
+   *
+   * NÃO depende de gang_relacoes.
+   */
   const { data, error } = await db
     .from("gang_solicitacoes")
     .select("*")
@@ -461,11 +519,28 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
     };
   };
 
-  const guerras = ((data ?? []) as SolicitacaoLinha[]).map<GuerraAtiva>((s) => {
+  const solicitacoes = (data ?? []) as SolicitacaoLinha[];
+
+  // Guerras aceitas antes desta melhoria ainda não possuem os dois eventos.
+  // O primeiro carregamento cria os vínculos uma única vez, preservando-as.
+  for (const solicitacao of solicitacoes) {
+    if (solicitacao.treino_origem_id != null || solicitacao.treino_destino_id != null) continue;
+    const ids = await criarEventosPresencaGuerra(solicitacao, user);
+    const { error: erroVinculo } = await db
+      .from("gang_solicitacoes")
+      .update({ treino_origem_id: ids.origem, treino_destino_id: ids.destino })
+      .eq("id", solicitacao.id);
+    if (erroVinculo) throw new Error(erroVinculo.message);
+    solicitacao.treino_origem_id = ids.origem;
+    solicitacao.treino_destino_id = ids.destino;
+  }
+
+  const guerras = solicitacoes.map<GuerraAtiva>((s) => {
     const souOrigem = s.gang_origem_id === minha;
 
     return {
       id: s.id,
+      treino_id_presenca: souOrigem ? s.treino_origem_id ?? null : s.treino_destino_id ?? null,
 
       motivo: s.motivo,
 
@@ -503,6 +578,8 @@ export async function listarGuerrasAtivas(user: SessionUser): Promise<{
   };
 }
 
+/* ========== escrita ========== */
+
 export type NovaSolicitacao = {
   gangId: number;
   tipo: string;
@@ -530,12 +607,26 @@ export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao
     throw new Error("Tipo de solicitação inválido.");
   }
 
+  /*
+   * Não verificamos mais se a relação é "Inimiga".
+   *
+   * Isso é proposital.
+   *
+   * Uma gang pode declarar guerra contra uma gang
+   * que ainda esteja marcada como Aliada.
+   *
+   * A guerra é independente da relação diplomática.
+   */
+
   const { tabelaAusente } = await relacoesDaGang(minha);
 
   if (tabelaAusente) {
     throw new Error("As tabelas de diplomacia não existem no banco. Rode o script sql/diplomacia.sql.");
   }
 
+  /*
+   * Impede somente solicitações pendentes duplicadas.
+   */
   const { data: dup } = await db
     .from("gang_solicitacoes")
     .select("id")
@@ -722,7 +813,9 @@ async function avisarDiscord(
         },
       );
     }
-  } catch {}
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function responderSolicitacao(
@@ -767,11 +860,29 @@ export async function responderSolicitacao(
     respondido_em: new Date().toISOString(),
   };
 
+  /*
+   * IMPORTANTE:
+   *
+   * Guerra NÃO chama definirRelacao().
+   *
+   * Portanto aceitar uma guerra NÃO transforma
+   * a relação em "Inimiga".
+   */
   if (input.aceitar && sol.tipo === "Treino") {
     const ids = await criarTreinosAmistosos(sol, user);
 
     patch["treino_origem_id"] = ids.origem;
 
+    patch["treino_destino_id"] = ids.destino;
+  }
+
+  if (input.aceitar && sol.tipo === "Guerra") {
+    const ids = await criarEventosPresencaGuerra(sol, user);
+
+    // Reutiliza os vínculos diplomáticos já existentes, um para cada gang.
+    // Assim a guerra passa pelo mesmo ciclo de presença dos treinos sem criar
+    // nova tabela nem alterar os campos legados.
+    patch["treino_origem_id"] = ids.origem;
     patch["treino_destino_id"] = ids.destino;
   }
 
@@ -806,6 +917,7 @@ export async function responderSolicitacao(
   };
 }
 
+/** Cria o treino amistoso espelhado nas duas gangs. */
 async function criarTreinosAmistosos(
   sol: SolicitacaoLinha,
   user: SessionUser,
@@ -881,6 +993,106 @@ async function criarTreinosAmistosos(
   };
 }
 
+/**
+ * Cria, na aceitação da guerra, um evento de presença espelhado por gang.
+ * A tabela `treinos` é deliberadamente reutilizada: toda a inscrição,
+ * justificativa, avaliação e a aba Atividade já operam por `treino_id`.
+ */
+async function criarEventosPresencaGuerra(
+  sol: SolicitacaoLinha,
+  user: SessionUser,
+): Promise<{
+  origem: number | null;
+  destino: number | null;
+}> {
+  const db = getDb();
+  const { buscarGangPorId } = await import("./gangs.server");
+  const [origem, destino] = await Promise.all([
+    buscarGangPorId(sol.gang_origem_id),
+    buscarGangPorId(sol.gang_destino_id),
+  ]);
+
+  const base = {
+    data_treino: sol.data_evento ?? new Date().toISOString().slice(0, 10),
+    horario: sol.horario,
+    tipo: "Guerra",
+    local: sol.local,
+    link_servidor_privado: sol.link_servidor_privado,
+    status: "Aberto",
+  };
+  const linhas = [
+    {
+      ...base,
+      gang_id: sol.gang_origem_id,
+      titulo: `Guerra vs. ${destino?.nome ?? "gang adversária"}`,
+      descricao: sol.motivo ?? null,
+      criado_por: sol.criado_por,
+    },
+    {
+      ...base,
+      gang_id: sol.gang_destino_id,
+      titulo: `Guerra vs. ${origem?.nome ?? "gang adversária"}`,
+      descricao: sol.motivo ?? null,
+      criado_por: user.id,
+    },
+  ];
+
+  const { data, error } = await db.from("treinos").insert(linhas).select("id_treino, gang_id");
+  if (error) throw new Error(`Não consegui criar os eventos de presença da guerra: ${error.message}`);
+
+  const criados = (data ?? []) as { id_treino: number; gang_id: number }[];
+  return {
+    origem: criados.find((treino) => treino.gang_id === sol.gang_origem_id)?.id_treino ?? null,
+    destino: criados.find((treino) => treino.gang_id === sol.gang_destino_id)?.id_treino ?? null,
+  };
+}
+
+/** Fecha os dois eventos de presença e registra como ausentes os membros que não responderam. */
+async function encerrarEventosPresencaGuerra(sol: SolicitacaoLinha) {
+  const db = getDb();
+  const eventos = [
+    { gangId: sol.gang_origem_id, treinoId: sol.treino_origem_id ?? null },
+    { gangId: sol.gang_destino_id, treinoId: sol.treino_destino_id ?? null },
+  ].filter((evento): evento is { gangId: number; treinoId: number } => evento.treinoId != null);
+
+  for (const evento of eventos) {
+    const { data: membros, error: erroMembros } = await db
+      .from("membros")
+      .select("discord_id, status")
+      .eq("gang_id", evento.gangId);
+    if (erroMembros) throw new Error(erroMembros.message);
+
+    const ausenciasAutomaticas = ((membros ?? []) as { discord_id: string; status: string | null }[])
+      .filter((membro) => !membro.status || membro.status === "Ativo")
+      .map((membro) => ({
+        treino_id: evento.treinoId,
+        membro_id: membro.discord_id,
+        gang_id: evento.gangId,
+        // A constraint legada aceita exclusivamente este valor. A situação
+        // final fica em `presenca`, não em `inscricao`.
+        inscricao: "Confirmado",
+        presenca: "Ausente",
+        justificativa: null,
+        justificativa_status: "Nenhuma",
+      }));
+
+    if (ausenciasAutomaticas.length > 0) {
+      const { error: erroAusencias } = await db.from("presencas_treino").upsert(ausenciasAutomaticas, {
+        onConflict: "treino_id,membro_id",
+        ignoreDuplicates: true,
+      });
+      if (erroAusencias) throw new Error(erroAusencias.message);
+    }
+
+    const { error: erroEncerramento } = await db
+      .from("treinos")
+      .update({ status: "Encerrado" })
+      .eq("gang_id", evento.gangId)
+      .eq("id_treino", evento.treinoId);
+    if (erroEncerramento) throw new Error(erroEncerramento.message);
+  }
+}
+
 export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem encerrar guerras.");
 
@@ -909,6 +1121,11 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
 
   const outroJaPediu = !!(souOrigem ? sol.encerrar_destino : sol.encerrar_origem);
 
+  /*
+   * Marca o pedido do meu lado.
+   *
+   * A guerra só encerra quando os dois lados pedem.
+   */
   const { error: marcaErr } = await db
     .from("gang_solicitacoes")
     .update({
@@ -933,6 +1150,15 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
     };
   }
 
+  /*
+   * Encerra SOMENTE a guerra.
+   *
+   * IMPORTANTE:
+   * NÃO chama limparRelacao().
+   *
+   * Se as gangs eram aliadas antes da guerra,
+   * continuam aliadas depois que a guerra termina.
+   */
   const { error: upErr } = await db
     .from("gang_solicitacoes")
     .update({
@@ -943,6 +1169,8 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
   if (upErr) {
     throw new Error(upErr.message);
   }
+
+  await encerrarEventosPresencaGuerra(sol);
 
   return {
     ok: true,
@@ -972,6 +1200,11 @@ export async function cancelarSolicitacao(user: SessionUser, input: { id: number
   };
 }
 
+/**
+ * Apaga uma solicitação do histórico da minha gang.
+ *
+ * Guerras ativas não podem ser apagadas.
+ */
 export async function excluirSolicitacao(user: SessionUser, input: { id: number }) {
   assert(podeGerenciarParcerias(user));
 
@@ -1015,6 +1248,11 @@ export async function excluirSolicitacao(user: SessionUser, input: { id: number 
   };
 }
 
+/**
+ * Remove manualmente a relação diplomática com outra gang.
+ *
+ * Isso é independente de guerra.
+ */
 export async function removerRelacaoGang(user: SessionUser, input: { gangId: number }) {
   assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem desfazer relações.");
 
