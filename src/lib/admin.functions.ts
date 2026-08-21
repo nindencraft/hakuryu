@@ -109,11 +109,11 @@ export const excluirGangAdmin = createServerFn({ method: "POST" })
 
 /** Publica uma divulgação nos canais configurados de todas as gangs. */
 export const publicarDivulgacaoAdmin = createServerFn({ method: "POST" })
-  .inputValidator((input: { imagemUrl: string }) => input)
+  .inputValidator((input: { imagemUrl: string; titulo: string; descricao: string }) => input)
   .handler(async ({ data }) => {
     await requireSuperOwner();
     const { publicarDivulgacaoGlobal } = await import("./divulgacao.server");
-    return publicarDivulgacaoGlobal(data.imagemUrl);
+    return publicarDivulgacaoGlobal(data);
   });
 
 /** Cria ou atualiza o anúncio único exibido na Visão Geral de todas as gangs. */

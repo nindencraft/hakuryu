@@ -19,8 +19,19 @@ function normalizarImagemDivulgacao(valor: string): string {
   return imagemUrl;
 }
 
-export async function publicarDivulgacaoGlobal(imagemBruta: string): Promise<ResultadoDivulgacao> {
-  const imagemUrl = normalizarImagemDivulgacao(imagemBruta);
+/** Distribui uma divulgação para os canais configurados de todas as gangs. */
+export async function publicarDivulgacaoGlobal(input: {
+  imagemUrl: string;
+  titulo: string;
+  descricao: string;
+}): Promise<ResultadoDivulgacao> {
+  const titulo = input.titulo.trim();
+  const descricao = input.descricao.trim();
+  if (!titulo) throw new Error("Informe o título da divulgação.");
+  if (!descricao) throw new Error("Informe a descrição da divulgação.");
+  if (titulo.length > 256) throw new Error("O título deve ter no máximo 256 caracteres.");
+  if (descricao.length > 3500) throw new Error("A descrição deve ter no máximo 3500 caracteres.");
+  const imagemUrl = normalizarImagemDivulgacao(input.imagemUrl);
   const { discordGuildId } = getConfig();
   if (!discordGuildId) {
     throw new Error("Defina o DISCORD_GUILD_ID do servidor oficial Hakuryū antes de publicar.");
@@ -48,8 +59,8 @@ export async function publicarDivulgacaoGlobal(imagemBruta: string): Promise<Res
     canaisUsados.add(canalId);
 
     const envio = await enviarMensagemParaCanal(canalId, {
-      title: "🐉 Divulgação Hakuryū",
-      description: montarTextoDivulgacao(conviteHakuryu),
+      title: titulo,
+      description: montarTextoDivulgacao(conviteHakuryu, descricao),
       image: { url: imagemUrl },
       timestamp: new Date().toISOString(),
     });

@@ -8,6 +8,8 @@ import { CampoImagemR2 } from "@/components/hakuryu/CampoImagemR2";
 import { EmptyState, GoldRule, PageTitle } from "@/components/hakuryu/ui-bits";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { publicarDivulgacaoAdmin } from "@/lib/admin.functions";
 import type { ResultadoDivulgacao } from "@/lib/divulgacao.server";
 import { URL_SITE_HAKURYU } from "@/lib/divulgacao";
@@ -37,11 +39,19 @@ function DivulgacaoPage() {
 function Divulgacao() {
   const sessao = useQuery(sessionQuery);
   const [imagemUrl, setImagemUrl] = useState("");
+  const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
   const [relatorio, setRelatorio] = useState<ResultadoDivulgacao | null>(null);
 
   const publicar = useMutation({
-    mutationFn: (url: string) => publicarDivulgacaoAdmin({ data: { imagemUrl: url } }),
-    onSuccess: (resultado) => setRelatorio(resultado),
+    mutationFn: (dados: { imagemUrl: string; titulo: string; descricao: string }) =>
+      publicarDivulgacaoAdmin({ data: dados }),
+    onSuccess: (resultado) => {
+      setRelatorio(resultado);
+      setTitulo("");
+      setDescricao("");
+      setImagemUrl("");
+    },
   });
 
   if (sessao.data && sessao.data.user && !sessao.data.user.isSuperOwner) {
@@ -71,6 +81,32 @@ function Divulgacao() {
             </p>
           </div>
           <GoldRule />
+          <div className="space-y-2">
+            <label htmlFor="titulo-divulgacao" className="text-sm font-medium">
+              Título da divulgação
+            </label>
+            <Input
+              id="titulo-divulgacao"
+              value={titulo}
+              onChange={(event) => setTitulo(event.target.value)}
+              placeholder="Ex.: Evento especial Hakuryū"
+              maxLength={256}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="descricao-divulgacao" className="text-sm font-medium">
+              Descrição da divulgação
+            </label>
+            <Textarea
+              id="descricao-divulgacao"
+              value={descricao}
+              onChange={(event) => setDescricao(event.target.value)}
+              placeholder="Escreva os detalhes que devem aparecer na mensagem do Discord."
+              maxLength={3500}
+              rows={5}
+            />
+            <p className="text-xs text-muted-foreground">{descricao.length}/3500 caracteres</p>
+          </div>
           <CampoImagemR2
             id="imagem-divulgacao"
             label="Imagem de divulgação"
@@ -85,8 +121,8 @@ function Divulgacao() {
             </p>
           ) : null}
           <Button
-            disabled={!imagemUrl.trim() || publicar.isPending}
-            onClick={() => publicar.mutate(imagemUrl)}
+            disabled={!imagemUrl.trim() || !titulo.trim() || !descricao.trim() || publicar.isPending}
+            onClick={() => publicar.mutate({ imagemUrl, titulo, descricao })}
           >
             <Send className="h-4 w-4" />
             {publicar.isPending ? "Publicando..." : "Publicar em todas as gangs"}
