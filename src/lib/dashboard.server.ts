@@ -254,6 +254,15 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
           .filter((cargoPainel) => ids.has(cargoPainel.discordRoleId))
           .map((cargoPainel) => cargoPainel.discordRoleId);
       })(),
+      cargos_painel: (() => {
+        const ids = new Set(rolesDiscord?.get(m.discord_id)?.ids ?? []);
+        return cargosPainel
+          .filter((cargoPainel) => ids.has(cargoPainel.discordRoleId))
+          .map((cargoPainel) => ({
+            discordRoleId: cargoPainel.discordRoleId,
+            nome: cargoPainel.nome,
+          }));
+      })(),
       divisao: m.divisao_id != null ? (divisaoNome.get(m.divisao_id) ?? null) : null,
     warns: warns.get(m.discord_id) ?? 0,
     stats: stats.get(m.discord_id) ?? { internos: 0, amistosos: 0, guerras: 0 },
@@ -754,7 +763,6 @@ export async function trocarCargo(
 ) {
   const permitidos = cargosAtribuiveis(user);
   const novos = Array.from(new Set(input.cargos.filter(Boolean)));
-  assert(novos.length > 0, "Selecione ao menos um cargo.");
   assert(
     novos.every((c) => permitidos.includes(c)),
     "Você não pode atribuir este cargo.",
@@ -778,7 +786,7 @@ export async function trocarCargo(
   // A coluna `cargo` é curta (varchar 30): guarda só o principal.
   const { error } = await db
     .from("membros")
-    .update({ cargo: cargoPrimario(finais) })
+    .update({ cargo: finais.length ? cargoPrimario(finais) : "" })
     .eq("gang_id", g)
     .eq("discord_id", input.membroId);
   if (error) throw new Error(error.message);

@@ -134,7 +134,7 @@ function Membros() {
     membro.discord_id === user?.id || podeEditarAtributos(membro);
 
   const cargos = useMemo(
-    () => Array.from(new Set(membros.flatMap((m) => parseCargos(m.cargo)))).sort(),
+    () => Array.from(new Set(membros.flatMap((m) => [...parseCargos(m.cargo), ...m.cargos_painel.map((cargoPainel) => cargoPainel.nome)]))).sort(),
     [membros],
   );
   const divisoes = useMemo(
@@ -145,7 +145,7 @@ function Membros() {
   const filtrados = membros.filter((m) => {
     const alvo = `${m.nome_rp ?? ""} ${m.discord_username ?? ""} ${m.nome_roblox ?? ""}`.toLowerCase();
     if (busca && !alvo.includes(busca.toLowerCase())) return false;
-    if (cargo !== TODOS && !parseCargos(m.cargo).includes(cargo)) return false;
+    if (cargo !== TODOS && ![...parseCargos(m.cargo), ...m.cargos_painel.map((cargoPainel) => cargoPainel.nome)].includes(cargo)) return false;
     if (status !== TODOS && m.status !== status) return false;
     if (divisao !== TODOS && m.divisao !== divisao) return false;
     return true;
@@ -185,6 +185,11 @@ function Membros() {
                     {parseCargos(m.cargo).map((c) => (
                       <Badge key={c} variant="outline" className="border-primary/40">
                         {rotuloCargo(c)}
+                      </Badge>
+                    ))}
+                    {m.cargos_painel.map((cargoPainel) => (
+                      <Badge key={cargoPainel.discordRoleId} variant="secondary" className="border border-primary/30">
+                        {cargoPainel.nome}
                       </Badge>
                     ))}
                     {m.divisao ? <Badge variant="secondary">{m.divisao}</Badge> : null}
