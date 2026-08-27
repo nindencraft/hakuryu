@@ -76,6 +76,7 @@ export type Treino = {
   data_treino: string;
   horario: string | null;
   tipo: string;
+  tipos: string[];
   local: string | null;
   link_servidor_privado: string | null;
   divisao_responsavel: string | null;
@@ -217,8 +218,14 @@ export type AliadoResolvido = {
 
 
 export const PRESENCA_OPCOES = ["Pendente", "Presente", "Ausente", "Justificado"] as const;
-export const TIPO_TREINO_OPCOES = ["Interno", "Obrigatório"] as const;
-export const TIPO_PUNICAO_OPCOES = ["Warn", "Kick", "Ban"] as const;
+export const TIPO_TREINO_OPCOES = ["Gladiador", "Equipes", "Todos x Todos", "Teórico", "Prático"] as const;
+export function normalizarTiposTreino(tipos: unknown, tipoLegado?: unknown): string[] {
+  const valores = Array.isArray(tipos) ? tipos.map(String) : [];
+  const origem = valores.length ? valores : tipoLegado ? [String(tipoLegado)] : [];
+  const convertidos = origem.map((tipo) => tipo === "Interno" || tipo === "Obrigatório" ? "Gladiador" : tipo);
+  return Array.from(new Set(convertidos.filter((tipo) => TIPO_TREINO_OPCOES.includes(tipo as (typeof TIPO_TREINO_OPCOES)[number]))));
+}
+export const TIPO_PUNICAO_OPCOES = ["Warn", "Ban"] as const;
 export const STATUS_PARCERIA_OPCOES = ["Ativa", "Em negociação", "Pausada", "Encerrada"] as const;
 export const RELACAO_GANG_OPCOES = ["Aliada", "Inimiga"] as const;
 export const TIPO_LOG_OPCOES = ["Amistoso", "Guerra"] as const;
@@ -237,6 +244,7 @@ export type CargoPainelPersonalizado = {
   nome: string;
   discordRoleId: string;
   permissoes: string[];
+  cargosAtribuiveis: string[];
   criadoEm: string;
 };
 

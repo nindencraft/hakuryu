@@ -26,7 +26,13 @@ import {
   salvarConfigInatividade,
   salvarConfiguracoes,
 } from "@/lib/dashboard.functions";
-import { CARGOS_PERMITIDOS, podeGerenciarMembros } from "@/lib/permissions";
+import {
+  CARGOS_DIVISAO,
+  CARGOS_PERMITIDOS,
+  podeConfigurarCanais,
+  podeConfigurarCargos,
+  podeConfigurarInatividade,
+} from "@/lib/permissions";
 import { PERMISSOES_PAINEL } from "@/lib/permissoes-painel";
 import { CANAIS_CONFIG, CANAL_DIVULGACAO_CONFIG } from "@/lib/types";
 
@@ -61,9 +67,12 @@ function ConfiguracoesPage() {
 
 function Configuracoes() {
   const user = useSessionUser();
-  const autorizado = podeGerenciarMembros(user);
+  const podeCargos = podeConfigurarCargos(user);
+  const podeCanais = podeConfigurarCanais(user);
+  const podeInatividade = podeConfigurarInatividade(user);
+  const autorizado = podeCargos || podeCanais || podeInatividade;
   const { data, isPending, error } = useQuery({ ...configuracoesQuery, enabled: autorizado });
-  const cargosPersonalizados = useQuery({ ...cargosPainelPersonalizadosQuery, enabled: autorizado });
+  const cargosPersonalizados = useQuery({ ...cargosPainelPersonalizadosQuery, enabled: podeCargos });
 
   const [cargos, setCargos] = useState<Record<string, string>>({});
   const [canais, setCanais] = useState<Record<string, string>>({});
@@ -95,7 +104,7 @@ function Configuracoes() {
         title="Configurações"
         subtitle="IDs de cargos, donos do painel e canais de log no Discord."
         actions={
-          autorizado && data && !data.tabelaAusente ? (
+          (podeCargos || podeCanais) && data && !data.tabelaAusente ? (
             <Button
               disabled={acao.isPending}
               onClick={() => acao.mutate({ cargos, canais, owners, guildId })}
@@ -109,7 +118,7 @@ function Configuracoes() {
       {!autorizado ? (
         <EmptyState
           title="Acesso restrito"
-          description="Apenas Líder, Vice-Líder e o dono podem alterar as configurações."
+          description="Seu cargo não possui nenhuma permissão de configuração nesta gang."
         />
       ) : error ? (
         <EmptyState title="Sem conexão com o banco" description={error.message} />
@@ -126,7 +135,7 @@ function Configuracoes() {
       ) : (
         <>
         <div className="grid gap-5 lg:grid-cols-2">
-          <section className="card-gold p-5 lg:col-span-2">
+            {podeCargos ? <section className="card-gold p-5 lg:col-span-2">
             <h2 className="font-display text-xl">Servidor do Discord</h2>
             <p className="text-sm text-muted-foreground">
               ID da guild que o painel vai ler. Só quem está nesse servidor consegue entrar.
@@ -142,9 +151,9 @@ function Configuracoes() {
               value={guildId}
               onChange={(e) => setGuildId(e.target.value)}
             />
-          </section>
+            </section> : null}
 
-          <section className="card-gold p-5">
+          {podeCargos ? <section className="card-gold p-5">
             <h2 className="font-display text-xl">Cargos do Discord</h2>
             <p className="text-sm text-muted-foreground">
               ID do cargo correspondente a cada função do painel. Deixe vazio para o bot procurar
@@ -165,10 +174,10 @@ function Configuracoes() {
                 </div>
               ))}
             </div>
-          </section>
+          </section> : null}
 
           <div className="space-y-5">
-            <section className="card-gold p-5">
+            {podeCanais ? <section className="card-gold p-5">
               <h2 className="font-display text-xl">Canais de publicação</h2>
               <p className="text-sm text-muted-foreground">
                 Cada evento do painel é anunciado no canal informado.
@@ -188,9 +197,9 @@ function Configuracoes() {
                   </div>
                 ))}
               </div>
-            </section>
+            </section> : null}
 
-            {user?.isSuperOwner ? (
+            {user?.isSuperOwner && podeCanais ? (
               <section className="card-gold p-5">
                 <h2 className="font-display text-xl">Divulgação global</h2>
                 <p className="text-sm text-muted-foreground">
@@ -215,7 +224,7 @@ function Configuracoes() {
               </section>
             ) : null}
 
-            <section className="card-gold p-5">
+            {podeCargos ? <section className="card-gold p-5">
               <h2 className="font-display text-xl">Donos do painel</h2>
               <p className="text-sm text-muted-foreground">
                 IDs do Discord com acesso total, separados por vírgula.
@@ -230,14 +239,14 @@ function Configuracoes() {
                 value={owners}
                 onChange={(e) => setOwners(e.target.value)}
               />
-            </section>
+            </section> : null}
           </div>
         </div>
-        <ConfigInatividadeCard />
-        <GerenciadorCargosPersonalizados
+        {podeInatividade ? <ConfigInatividadeCard /> : null}
+        {podeCargos ? <GerenciadorCargosPersonalizados
           cargos={cargosPersonalizados.data ?? []}
           carregando={cargosPersonalizados.isPending}
-        />
+        /> : null}
         </>
       )}
     </>
@@ -302,10 +311,12 @@ type CargoInterno = {
   nome: string;
   discordRoleId: string;
   permissoes: string[];
+  cargosAtribuiveis: string[];
   criadoEm: string;
 };
 
-const FORMULARIO_VAZIO = { id: null as number | null, nome: "", discordRoleId: "", permissoes: [] as string[] };
+const CARGOS_ATRIBUIVEIS_OPCOES = CARGOS_PERMITIDOS.filter((cargo) => !CARGOS_DIVISAO.includes(cargo));
+const FORMULARIO_VAZIO = { id: null as number | null, nome: "", discordRoleId: "", permissoes: [] as string[], cargosAtribuiveis: [] as string[] };
 
 function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: CargoInterno[]; carregando: boolean }) {
   const [aberto, setAberto] = useState(false);
@@ -334,6 +345,7 @@ function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: Cargo
       nome: cargo.nome,
       discordRoleId: cargo.discordRoleId,
       permissoes: cargo.permissoes,
+      cargosAtribuiveis: cargo.cargosAtribuiveis ?? [],
     });
     setAberto(true);
   };
@@ -343,6 +355,14 @@ function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: Cargo
       permissoes: marcada
         ? Array.from(new Set([...atual.permissoes, chave]))
         : atual.permissoes.filter((permissao) => permissao !== chave),
+    }));
+  };
+  const alternarCargoAtribuivel = (cargo: string, marcado: boolean) => {
+    setFormulario((atual) => ({
+      ...atual,
+      cargosAtribuiveis: marcado
+        ? Array.from(new Set([...atual.cargosAtribuiveis, cargo]))
+        : atual.cargosAtribuiveis.filter((item) => item !== cargo),
     }));
   };
 
@@ -407,6 +427,23 @@ function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: Cargo
                   ))}
                 </div>
               </div>
+              <div className="space-y-3">
+                <div>
+                  <Label>Cargos que este cargo pode atribuir</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">A lista limita o seletor de cargo. Cargos de divisão ficam fora deste fluxo.</p>
+                </div>
+                <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 sm:grid-cols-2">
+                  {CARGOS_ATRIBUIVEIS_OPCOES.map((cargo) => (
+                    <label key={cargo} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={formulario.cargosAtribuiveis.includes(cargo)}
+                        onCheckedChange={(marcado) => alternarCargoAtribuivel(cargo, marcado === true)}
+                      />
+                      {cargo}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAberto(false)}>Cancelar</Button>
@@ -438,6 +475,7 @@ function GerenciadorCargosPersonalizados({ cargos, carregando }: { cargos: Cargo
                       .map((chave) => PERMISSOES_PAINEL.find((permissao) => permissao.chave === chave)?.rotulo ?? chave)
                       .join(" · ")}
                   </p>
+                  {cargo.cargosAtribuiveis?.length ? <p className="mt-1 text-xs text-muted-foreground">Pode atribuir: {cargo.cargosAtribuiveis.join(", ")}</p> : null}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => abrirEdicao(cargo)}>Editar</Button>

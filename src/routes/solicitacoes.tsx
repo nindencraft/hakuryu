@@ -16,7 +16,7 @@ import {
   excluirSolicitacao,
   responderSolicitacao,
 } from "@/lib/dashboard.functions";
-import { podeGerenciarParcerias } from "@/lib/permissions";
+import { podeDeletarSolicitacoes, podeResponderSolicitacoes } from "@/lib/permissions";
 import { ROTULO_SOLICITACAO, type SolicitacaoGang } from "@/lib/types";
 
 export const Route = createFileRoute("/solicitacoes")({
@@ -132,7 +132,8 @@ function statusBadge(status: string) {
 
 function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
   const user = useSessionUser();
-  const podeAgir = podeGerenciarParcerias(user);
+  const podeResponder = podeResponderSolicitacoes(user);
+  const podeDeletar = podeDeletarSolicitacoes(user);
 
   const responder = useAcao<{ id: number; aceitar: boolean }>(responderSolicitacao, {
     sucesso: "Solicitação respondida.",
@@ -146,7 +147,7 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
     sucesso: "Solicitação apagada.",
     invalidar: [["solicitacoes"], ["gangs-registradas"]],
   });
-  const podeExcluir = podeAgir && !(s.tipo === "Guerra" && s.status === "Aceita");
+  const podeExcluir = podeDeletar && !(s.tipo === "Guerra" && s.status === "Aceita");
 
   const comEvento = s.tipo !== "Alianca";
 
@@ -215,7 +216,7 @@ function CardSolicitacao({ solicitacao: s }: { solicitacao: SolicitacaoGang }) {
         {s.respondido_por_nome ? ` · respondida por ${s.respondido_por_nome}` : ""}
       </p>
 
-      {s.status === "Pendente" && podeAgir ? (
+      {s.status === "Pendente" && (s.direcao === "recebida" ? podeResponder : podeDeletar) ? (
         <div className="flex flex-wrap gap-2 pt-1">
           {s.direcao === "recebida" ? (
             <>

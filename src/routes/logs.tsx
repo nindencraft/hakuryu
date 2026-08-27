@@ -40,7 +40,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { guildAtualQuery, logsQuery, parceriasQuery } from "@/lib/queries";
 import { deletarLog, salvarLog } from "@/lib/dashboard.functions";
-import { podeGerenciarTreinos } from "@/lib/permissions";
+import { podeCriarLog, podeDeletarLog } from "@/lib/permissions";
 import { TIPO_LOG_OPCOES, type GuildAtual, type LogPartida } from "@/lib/types";
 
 export const Route = createFileRoute("/logs")({
@@ -78,7 +78,8 @@ function guildIconUrl(guildId: string | null, iconHash: string | null): string |
 
 function Logs() {
   const user = useSessionUser();
-  const podeGerenciar = podeGerenciarTreinos(user);
+  const podeCriar = podeCriarLog(user);
+  const podeDeletar = podeDeletarLog(user);
   const { data, isPending, error } = useQuery(logsQuery);
   const { data: guild } = useQuery(guildAtualQuery);
   const [criando, setCriando] = useState(false);
@@ -103,7 +104,7 @@ function Logs() {
             key={l.id}
             log={l}
             guild={guild ?? null}
-            podeGerenciar={podeGerenciar}
+            podeGerenciar={podeDeletar}
             onDeletar={() => setDeletando(l)}
           />
         ))}
@@ -117,7 +118,7 @@ function Logs() {
         title="Logs"
         subtitle="Placares e detalhes de treinos amistosos e guerras."
         actions={
-          podeGerenciar && !data?.tabelaAusente ? (
+          podeCriar && !data?.tabelaAusente ? (
             <Button onClick={() => setCriando(true)}>
               <Plus className="h-4 w-4" /> Criar log
             </Button>

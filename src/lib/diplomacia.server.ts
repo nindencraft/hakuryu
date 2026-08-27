@@ -1,5 +1,13 @@
 import { getDb } from "./db.server";
-import { podeGerenciarParcerias, type SessionUser } from "./session.server";
+import {
+  podeGerenciarParcerias,
+  podeDeletarSolicitacoes,
+  podeResponderSolicitacoes,
+  podeVerSolicitacoes,
+  temCargo,
+  temPermissao,
+  type SessionUser,
+} from "./session.server";
 import type { GangRegistrada, GuerraAtiva, SolicitacaoGang } from "./types";
 import { normalizarLinkEvento } from "./event-link";
 
@@ -12,6 +20,15 @@ function gid(user: SessionUser): number {
 
 function assert(condicao: boolean, mensagem = "Você não tem permissão para esta ação.") {
   if (!condicao) throw new Error(mensagem);
+}
+function podeAlianca(user: SessionUser, chave: string): boolean {
+  return temPermissao(user, chave, "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+function podeCriarAliancaServer(user: SessionUser): boolean { return podeAlianca(user, "alianca_criar"); }
+function podeEditarAliancaServer(user: SessionUser): boolean { return podeAlianca(user, "alianca_editar"); }
+function podeDeletarAliancaServer(user: SessionUser): boolean { return podeAlianca(user, "alianca_deletar"); }
+function podeSolicitarServer(user: SessionUser, tipo: string): boolean {
+  return podeAlianca(user, tipo === "Guerra" ? "alianca_solicitar_guerra" : "alianca_solicitar_amistoso");
 }
 
 function ausente(error: { message?: string; code?: string } | null): boolean {
@@ -394,6 +411,7 @@ export async function listarSolicitacoes(user: SessionUser): Promise<{
   solicitacoes: SolicitacaoGang[];
   tabelaAusente: boolean;
 }> {
+  assert(podeVerSolicitacoes(user), "Você não possui a permissão Solicitações: ver.");
   const db = getDb();
   const minha = gid(user);
 
@@ -594,7 +612,7 @@ export type NovaSolicitacao = {
 };
 
 export async function criarSolicitacao(user: SessionUser, input: NovaSolicitacao) {
-  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem enviar solicitações.");
+  assert(podeSolicitarServer(user, input.tipo), "Você não possui permissão para enviar este tipo de solicitação.");
 
   const db = getDb();
   const minha = gid(user);
@@ -825,7 +843,7 @@ export async function responderSolicitacao(
     aceitar: boolean;
   },
 ) {
-  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem responder solicitações.");
+  assert(podeResponderSolicitacoes(user), "Você não possui a permissão Solicitações: responder.");
 
   const db = getDb();
   const minha = gid(user);
@@ -1094,7 +1112,7 @@ async function encerrarEventosPresencaGuerra(sol: SolicitacaoLinha) {
 }
 
 export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
-  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem encerrar guerras.");
+  assert(podeResponderSolicitacoes(user), "Você não possui a permissão Solicitações: responder.");
 
   const db = getDb();
   const minha = gid(user);
@@ -1179,7 +1197,7 @@ export async function encerrarGuerra(user: SessionUser, input: { id: number }) {
 }
 
 export async function cancelarSolicitacao(user: SessionUser, input: { id: number }) {
-  assert(podeGerenciarParcerias(user));
+  assert(podeDeletarSolicitacoes(user), "Você não possui a permissão Solicitações: deletar.");
 
   const db = getDb();
   const minha = gid(user);
@@ -1206,7 +1224,7 @@ export async function cancelarSolicitacao(user: SessionUser, input: { id: number
  * Guerras ativas não podem ser apagadas.
  */
 export async function excluirSolicitacao(user: SessionUser, input: { id: number }) {
-  assert(podeGerenciarParcerias(user));
+  assert(podeDeletarSolicitacoes(user), "Você não possui a permissão Solicitações: deletar.");
 
   const db = getDb();
   const minha = gid(user);
@@ -1254,7 +1272,7 @@ export async function excluirSolicitacao(user: SessionUser, input: { id: number 
  * Isso é independente de guerra.
  */
 export async function removerRelacaoGang(user: SessionUser, input: { gangId: number }) {
-  assert(podeGerenciarParcerias(user), "Apenas Dono, Líder e Vice-Líder podem desfazer relações.");
+  assert(podeDeletarAliancaServer(user), "Você não possui a permissão Alianças: deletar.");
 
   const minha = gid(user);
 

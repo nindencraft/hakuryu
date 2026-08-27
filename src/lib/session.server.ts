@@ -1,5 +1,8 @@
 import { getConfig } from "./config.server";
-import type { PermissaoPainel } from "./permissoes-painel";
+import {
+  CHAVES_PERMISSOES_PAINEL,
+  type PermissaoPainel,
+} from "./permissoes-painel";
 
 export const SESSION_COOKIE = "hakuryu_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
@@ -18,6 +21,8 @@ export type SessionUser = {
   nomeRp: string | null;
   /** Permissões adicionais resolvidas pelos cargos internos da gang ativa. */
   permissoes: PermissaoPainel[];
+  /** Cargos-base que os cargos personalizados da sessão podem atribuir. */
+  cargosAtribuiveis: string[];
 
   /** Servidor Discord ao qual a sessão está vinculada. */
   guildId: string | null;
@@ -67,13 +72,17 @@ async function hmac(payload: string, secret: string): Promise<string> {
 }
 
 export async function signSession(
-  user: Omit<SessionUser, "exp" | "permissoes"> & { permissoes?: PermissaoPainel[] },
+  user: Omit<SessionUser, "exp" | "permissoes" | "cargosAtribuiveis"> & {
+    permissoes?: PermissaoPainel[];
+    cargosAtribuiveis?: string[];
+  },
 ): Promise<string> {
   const { sessionSecret } = getConfig();
 
   const payload: SessionUser = {
     ...user,
     permissoes: user.permissoes ?? [],
+    cargosAtribuiveis: user.cargosAtribuiveis ?? [],
     exp: Date.now() + MAX_AGE * 1000,
   };
 
@@ -135,6 +144,9 @@ export async function verifySession(
       isSuperOwner: user.isSuperOwner === true,
       nomeRp: user.nomeRp ?? null,
       permissoes: Array.isArray(user.permissoes) ? (user.permissoes as PermissaoPainel[]) : [],
+      cargosAtribuiveis: Array.isArray(user.cargosAtribuiveis)
+        ? user.cargosAtribuiveis.map(String)
+        : [],
 
       // Compatibilidade com sessões antigas.
       guildId: user.guildId ?? null,
@@ -213,122 +225,133 @@ export const CARGOS_PERMITIDOS = [
   "Em Analise",
 ] as const;
 
+export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
+
 function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
-export function temCargo(
-  user: SessionUser | null,
-  cargo: string,
-): boolean {
-  if (!user) return false;
-
-  return user.roles.some(
-    (r) => normalize(r) === normalize(cargo),
-  );
+export function temCargo(user: SessionUser | null, cargo: string): boolean {
+  return !!user && user.roles.some((role) => normalize(role) === normalize(cargo));
 }
 
-export function podeAcessar(
-  user: SessionUser | null,
-): boolean {
-  if (!user) return false;
-
-  if (user.isOwner) return true;
-
-  return CARGOS_PERMITIDOS.some(
-    (c) => temCargo(user, c),
-  );
+export function temPermissao(user: SessionUser | null, ...chaves: string[]): boolean {
+  return !!user && (user.isOwner || chaves.some((chave) => user.permissoes.includes(chave as PermissaoPainel)));
 }
 
-export function podeGerenciarMembros(
-  user: SessionUser | null,
-): boolean {
-  return (
-    !!user &&
-    (
-      user.isOwner ||
-      user.permissoes.includes("gerenciar_membros") ||
-      temCargo(user, "Lider") ||
-      temCargo(user, "Vice-Lider")
-    )
-  );
+export function podeAcessar(user: SessionUser | null): boolean {
+  return !!user && (user.isOwner || user.permissoes.includes("acessar_painel") || CARGOS_PERMITIDOS.some((c) => temCargo(user, c)));
 }
 
-export function podeGerenciarTreinos(
-  user: SessionUser | null,
-): boolean {
-  return (
-    !!user &&
-    (
-      user.isOwner ||
-      user.permissoes.includes("gerenciar_eventos") ||
-      temCargo(user, "Lider") ||
-      temCargo(user, "Vice-Lider") ||
-      temCargo(user, "Líder de Divisão") ||
-      temCargo(user, "Vice-Líder de Divisão")
-    )
-  );
+export function podeGerenciarMembros(user: SessionUser | null): boolean {
+  return temPermissao(user, "adicionar_membro", "alterar_cargo") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_membros");
 }
 
-export function podeAdvertir(
-  user: SessionUser | null,
-): boolean {
-  return (
-    podeGerenciarMembros(user) ||
-    !!user?.permissoes.includes("gerenciar_advertencias") ||
-    temCargo(user, "Staff")
-  );
+export function podeAdicionarMembro(user: SessionUser | null): boolean {
+  return temPermissao(user, "adicionar_membro") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_membros");
 }
 
-export function podeRevogarPunicao(
-  user: SessionUser | null,
-): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias");
+export function podeAlterarCargo(user: SessionUser | null): boolean {
+  return temPermissao(user, "alterar_cargo") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_membros");
 }
 
-export const CARGOS_DIVISAO = [
-  "Líder de Divisão",
-  "Vice-Líder de Divisão",
-];
+export function podeGerenciarTreinos(user: SessionUser | null): boolean {
+  return temPermissao(user, "treino_agendar", "treino_deletar", "treino_gerenciar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão") || !!user?.permissoes.includes("gerenciar_eventos");
+}
 
-export function cargosAtribuiveis(
-  user: SessionUser | null,
-): string[] {
-  if (podeGerenciarMembros(user)) {
-    return CARGOS_PERMITIDOS.filter(
-      (c) => !CARGOS_DIVISAO.includes(c),
-    );
+export function podeAgendarTreino(user: SessionUser | null): boolean {
+  return temPermissao(user, "treino_agendar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeGerenciarTreino(user: SessionUser | null): boolean {
+  return temPermissao(user, "treino_gerenciar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeDeletarTreino(user: SessionUser | null): boolean {
+  return temPermissao(user, "treino_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeAdvertir(user: SessionUser | null): boolean {
+  return temPermissao(user, "advertencia_dar", "advertencia_warn", "advertencia_ban") || temCargo(user, "Staff") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
+}
+
+export function podeAplicarWarn(user: SessionUser | null): boolean {
+  return temPermissao(user, "advertencia_warn") || temCargo(user, "Staff") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
+}
+
+export function podeAplicarBan(user: SessionUser | null): boolean {
+  return temPermissao(user, "advertencia_ban") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
+}
+
+export function podeRevogarPunicao(user: SessionUser | null): boolean {
+  return temPermissao(user, "advertencia_remover") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
+}
+
+export function cargosAtribuiveis(user: SessionUser | null): string[] {
+  if (!user) return [];
+  if (user.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || user.permissoes.includes("gerenciar_membros")) {
+    return CARGOS_PERMITIDOS.filter((cargo) => !CARGOS_DIVISAO.includes(cargo));
   }
-
-  if (temCargo(user, "Recrutador")) {
-    return ["Membro"];
-  }
-
+  if (user.permissoes.includes("alterar_cargo")) return user.cargosAtribuiveis.length ? user.cargosAtribuiveis : ["Membro", "Em Analise"];
+  if (temCargo(user, "Recrutador")) return ["Membro", "Em Analise"];
   return [];
 }
 
-export function podeCriarDivisao(
-  user: SessionUser | null,
-): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
+export function podeCriarDivisao(user: SessionUser | null): boolean {
+  return temPermissao(user, "divisao_criar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
-export function podeGerenciarDivisoes(
-  user: SessionUser | null,
-): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
+export function podeGerenciarDivisoes(user: SessionUser | null): boolean {
+  return podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_lider", "divisao_gerenciar_vice", "divisao_gerenciar_membro", "divisao_definir_vice", "divisao_definir_membros");
 }
 
-export function podeGerenciarParcerias(
-  user: SessionUser | null,
-): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_parcerias");
+export function podeGerenciarParcerias(user: SessionUser | null): boolean {
+  return temPermissao(user, "alianca_criar", "alianca_editar", "alianca_deletar", "alianca_solicitar_amistoso", "alianca_solicitar_guerra") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeVerSolicitacoes(user: SessionUser | null): boolean {
+  return temPermissao(user, "solicitacoes_ver") || podeGerenciarParcerias(user);
+}
+
+export function podeResponderSolicitacoes(user: SessionUser | null): boolean {
+  return temPermissao(user, "solicitacoes_responder") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeDeletarSolicitacoes(user: SessionUser | null): boolean {
+  return temPermissao(user, "solicitacoes_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeCriarLog(user: SessionUser | null): boolean {
+  return temPermissao(user, "logs_criar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeDeletarLog(user: SessionUser | null): boolean {
+  return temPermissao(user, "logs_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeConfigurarCargos(user: SessionUser | null): boolean {
+  return temPermissao(user, "configuracoes_criar_cargos") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeConfigurarInatividade(user: SessionUser | null): boolean {
+  return temPermissao(user, "configuracoes_inatividade") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeConfigurarCanais(user: SessionUser | null): boolean {
+  return temPermissao(user, "configuracoes_canais") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeAvaliarAtributos(user: SessionUser | null, alvoDivisaoId: number | null, minhaDivisaoId: number | null): boolean {
+  if (!user) return false;
+  if (temPermissao(user, "avaliar_estatisticas", "avaliar_atributos") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider")) return true;
+  const lidera = temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lidera && alvoDivisaoId != null && alvoDivisaoId === minhaDivisaoId;
 }
 
 export function podeGerenciarRecrutamento(user: SessionUser | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_recrutamento");
+  return !!user && (user.isOwner || user.permissoes.includes("gerenciar_recrutamento"));
+}
+
+export function permissoesConhecidas(): string[] {
+  return [...CHAVES_PERMISSOES_PAINEL];
 }

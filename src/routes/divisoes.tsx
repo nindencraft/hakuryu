@@ -48,6 +48,7 @@ import {
   podeCriarDivisao,
   podeDefinirLiderancaDivisao,
   podeGerenciarDivisao,
+  temPermissao,
 } from "@/lib/permissions";
 import type { Divisao } from "@/lib/types";
 
@@ -81,6 +82,7 @@ function DivisoesPage() {
 function Divisoes() {
   const user = useSessionUser();
   const podeCriar = podeCriarDivisao(user);
+  const podeDeletar = podeCriar || temPermissao(user, "divisao_deletar");
   const { data, isPending, error } = useQuery(divisoesQuery);
   const membros = useQuery(membrosQuery);
   const minhaDivisaoId =
@@ -214,14 +216,14 @@ function Divisoes() {
               })()}
 
 
-              {podeGerenciar || podeCriar ? (
+              {podeGerenciar || podeDeletar ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {podeGerenciar ? (
                     <Button size="sm" variant="outline" onClick={() => setGerenciando(d)}>
                       Gerenciar
                     </Button>
                   ) : null}
-                  {podeCriar ? (
+                  {podeDeletar ? (
                     <Button size="sm" variant="ghost" onClick={() => setDeletando(d)}>
                       Deletar
                     </Button>
@@ -363,13 +365,14 @@ function GerenciarDivisaoDialog({
   onClose: () => void;
 }) {
   const user = useSessionUser();
-  const podeTrocarLider = podeCriarDivisao(user);
+  const podeTrocarLider = podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_lider");
   const membros = useQuery(membrosQuery);
   const minhaDivisaoId =
     (membros.data ?? []).find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
   const podeTrocarVice = divisao
-    ? podeDefinirLiderancaDivisao(user, divisao, minhaDivisaoId)
+    ? podeDefinirLiderancaDivisao(user, divisao, minhaDivisaoId) || temPermissao(user, "divisao_gerenciar_vice", "divisao_definir_vice")
     : false;
+  const podeTrocarMembros = podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_membro", "divisao_definir_membros") || (divisao ? user?.id === divisao.lider_id || user?.id === divisao.vice_lider_id : false);
   const [lider, setLider] = useState(divisao?.lider_id ?? NENHUM);
   const [vice, setVice] = useState(divisao?.vice_lider_id ?? NENHUM);
   const [novos, setNovos] = useState<string[]>([]);
@@ -458,10 +461,11 @@ function GerenciarDivisaoDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
+            <div className="space-y-2" hidden={!podeTrocarMembros}>
             <Label>Adicionar membros</Label>
             <Select
               value=""
+              disabled={!podeTrocarMembros}
               onValueChange={(id) => setNovos((prev) => (prev.includes(id) ? prev : [...prev, id]))}
             >
               <SelectTrigger>

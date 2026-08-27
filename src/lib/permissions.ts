@@ -1,5 +1,3 @@
-/** Espelho client-safe das permissões (a verificação real acontece no servidor). */
-
 export type SessionUserView = {
   id: string;
   username: string;
@@ -10,6 +8,7 @@ export type SessionUserView = {
   isSuperOwner: boolean;
   nomeRp: string | null;
   permissoes: string[];
+  cargosAtribuiveis: string[];
 };
 
 export const CARGOS_PERMITIDOS = [
@@ -23,7 +22,6 @@ export const CARGOS_PERMITIDOS = [
   "Em Analise",
 ];
 
-/** Cargos atribuídos automaticamente pela liderança de uma divisão. */
 export const CARGOS_DIVISAO = ["Líder de Divisão", "Vice-Líder de Divisão"];
 
 const ROTULOS: Record<string, string> = {
@@ -31,159 +29,193 @@ const ROTULOS: Record<string, string> = {
   "Vice-Líder de Divisão": "Vice-Capitão",
 };
 
-/** Nome exibido do cargo (o valor real no Discord/banco continua o mesmo). */
 export function rotuloCargo(cargo: string): string {
   return ROTULOS[cargo] ?? cargo;
 }
 
-/** O campo `cargo` guarda uma lista separada por vírgula. */
 export function parseCargos(valor: string | null | undefined): string[] {
-  return (valor ?? "")
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  return (valor ?? "").split(",").map((c) => c.trim()).filter(Boolean);
 }
 
 function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 export function temCargo(user: SessionUserView | null, cargo: string): boolean {
-  if (!user) return false;
-  return user.roles.some((r) => normalize(r) === normalize(cargo));
+  return !!user && user.roles.some((role) => normalize(role) === normalize(cargo));
+}
+
+export function temPermissao(user: SessionUserView | null, ...chaves: string[]): boolean {
+  return !!user && (user.isOwner || chaves.some((chave) => user.permissoes.includes(chave)));
 }
 
 export function podeAcessar(user: SessionUserView | null): boolean {
-  if (!user) return false;
-  if (user.isOwner) return true;
-  return CARGOS_PERMITIDOS.some((c) => temCargo(user, c));
+  return !!user && (user.isOwner || user.permissoes.includes("acessar_painel") || CARGOS_PERMITIDOS.some((cargo) => temCargo(user, cargo)));
 }
 
+/** Permissão ampla legada, mantida apenas para ações administrativas de membros. */
 export function podeGerenciarMembros(user: SessionUserView | null): boolean {
   return !!user && (user.isOwner || user.permissoes.includes("gerenciar_membros") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"));
 }
 
+export function podeAdicionarMembro(user: SessionUserView | null): boolean {
+  return temPermissao(user, "adicionar_membro") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_membros");
+}
+
+export function podeAlterarCargo(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alterar_cargo") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_membros");
+}
+
 export function podeGerenciarTreinos(user: SessionUserView | null): boolean {
-  return (
-    !!user &&
-    (user.isOwner ||
-      user.permissoes.includes("gerenciar_eventos") ||
-      temCargo(user, "Lider") ||
-      temCargo(user, "Vice-Lider") ||
-      temCargo(user, "Líder de Divisão") ||
-      temCargo(user, "Vice-Líder de Divisão"))
-  );
+  return temPermissao(user, "treino_agendar", "treino_deletar", "treino_gerenciar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão") || !!user?.permissoes.includes("gerenciar_eventos");
 }
 
-/** Staff também aplica e consulta advertências. */
+export function podeAgendarTreino(user: SessionUserView | null): boolean {
+  return temPermissao(user, "treino_agendar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeGerenciarTreino(user: SessionUserView | null): boolean {
+  return temPermissao(user, "treino_gerenciar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeDeletarTreino(user: SessionUserView | null): boolean {
+  return temPermissao(user, "treino_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
 export function podeAdvertir(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias") || temCargo(user, "Staff");
+  return temPermissao(user, "advertencia_dar", "advertencia_warn", "advertencia_ban") || temCargo(user, "Staff") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
 }
 
-export function podeVerRegistroPunicoes(user: SessionUserView | null): boolean {
-  return podeAdvertir(user);
+export function podeAplicarWarn(user: SessionUserView | null): boolean {
+  return temPermissao(user, "advertencia_warn") || temCargo(user, "Staff") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
+}
+
+export function podeAplicarBan(user: SessionUserView | null): boolean {
+  return temPermissao(user, "advertencia_ban") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
 }
 
 export function podeRevogarPunicao(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_advertencias");
+  return temPermissao(user, "advertencia_remover") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_advertencias");
 }
 
-/** Cargos que o usuário pode atribuir a outra pessoa. */
+export function podeVerRegistroPunicoes(user: SessionUserView | null): boolean {
+  return podeAdvertir(user) || !!user?.permissoes.includes("advertencia_remover");
+}
+
 export function cargosAtribuiveis(user: SessionUserView | null): string[] {
-  if (podeGerenciarMembros(user))
-    return CARGOS_PERMITIDOS.filter((c) => !CARGOS_DIVISAO.includes(c));
-  if (temCargo(user, "Recrutador")) return ["Membro"];
+  if (!user) return [];
+  if (user.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || user.permissoes.includes("gerenciar_membros")) {
+    return CARGOS_PERMITIDOS.filter((cargo) => !CARGOS_DIVISAO.includes(cargo));
+  }
+  if (user.permissoes.includes("alterar_cargo")) {
+    return user.cargosAtribuiveis.length ? user.cargosAtribuiveis : ["Membro", "Em Analise"];
+  }
+  if (temCargo(user, "Recrutador")) return ["Membro", "Em Analise"];
   return [];
 }
 
 export function podeCriarDivisao(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
+  return temPermissao(user, "divisao_criar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_divisoes");
 }
 
-type DivisaoLideranca = { id?: number; lider_id: string | null; vice_lider_id: string | null };
-
-/** Líder e vice-líder administram a própria divisão. */
-export function podeGerenciarDivisao(
-  user: SessionUserView | null,
-  divisao: DivisaoLideranca,
-  minhaDivisaoId?: number | null,
-): boolean {
+export function podeGerenciarDivisao(user: SessionUserView | null, divisao: { id?: number; lider_id: string | null; vice_lider_id: string | null }, minhaDivisaoId?: number | null): boolean {
   if (!user) return false;
-  if (podeCriarDivisao(user)) return true;
+  if (podeCriarDivisao(user) || user.isOwner || temPermissao(user, "divisao_gerenciar_lider", "divisao_gerenciar_vice", "divisao_gerenciar_membro", "divisao_definir_vice", "divisao_definir_membros")) return true;
   if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
-  const lideraDivisao =
-    temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
-  return lideraDivisao && minhaDivisaoId != null && minhaDivisaoId === divisao.id;
+  const lidera = temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lidera && minhaDivisaoId != null && minhaDivisaoId === divisao.id;
 }
 
-/** Só o líder da divisão (ou a cúpula) escolhe o vice-líder. */
-export function podeDefinirLiderancaDivisao(
-  user: SessionUserView | null,
-  divisao: DivisaoLideranca,
-  minhaDivisaoId?: number | null,
-): boolean {
+export function podeDefinirLiderancaDivisao(user: SessionUserView | null, divisao: { id?: number; lider_id: string | null; vice_lider_id: string | null }, minhaDivisaoId?: number | null): boolean {
   if (!user) return false;
-  if (podeCriarDivisao(user) || user.id === divisao.lider_id) return true;
-  return (
-    temCargo(user, "Líder de Divisão") && minhaDivisaoId != null && minhaDivisaoId === divisao.id
-  );
+  if (podeCriarDivisao(user) || user.isOwner || user.id === divisao.lider_id || temPermissao(user, "divisao_gerenciar_lider", "divisao_gerenciar_vice", "divisao_definir_vice")) return true;
+  return temCargo(user, "Líder de Divisão") && minhaDivisaoId != null && minhaDivisaoId === divisao.id;
 }
 
 export function podeGerenciarDivisoes(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_divisoes");
+  return podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_lider", "divisao_gerenciar_vice", "divisao_gerenciar_membro", "divisao_definir_vice", "divisao_definir_membros");
 }
 
 export function podeGerenciarParcerias(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_parcerias");
+  return temPermissao(user, "alianca_criar", "alianca_editar", "alianca_deletar", "alianca_solicitar_amistoso", "alianca_solicitar_guerra") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeCriarAlianca(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alianca_criar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeEditarAlianca(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alianca_editar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeDeletarAlianca(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alianca_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeSolicitarAmistoso(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alianca_solicitar_amistoso") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeSolicitarGuerra(user: SessionUserView | null): boolean {
+  return temPermissao(user, "alianca_solicitar_guerra") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeVerSolicitacoes(user: SessionUserView | null): boolean {
+  return temPermissao(user, "solicitacoes_ver", "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeResponderSolicitacoes(user: SessionUserView | null): boolean {
+  return temPermissao(user, "solicitacoes_responder") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeDeletarSolicitacoes(user: SessionUserView | null): boolean {
+  return temPermissao(user, "solicitacoes_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_parcerias");
+}
+
+export function podeCriarLog(user: SessionUserView | null): boolean {
+  return temPermissao(user, "logs_criar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeDeletarLog(user: SessionUserView | null): boolean {
+  return temPermissao(user, "logs_deletar") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider") || !!user?.permissoes.includes("gerenciar_eventos");
+}
+
+export function podeConfigurarCargos(user: SessionUserView | null): boolean {
+  return temPermissao(user, "configuracoes_criar_cargos") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeConfigurarInatividade(user: SessionUserView | null): boolean {
+  return temPermissao(user, "configuracoes_inatividade") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeConfigurarCanais(user: SessionUserView | null): boolean {
+  return temPermissao(user, "configuracoes_canais") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
+}
+
+export function podeAvaliarAtributos(user: SessionUserView | null, alvoDivisaoId: number | null, minhaDivisaoId: number | null): boolean {
+  if (!user) return false;
+  if (temPermissao(user, "avaliar_estatisticas", "avaliar_atributos") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider")) return true;
+  const lidera = temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
+  return lidera && alvoDivisaoId != null && alvoDivisaoId === minhaDivisaoId;
 }
 
 export function podeGerenciarRecrutamento(user: SessionUserView | null): boolean {
-  return podeGerenciarMembros(user) || !!user?.permissoes.includes("gerenciar_recrutamento");
-}
-
-/**
- * Pode editar os atributos de combate de um membro.
- * A cúpula pode avaliar qualquer membro; liderança de divisão só avalia a própria divisão.
- * A checagem final de liderança (lider_id/vice_lider_id) acontece no servidor.
- */
-export function podeAvaliarAtributos(
-  user: SessionUserView | null,
-  alvoDivisaoId: number | null,
-  minhaDivisaoId: number | null,
-): boolean {
-  if (!user) return false;
-  if (podeGerenciarMembros(user) || !!user?.permissoes.includes("avaliar_atributos")) return true;
-  const lideraDivisao =
-    temCargo(user, "Líder de Divisão") || temCargo(user, "Vice-Líder de Divisão");
-  return lideraDivisao && alvoDivisaoId != null && alvoDivisaoId === minhaDivisaoId;
+  return !!user && (user.isOwner || user.permissoes.includes("gerenciar_recrutamento"));
 }
 
 export function nomeExibicao(user: SessionUserView): string {
   return user.nomeRp || user.globalName || user.username;
 }
 
-export function discordAvatarUrl(
-  discordId: string,
-  avatarHash: string | null | undefined,
-  size = 128,
-): string {
-  if (avatarHash) {
-    return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.png?size=${size}`;
-  }
-  return "https://cdn.discordapp.com/embed/avatars/0.png";
+export function discordAvatarUrl(discordId: string, avatarHash: string | null | undefined, size = 128): string {
+  return avatarHash ? `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.png?size=${size}` : "https://cdn.discordapp.com/embed/avatars/0.png";
 }
 
-/** Cargo mais alto do usuário dentro da hierarquia da gang. */
 export function cargoPrincipal(user: SessionUserView | null): string | null {
   if (!user) return null;
-  return CARGOS_PERMITIDOS.find((c) => temCargo(user, c)) ?? null;
+  return CARGOS_PERMITIDOS.find((cargo) => temCargo(user, cargo)) ?? null;
 }
 
-/** Cargo de maior hierarquia da lista (usado no campo curto do banco). */
 export function cargoPrimario(cargos: string[]): string {
-  return CARGOS_PERMITIDOS.find((c) => cargos.includes(c)) ?? cargos[0] ?? "Em Analise";
+  return CARGOS_PERMITIDOS.find((cargo) => cargos.includes(cargo)) ?? cargos[0] ?? "Em Analise";
 }

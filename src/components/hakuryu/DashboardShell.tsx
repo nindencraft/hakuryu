@@ -31,7 +31,10 @@ import { gangsDisponiveisQuery, sessionQuery } from "@/lib/queries";
 import {
   cargoPrincipal,
   nomeExibicao,
-  podeGerenciarMembros,
+  podeConfigurarCanais,
+  podeConfigurarCargos,
+  podeConfigurarInatividade,
+  podeVerSolicitacoes,
   rotuloCargo,
   type SessionUserView,
 } from "@/lib/permissions";
@@ -84,8 +87,12 @@ function Brand() {
 function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useQuery(sessionQuery);
-  const base = podeGerenciarMembros(data?.user ?? null) ? [...NAV, ...NAV_ADMIN] : NAV;
-  const itens = data?.user?.isSuperOwner ? [...base, ...NAV_OWNER] : base;
+  const user = data?.user ?? null;
+  const nav = NAV.filter((item) => item.to !== "/solicitacoes" || podeVerSolicitacoes(user));
+  const base = podeConfigurarCanais(user) || podeConfigurarCargos(user) || podeConfigurarInatividade(user)
+    ? [...nav, ...NAV_ADMIN]
+    : nav;
+  const itens = user?.isSuperOwner ? [...base, ...NAV_OWNER] : base;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Navegação principal">
@@ -328,7 +335,7 @@ function SetupScreen({ faltando }: { faltando: string[] }) {
   );
 }
 
-function BlockedScreen({ user }: { user: SessionUserView }) {
+function BlockedScreen({ user, banido = false }: { user: SessionUserView; banido?: boolean }) {
   return (
     <div
       className="flex min-h-screen bg-cover bg-center bg-no-repeat bg-scroll px-4 py-6 sm:px-8 sm:py-10 lg:bg-fixed"
@@ -350,7 +357,7 @@ function BlockedScreen({ user }: { user: SessionUserView }) {
                 Notícias Recentes
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Você não pertence a nenhuma gang. Acompanhe os comunicados da comunidade.
+                {banido ? "Seu acesso a esta gang foi bloqueado por um Ban. Aguarde a revogação do banimento por um cargo superior." : "Você não pertence a nenhuma gang. Acompanhe os comunicados da comunidade."}
               </p>
             </div>
           </div>
@@ -412,9 +419,9 @@ export function DashboardShell({
 
   if (!data?.configurado) return <SetupScreen faltando={data?.faltando ?? []} />;
   if (!data.user) return <LoginScreen erro={search?.erro} />;
-  if (!data.permitido) return <BlockedScreen user={data.user} />;
+  if (!data.permitido) return <BlockedScreen user={data.user} banido={data.bloqueadoPorBan} />;
   if (data.gangId == null && !(permitirSemGang && data.user.isSuperOwner)) {
-    return <BlockedScreen user={data.user} />;
+    return <BlockedScreen user={data.user} banido={data.bloqueadoPorBan} />;
   }
 
   const user = data.user;

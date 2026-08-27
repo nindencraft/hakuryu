@@ -34,11 +34,13 @@ export const Route = createFileRoute("/api/public/gangs/selecionar")({
           const db = getDb();
           const { data } = await db
             .from("membros")
-            .select("nome_rp")
+            .select("nome_rp, status")
             .eq("gang_id", gang.id)
             .eq("discord_id", user.id)
             .maybeSingle();
-          nomeRp = (data as { nome_rp: string | null } | null)?.nome_rp ?? null;
+          const membro = data as { nome_rp: string | null; status: string | null } | null;
+          if (membro?.status === "Banido") return new Response("Usuário banido nesta gang", { status: 403 });
+          nomeRp = membro?.nome_rp ?? null;
         } catch {
           nomeRp = null;
         }

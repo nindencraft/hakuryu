@@ -2,12 +2,25 @@ import { getDb, currentUser } from "./db.server";
 import {
   cargosAtribuiveis,
   podeAdvertir,
+  podeAplicarBan,
+  podeAplicarWarn,
+  podeAdicionarMembro,
+  podeAgendarTreino,
+  podeAlterarCargo,
   podeCriarDivisao,
+  podeDeletarLog,
+  podeDeletarTreino,
   podeGerenciarMembros,
+  podeGerenciarTreino,
   podeRevogarPunicao,
   podeGerenciarParcerias,
   podeGerenciarTreinos,
+  podeCriarLog,
+  podeConfigurarCanais,
+  podeConfigurarCargos,
+  podeConfigurarInatividade,
   temCargo,
+  temPermissao,
   CARGOS_PERMITIDOS,
   CARGOS_DIVISAO,
   type SessionUser,
@@ -16,10 +29,12 @@ import { cargoPrimario } from "./permissions";
 import { normalizarLinkEvento } from "./event-link";
 import { acessoGangPermitido } from "./acesso-gang";
 import { buscarFichaRPG, encerrarHistoricoDeMembro } from "./perfil.server";
+import { normalizarFichaRPG, type FichaRPGInput } from "./perfil";
 import { encontrarParceriaDuplicada } from "./parcerias";
 import { contarInscricoesConfirmadas } from "./presenca";
 import {
   TIPO_TREINO_OPCOES,
+  normalizarTiposTreino,
   type AliadoResolvido,
   type Divisao,
   type GuildAtual,
@@ -83,13 +98,31 @@ export async function requireUserSemGang(request: Request): Promise<SessionUser>
     const { buscarGangPorId } = await import("./gangs.server");
     liderRegistrado = (await buscarGangPorId(user.gangId))?.lider_id === user.id;
   }
-  const { permissoesDoUsuario } = await import("./cargos-painel.server");
+  const { permissoesDoUsuario, cargosAtribuiveisDoUsuario } = await import("./cargos-painel.server");
   user.permissoes = await permissoesDoUsuario(user.gangId, user.roleIds, user.isOwner);
+  user.cargosAtribuiveis = await cargosAtribuiveisDoUsuario(user.gangId, user.roleIds, user.isOwner);
   // Sem gang escolhida o painel manda o usuário para /selecionar-gang.
   if (user.gangId == null) return user;
-  // Só entra na gang quem possui o ID de Membro ou de cargo superior em
-  // gang_config. O Super Owner é a exceção administrativa global.
-  if (!acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado, liderRegistrado)) {
+
+  const { data: statusAtual, error: erroStatus } = await getDb()
+    .from("membros")
+    .select("status")
+    .eq("gang_id", user.gangId)
+    .eq("discord_id", user.id)
+    .maybeSingle();
+  if (erroStatus) throw new Error(erroStatus.message);
+  if ((statusAtual as { status?: string | null } | null)?.status === "Banido") {
+    throw new Error("USUARIO_BANIDO");
+  }
+
+  // O acesso pode vir do cargo Membro/superior configurado ou da permissão
+  // explícita Acessar Painel. O Super Owner é a exceção administrativa global.
+  if (!acessoGangPermitido(
+    user.gangId,
+    user.isSuperOwner,
+    temCargoDeAcessoConfigurado || user.permissoes.includes("acessar_painel"),
+    liderRegistrado,
+  )) {
     throw new Error("SEM_PERMISSAO");
   }
   return user;
@@ -218,6 +251,7 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
     if (!treino) continue;
     const s = bucket(p.membro_id);
     if (treino.tipo === "Amistoso") s.amistosos += 1;
+    else if (treino.tipo === "Guerra") s.guerras += 1;
     else s.internos += 1;
   }
 
@@ -299,7 +333,7 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
       .select("*")
       .eq("gang_id", g)
       .order("data_treino", { ascending: false }),
-  ) as Omit<Treino, "inscritos" | "adiamento" | "aliado">[];
+  ) as (Omit<Treino, "inscritos" | "adiamento" | "aliado" | "tipos"> & { tipos?: unknown; tipo?: unknown })[];
 
   const inscricoes = unwrap(
     await db
@@ -321,7 +355,17 @@ export async function loadTreinos(user: SessionUser): Promise<Treino[]> {
 
   return treinos.map((t) => {
     const { descricao, adiamento, aliado } = separarAdiamento(t.descricao);
-    return { ...t, descricao, adiamento, aliado, inscritos: contagem.get(t.id_treino) ?? 0 };
+    const tipos = normalizarTiposTreino(t.tipos, t.tipo);
+    const categoria = t.tipo === "Amistoso" || t.tipo === "Guerra" ? t.tipo : tipos[0] ?? "Gladiador";
+    return {
+      ...t,
+      tipo: categoria,
+      tipos,
+      descricao,
+      adiamento,
+      aliado,
+      inscritos: contagem.get(t.id_treino) ?? 0,
+    } as Treino;
   });
 }
 
@@ -465,14 +509,41 @@ export async function loadHistorico(
 }
 
 export async function revogarPunicao(user: SessionUser, input: { punicaoId: number }) {
-  assert(podeRevogarPunicao(user), "Apenas Dono, Líder e Vice-Líder podem revogar advertências.");
+  assert(podeRevogarPunicao(user), "Você não pode remover registros de punição.");
   const db = getDb();
+  const g = gid(user);
+  const { data: punicao, error: erroPunicao } = await db
+    .from("punicoes")
+    .select("membro_id, tipo")
+    .eq("gang_id", g)
+    .eq("id_punicao", input.punicaoId)
+    .maybeSingle();
+  if (erroPunicao) throw new Error(erroPunicao.message);
+  if (!punicao) return { ok: true };
   const { error } = await db
     .from("punicoes")
     .delete()
-    .eq("gang_id", gid(user))
+    .eq("gang_id", g)
     .eq("id_punicao", input.punicaoId);
   if (error) throw new Error(error.message);
+
+  if ((punicao as { membro_id: string; tipo: string }).tipo === "Ban") {
+    const { data: outrosBans, error: erroBans } = await db
+      .from("punicoes")
+      .select("id_punicao")
+      .eq("gang_id", g)
+      .eq("membro_id", (punicao as { membro_id: string }).membro_id)
+      .eq("tipo", "Ban");
+    if (erroBans) throw new Error(erroBans.message);
+    if (!outrosBans?.length) {
+      const { error: erroStatus } = await db
+        .from("membros")
+        .update({ status: "Ativo" })
+        .eq("gang_id", g)
+        .eq("discord_id", (punicao as { membro_id: string }).membro_id);
+      if (erroStatus) throw new Error(erroStatus.message);
+    }
+  }
   return { ok: true };
 }
 
@@ -606,7 +677,7 @@ export async function resolverAliado(
   user: SessionUser,
   input: { convite: string; representanteId: string },
 ): Promise<AliadoResolvido> {
-  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
+  assert(temPermissao(user, "alianca_criar", "alianca_editar", "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"), "Você não possui permissão para resolver dados da aliança.");
   const { resolverConvite, fetchUsuarioDiscord } = await import("./discord.server");
 
   const convite = input.convite.trim() ? await resolverConvite(input.convite) : null;
@@ -639,7 +710,7 @@ export async function buscarMembrosDiscord(
   user: SessionUser,
   busca: string,
 ): Promise<MembroDiscordParaCadastro[]> {
-  assert(podeGerenciarMembros(user), "Apenas a liderança pode cadastrar membros.");
+  assert(podeAdicionarMembro(user), "Você não possui a permissão Adicionar Membro ao Painel.");
   const termo = (busca ?? "").trim();
   if (termo.length < 2) throw new Error("Digite pelo menos 2 caracteres para pesquisar.");
   const { buscarMembrosServidor } = await import("./discord.server");
@@ -659,7 +730,7 @@ export async function buscarMembrosDiscord(
  * quando ela já existir. A liderança nunca recebe permissão para editar a ficha.
  */
 export async function cadastrarMembroDiscord(user: SessionUser, input: { discordId: string }) {
-  assert(podeGerenciarMembros(user), "Apenas a liderança pode cadastrar membros.");
+  assert(podeAdicionarMembro(user), "Você não possui a permissão Adicionar Membro ao Painel.");
   const discordId = (input.discordId ?? "").trim().replace(/\D/g, "");
   assert(/^\d{17,20}$/.test(discordId), "Usuário Discord inválido.");
   const g = gid(user);
@@ -700,17 +771,45 @@ export async function cadastrarMembroDiscord(user: SessionUser, input: { discord
   return { ok: true, membro: alvo };
 }
 
+function nivelCargo(cargo: string | null | undefined): number {
+  const indice = CARGOS_PERMITIDOS.indexOf(cargo as (typeof CARGOS_PERMITIDOS)[number]);
+  return indice < 0 ? CARGOS_PERMITIDOS.length + 1 : indice;
+}
+
+async function podePunirAlvo(user: SessionUser, membroId: string, tipo: string): Promise<boolean> {
+  if (tipo === "Warn") return podeAplicarWarn(user);
+  if (tipo === "Ban") return podeAplicarBan(user);
+  return false;
+}
+
 export async function advertirMembro(
   user: SessionUser,
   input: { membroId: string; tipo: string; motivo: string },
 ) {
-  assert(podeAdvertir(user));
+  const tipo = input.tipo.trim();
+  assert(tipo === "Warn" || tipo === "Ban", "Somente Warn ou Ban podem ser aplicados nesta tela.");
+  assert(await podePunirAlvo(user, input.membroId, tipo), "Você não possui permissão para aplicar este tipo de punição.");
   const db = getDb();
+  const g = gid(user);
+  const { data: alvo, error: erroAlvo } = await db
+    .from("membros")
+    .select("cargo, status")
+    .eq("gang_id", g)
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+  if (erroAlvo) throw new Error(erroAlvo.message);
+  assert(!!alvo, "Este usuário não está cadastrado nesta gang.");
+  if (tipo === "Ban") {
+    const cargoAlvo = (alvo as { cargo?: string | null }).cargo?.split(",")[0]?.trim() ?? null;
+    const cargoAtor = CARGOS_PERMITIDOS.find((cargo) => temCargo(user, cargo)) ?? null;
+    assert(user.isSuperOwner || nivelCargo(cargoAtor) < nivelCargo(cargoAlvo), "Somente um cargo superior pode banir este membro.");
+  }
+
   const base = {
     membro_id: input.membroId,
-    tipo: input.tipo,
-    motivo: input.motivo || null,
-    gang_id: gid(user),
+    tipo,
+    motivo: input.motivo?.trim() || null,
+    gang_id: g,
   };
 
   // A autoria é gravada em staff_id (nome usado pelo bot); recua se a coluna não existir.
@@ -721,7 +820,16 @@ export async function advertirMembro(
     if (err2) throw new Error(err2.message);
   }
 
-  await anunciarPunicao(db, user, input);
+  if (tipo === "Ban") {
+    const { error: erroBan } = await db
+      .from("membros")
+      .update({ status: "Banido" })
+      .eq("gang_id", g)
+      .eq("discord_id", input.membroId);
+    if (erroBan) throw new Error(erroBan.message);
+  }
+
+  await anunciarPunicao(db, user, { ...input, tipo });
   return { ok: true };
 }
 
@@ -757,16 +865,37 @@ async function anunciarPunicao(
 }
 
 
+async function validarHierarquiaCargo(user: SessionUser, membroId: string, novosCargos: string[]) {
+  if (user.isSuperOwner || user.isOwner) return;
+  const db = getDb();
+  const { data: alvo, error } = await db
+    .from("membros")
+    .select("cargo")
+    .eq("gang_id", gid(user))
+    .eq("discord_id", membroId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  assert(!!alvo, "Este usuário não está cadastrado nesta gang.");
+  const cargoAtor = CARGOS_PERMITIDOS.find((cargo) => temCargo(user, cargo));
+  const nivelAtor = nivelCargo(cargoAtor);
+  const cargosAlvo = String((alvo as { cargo?: string | null }).cargo ?? "")
+    .split(",").map((cargo) => cargo.trim()).filter(Boolean);
+  assert(cargosAlvo.every((cargo) => nivelCargo(cargo) > nivelAtor), "Você não pode alterar o cargo de alguém com posição igual ou superior à sua.");
+  assert(novosCargos.every((cargo) => nivelCargo(cargo) > nivelAtor), "Você só pode atribuir cargos abaixo da sua posição.");
+}
+
 export async function trocarCargo(
   user: SessionUser,
   input: { membroId: string; cargos: string[] },
 ) {
+  assert(podeAlterarCargo(user), "Você não possui a permissão Alterar Cargo.");
   const permitidos = cargosAtribuiveis(user);
   const novos = Array.from(new Set(input.cargos.filter(Boolean)));
   assert(
     novos.every((c) => permitidos.includes(c)),
     "Você não pode atribuir este cargo.",
   );
+  await validarHierarquiaCargo(user, input.membroId, novos);
 
   const db = getDb();
   const g = gid(user);
@@ -818,9 +947,10 @@ export async function alterarCargoPainelMembro(
   user: SessionUser,
   input: { membroId: string; cargoPainelId: number; ativo: boolean },
 ) {
-  assert(podeGerenciarMembros(user), "Você não pode gerenciar os cargos deste membro.");
+  assert(podeAlterarCargo(user), "Você não possui a permissão Alterar Cargo.");
   const g = gid(user);
   const membroId = (input.membroId ?? "").replace(/\D/g, "");
+  await validarHierarquiaCargo(user, membroId, []);
   assert(/^\d{17,20}$/.test(membroId), "Membro inválido.");
   assert(Number.isInteger(input.cargoPainelId) && input.cargoPainelId > 0, "Cargo personalizado inválido.");
 
@@ -860,7 +990,16 @@ export async function alterarStatusMembro(
   input: { membroId: string; status: string },
 ) {
   assert(podeGerenciarMembros(user));
+  assert(["Ativo", "Inativo", "Afastado", "Em Analise"].includes(input.status), "Status inválido.");
   const db = getDb();
+  const { data: atual, error: erroAtual } = await db
+    .from("membros")
+    .select("status")
+    .eq("gang_id", gid(user))
+    .eq("discord_id", input.membroId)
+    .maybeSingle();
+  if (erroAtual) throw new Error(erroAtual.message);
+  assert((atual as { status?: string | null } | null)?.status !== "Banido", "O Ban só pode ser removido pelo botão Revogar banimento.");
   const { error } = await db
     .from("membros")
     .update({ status: input.status })
@@ -938,17 +1077,16 @@ export async function criarTreino(
     descricao: string;
     data_treino: string;
     horario: string;
-    tipo: string;
+    tipos: string[];
     local: string;
     link_servidor_privado?: string;
     divisao_responsavel: string;
     aliado?: string;
   },
 ) {
-  assert(podeGerenciarTreinos(user));
-  if (!TIPO_TREINO_OPCOES.includes(input.tipo as (typeof TIPO_TREINO_OPCOES)[number])) {
-    throw new Error("Treinos amistosos devem ser solicitados pelo painel de alianças.");
-  }
+  assert(podeAgendarTreino(user), "Você não possui a permissão Treino: agendar.");
+  const tipos = normalizarTiposTreino(input.tipos);
+  assert(tipos.length > 0, "Selecione ao menos um tipo de treino.");
   const db = getDb();
   const { mapaCargos } = await import("./cargos.server");
   const roleIdMembro = (await mapaCargos(gid(user))).porCargo.get("Membro");
@@ -966,7 +1104,8 @@ export async function criarTreino(
     descricao,
     data_treino: input.data_treino,
     horario: input.horario || null,
-    tipo: input.tipo,
+    tipo: "Treino",
+    tipos,
     local: input.local || null,
     link_servidor_privado: linkServidorPrivado,
     divisao_responsavel: input.divisao_responsavel || null,
@@ -985,7 +1124,7 @@ export async function criarTreino(
     fields: [
       { name: "Data", value: input.data_treino, inline: true },
       { name: "Horário", value: input.horario || "A definir", inline: true },
-      { name: "Tipo", value: input.tipo, inline: true },
+      { name: "Tipo", value: tipos.join(", "), inline: true },
       { name: "Local", value: input.local || "A definir", inline: true },
       ...(linkServidorPrivado
         ? [{ name: "Servidor privado Roblox", value: linkServidorPrivado }]
@@ -1003,8 +1142,8 @@ export async function criarTreino(
 
 
 
-/** Só o criador do treino (ou o dono) controla presença, adiamento, encerramento e exclusão. */
-async function requireDonoTreino(user: SessionUser, treinoId: number) {
+/** Apenas o criador controla presença, adiamento e encerramento; exclusão usa a permissão própria. */
+async function requireDonoTreino(user: SessionUser, treinoId: number, exigirCriador = true) {
   const db = getDb();
   const { data, error } = await db
     .from("treinos")
@@ -1014,7 +1153,7 @@ async function requireDonoTreino(user: SessionUser, treinoId: number) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Treino não encontrado.");
-  if (!user.isOwner && data.criado_por !== user.id) {
+  if (exigirCriador && data.criado_por !== user.id) {
     throw new Error("Apenas quem criou o treino pode gerenciá-lo.");
   }
   return data as {
@@ -1028,8 +1167,8 @@ async function requireDonoTreino(user: SessionUser, treinoId: number) {
 }
 
 export async function deletarTreino(user: SessionUser, input: { treinoId: number }) {
-  assert(podeGerenciarTreinos(user));
-  await requireDonoTreino(user, input.treinoId);
+  assert(podeDeletarTreino(user), "Você não possui a permissão Treino: deletar.");
+  await requireDonoTreino(user, input.treinoId, false);
   const db = getDb();
   const { error } = await db
     .from("treinos")
@@ -1041,7 +1180,7 @@ export async function deletarTreino(user: SessionUser, input: { treinoId: number
 }
 
 export async function encerrarTreino(user: SessionUser, input: { treinoId: number }) {
-  assert(podeGerenciarTreinos(user));
+  assert(podeGerenciarTreino(user), "Você não possui a permissão Treino: gerenciar.");
   await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const g = gid(user);
@@ -1101,7 +1240,7 @@ export async function adiarTreino(
   user: SessionUser,
   input: { treinoId: number; data_treino: string; horario: string },
 ) {
-  assert(podeGerenciarTreinos(user));
+  assert(podeGerenciarTreino(user), "Você não possui a permissão Treino: gerenciar.");
   const treino = await requireDonoTreino(user, input.treinoId);
   const db = getDb();
   const antes = `${treino.data_treino}${treino.horario ? ` ${treino.horario}` : ""}`;
@@ -1234,7 +1373,7 @@ export async function atualizarPresenca(
   user: SessionUser,
   input: { treinoId: number; membroId: string; presenca: string },
 ) {
-  assert(podeGerenciarTreinos(user));
+  assert(podeGerenciarTreino(user), "Você não possui a permissão Treino: gerenciar.");
   const treino = await requireDonoTreino(user, input.treinoId);
   if (treino.status === "Encerrado" || treino.status === "Cancelado") {
     throw new Error("O evento está encerrado. Apenas o Super Owner pode reabri-lo.");
@@ -1349,7 +1488,7 @@ export async function salvarConfigInatividade(
   user: SessionUser,
   input: ConfigInatividade,
 ) {
-  assert(podeGerenciarTreinos(user), "Você não pode alterar os alertas de atividade.");
+  assert(podeConfigurarInatividade(user), "Você não possui a permissão Configurações: alerta de inatividade.");
   const dias = Math.trunc(Number(input.dias_limite));
   const percentual = Math.trunc(Number(input.percentual_minimo));
   if (dias < 7 || dias > 365) throw new Error("O limite de inatividade deve estar entre 7 e 365 dias.");
@@ -1375,7 +1514,7 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
   let consulta = db
     .from("presencas_treino")
     .select(
-      "treino_id, membro_id, presenca, justificativa, justificativa_status, avaliado_por, avaliado_em, treinos!inner(titulo, tipo, data_treino, status)",
+      "treino_id, membro_id, presenca, justificativa, justificativa_status, avaliado_por, avaliado_em, treinos!inner(titulo, tipo, tipos, data_treino, status)",
     )
     .eq("gang_id", g);
   if (filtro.membroId) consulta = consulta.eq("membro_id", filtro.membroId);
@@ -1419,7 +1558,7 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
         treino_id: linha.treino_id,
         membro_id: linha.membro_id,
         titulo_evento: evento?.titulo ?? "Evento removido",
-        tipo_evento: evento?.tipo ?? "Treino",
+        tipo_evento: evento?.tipo === "Amistoso" || evento?.tipo === "Guerra" ? evento.tipo : "Treino",
         data_evento: evento?.data_treino ?? "",
         status: (linha.presenca ?? "Pendente") as RegistroAtividade["status"],
         justificativa: linha.justificativa,
@@ -1526,7 +1665,7 @@ async function divisaoDoUsuario(gangId: number, discordId: string): Promise<numb
 
 /** Cúpula da gang ou liderança da própria divisão. */
 async function podeGerirDivisao(user: SessionUser, divisao: LiderancaDivisao): Promise<boolean> {
-  if (podeCriarDivisao(user)) return true;
+  if (podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_lider", "divisao_gerenciar_vice", "divisao_gerenciar_membro", "divisao_definir_vice", "divisao_definir_membros")) return true;
   if (user.id === divisao.lider_id || user.id === divisao.vice_lider_id) return true;
   if (temCargo(user, CARGO_LIDER_DIVISAO) || temCargo(user, CARGO_VICE_LIDER_DIVISAO)) {
     return (await divisaoDoUsuario(gid(user), user.id)) === divisao.id;
@@ -1610,13 +1749,14 @@ export async function atualizarDivisao(
   const db = getDb();
 
   // Líder/vice da própria divisão não trocam o líder; só a cúpula faz isso.
-  const liderId = podeCriarDivisao(user) ? input.liderId : divisao.lider_id;
-  const podeDefinirVice =
-    podeCriarDivisao(user) ||
-    user.id === divisao.lider_id ||
-    (temCargo(user, CARGO_LIDER_DIVISAO) &&
-      (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
+  const podeAlterarLider = podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_lider");
+  const liderId = podeAlterarLider ? input.liderId : divisao.lider_id;
+  const liderDaPropriaDivisao = user.id === divisao.lider_id ||
+    (temCargo(user, CARGO_LIDER_DIVISAO) && (await divisaoDoUsuario(gid(user), user.id)) === divisao.id);
+  const podeDefinirVice = podeAlterarLider || liderDaPropriaDivisao || temPermissao(user, "divisao_gerenciar_vice", "divisao_definir_vice");
   const viceLiderId = podeDefinirVice ? input.viceLiderId : divisao.vice_lider_id;
+  const podeDefinirMembros = podeCriarDivisao(user) || temPermissao(user, "divisao_gerenciar_membro", "divisao_definir_membros") || user.id === divisao.lider_id || user.id === divisao.vice_lider_id;
+  const membrosSolicitados = podeDefinirMembros ? input.novosMembros : [];
 
   const logoUrl = input.logoUrl === undefined ? undefined : input.logoUrl?.trim() || null;
   const { error } = await db
@@ -1638,7 +1778,7 @@ export async function atualizarDivisao(
     new Set([
       ...(liderId ? [liderId] : []),
       ...(viceLiderId ? [viceLiderId] : []),
-      ...input.novosMembros,
+      ...membrosSolicitados,
     ]),
   );
   if (entrando.length > 0) {
@@ -1735,6 +1875,7 @@ export async function removerMembroDivisao(
   user: SessionUser,
   input: { membroId: string },
 ) {
+  assert(temPermissao(user, "divisao_gerenciar_membro", "divisao_definir_membros") || temCargo(user, CARGO_LIDER_DIVISAO) || temCargo(user, CARGO_VICE_LIDER_DIVISAO) || podeCriarDivisao(user), "Você não possui permissão para definir membros da divisão.");
   const db = getDb();
   const g = gid(user);
   const { data: membro, error: errMembro } = await db
@@ -1773,7 +1914,7 @@ export async function removerMembroDivisao(
 }
 
 export async function deletarDivisao(user: SessionUser, input: { divisaoId: number }) {
-  assert(podeCriarDivisao(user), "Apenas Líder e Vice-Líder podem deletar divisões.");
+  assert(temPermissao(user, "divisao_deletar") || podeCriarDivisao(user), "Você não possui a permissão Divisão: deletar.");
   const db = getDb();
   const g = gid(user);
   // Liderança perde o cargo de capitão junto com a divisão.
@@ -1827,7 +1968,12 @@ export async function salvarParceria(
     relacao?: string;
   },
 ) {
-  assert(podeGerenciarParcerias(user), "Apenas Líder e Vice-Líder podem gerenciar alianças.");
+  assert(
+    input.id == null
+      ? temPermissao(user, "alianca_criar", "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider")
+      : temPermissao(user, "alianca_editar", "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"),
+    input.id == null ? "Você não possui a permissão Alianças: criar." : "Você não possui a permissão Alianças: editar.",
+  );
   const db = getDb();
   const g = gid(user);
   const colunaId = await colunaIdParcerias();
@@ -1929,7 +2075,7 @@ export async function salvarParceria(
 
 
 export async function deletarParceria(user: SessionUser, input: { id: number }) {
-  assert(podeGerenciarParcerias(user));
+  assert(temPermissao(user, "alianca_deletar", "gerenciar_parcerias") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider"), "Você não possui a permissão Alianças: deletar.");
   const db = getDb();
   const coluna = await colunaIdParcerias();
   const { error } = await db
@@ -2068,48 +2214,52 @@ export async function loadHistoricoAtributos(
 
 /* ========== Dados pessoais do membro ========== */
 
-/** O próprio membro edita sua ficha; a liderança pode editar a de qualquer um. */
+/** Somente o Super Owner edita a ficha global diretamente a partir do painel. */
 export async function atualizarDadosMembro(
   user: SessionUser,
-  input: {
-    membroId: string;
-    nome_rp: string;
-    nome_roblox: string;
-    genero: string;
-    altura: string;
-    estilo_luta_principal: string;
-  },
+  input: { membroId: string } & FichaRPGInput,
 ) {
-  const alvo = input.membroId || user.id;
-  assert(
-    alvo === user.id || podeGerenciarMembros(user),
-    "Você só pode alterar os seus próprios dados.",
-  );
+  assert(user.isSuperOwner, "Somente o Super Owner pode editar a ficha RPG pelo painel.");
+  const alvo = (input.membroId ?? "").trim().replace(/\D/g, "");
+  assert(/^\d{17,20}$/.test(alvo), "Membro inválido.");
 
-  const limpo = (v: string) => (v ?? "").trim() || null;
-  const alturaNum = Number((input.altura ?? "").toString().replace(",", "."));
-
-  const { error } = await getDb()
+  const ficha = normalizarFichaRPG(input);
+  const db = getDb();
+  const { data: membroAtual, error: erroMembro } = await db
     .from("membros")
-    .update({
-      nome_rp: limpo(input.nome_rp),
-      nome_roblox: limpo(input.nome_roblox),
-      genero: limpo(input.genero),
-      altura_jogo: Number.isFinite(alturaNum) && input.altura?.trim() ? alturaNum : null,
-      estilo_luta_principal: limpo(input.estilo_luta_principal),
-    })
+    .select("discord_username")
     .eq("gang_id", gid(user))
+    .eq("discord_id", alvo)
+    .maybeSingle();
+  if (erroMembro) throw new Error(erroMembro.message);
+  assert(!!membroAtual, "Este usuário não está cadastrado na gang ativa.");
+
+  const { error: erroPerfil } = await db.from("perfis_jogador").upsert(
+    {
+      discord_id: alvo,
+      discord_username: (membroAtual as { discord_username?: string | null }).discord_username ?? null,
+      ...ficha,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "discord_id" },
+  );
+  if (erroPerfil) throw new Error(erroPerfil.message);
+
+  // A ficha é global: o mesmo jogador pode estar em várias gangs.
+  const { error: erroMembros } = await db
+    .from("membros")
+    .update(ficha)
     .eq("discord_id", alvo);
-  if (error) throw new Error(error.message);
-  return { ok: true };
+  if (erroMembros) throw new Error(erroMembros.message);
+  return { ok: true, ficha };
 }
 
 /* ========== Configurações do painel ========== */
 
 export async function loadConfiguracoesPainel(user: SessionUser) {
   assert(
-    podeGerenciarMembros(user),
-    "Apenas Líder, Vice-Líder e o dono acessam as configurações.",
+    podeConfigurarCargos(user) || podeConfigurarCanais(user) || podeConfigurarInatividade(user),
+    "Você não possui permissão para acessar as configurações.",
   );
   const { loadConfiguracoes } = await import("./settings.server");
   const configuracoes = await loadConfiguracoes([...CARGOS_PERMITIDOS], gid(user));
@@ -2126,22 +2276,31 @@ export async function salvarConfiguracoesPainel(
     guildId: string;
   },
   ) {
-  assert(podeGerenciarMembros(user), "Você não pode alterar as configurações.");
+  assert(podeConfigurarCargos(user) || podeConfigurarCanais(user), "Você não possui permissão para alterar estas configurações.");
   if (!user.isSuperOwner && Object.hasOwn(input.canais, "canal_divulgacao")) {
     throw new Error("Somente o Super Owner pode alterar o canal de divulgação global.");
   }
   const { salvarConfiguracoesDaGang, chaveCargo } = await import("./settings.server");
-  const valores: Record<string, string> = { owner_ids: input.owners };
-  for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
-  for (const [chave, id] of Object.entries(input.canais)) valores[chave] = id;
+  const valores: Record<string, string> = {};
+  if (podeConfigurarCargos(user)) {
+    valores["owner_ids"] = input.owners;
+    valores["guild_id"] = input.guildId;
+    for (const [nome, id] of Object.entries(input.cargos)) valores[chaveCargo(nome)] = id;
+  }
+  if (podeConfigurarCanais(user)) {
+    for (const [chave, id] of Object.entries(input.canais)) {
+      if (chave === "canal_divulgacao" && !user.isSuperOwner) continue;
+      valores[chave] = id;
+    }
+  }
   await salvarConfiguracoesDaGang(gid(user), valores);
   return { ok: true };
 }
 
 export async function loadCargosPainelPersonalizados(user: SessionUser) {
   assert(
-    podeGerenciarMembros(user),
-    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+    podeConfigurarCargos(user) || podeAlterarCargo(user),
+    "Você não possui permissão para consultar cargos personalizados.",
   );
   const { listarCargosPainel } = await import("./cargos-painel.server");
   return listarCargosPainel(gid(user));
@@ -2149,11 +2308,11 @@ export async function loadCargosPainelPersonalizados(user: SessionUser) {
 
 export async function salvarCargoPainelPersonalizado(
   user: SessionUser,
-  input: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[] },
+  input: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[]; cargosAtribuiveis?: string[] },
 ) {
   assert(
-    podeGerenciarMembros(user),
-    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+    podeConfigurarCargos(user),
+    "Você não possui a permissão Configurações: criar cargos.",
   );
   const { salvarCargoPainel } = await import("./cargos-painel.server");
   return salvarCargoPainel(gid(user), input);
@@ -2161,8 +2320,8 @@ export async function salvarCargoPainelPersonalizado(
 
 export async function excluirCargoPainelPersonalizado(user: SessionUser, id: number) {
   assert(
-    podeGerenciarMembros(user),
-    "Apenas Líder, Vice-Líder e o dono podem administrar cargos personalizados.",
+    podeConfigurarCargos(user),
+    "Você não possui a permissão Configurações: criar cargos.",
   );
   const { excluirCargoPainel } = await import("./cargos-painel.server");
   await excluirCargoPainel(gid(user), id);
@@ -2226,7 +2385,7 @@ export async function salvarLog(
     observacoes: string;
   },
 ) {
-  assert(podeGerenciarTreinos(user), "Sem permissão para registrar logs.");
+  assert(podeCriarLog(user), "Você não possui a permissão Logs: criar.");
   const db = getDb();
   const autor = user.nomeRp || user.globalName || user.username;
   const linkServidorPrivado = normalizarLinkEvento(
@@ -2279,7 +2438,7 @@ export async function salvarLog(
 }
 
 export async function deletarLog(user: SessionUser, id: number) {
-  assert(podeGerenciarTreinos(user), "Sem permissão para remover logs.");
+  assert(podeDeletarLog(user), "Você não possui a permissão Logs: deletar.");
   const db = getDb();
   const { error } = await db
     .from("logs_partidas")

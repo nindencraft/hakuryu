@@ -77,7 +77,7 @@ export function CampoImagemR2({
       const resultado = await uploadImagemR2({
         data: {
           pasta,
-          finalidade,
+          ...(finalidade ? { finalidade } : {}),
           nomeArquivo: otimizado.name,
           tipo: otimizado.type,
           conteudoBase64: await conteudoBase64(otimizado),

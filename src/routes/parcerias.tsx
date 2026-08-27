@@ -50,7 +50,7 @@ import {
   resolverAliado,
   salvarParceria,
 } from "@/lib/dashboard.functions";
-import { podeGerenciarParcerias } from "@/lib/permissions";
+import { podeCriarAlianca, podeDeletarAlianca, podeEditarAlianca, podeSolicitarAmistoso, podeSolicitarGuerra } from "@/lib/permissions";
 import {
   RELACAO_GANG_OPCOES,
   STATUS_PARCERIA_OPCOES,
@@ -126,7 +126,11 @@ function paraForm(p: Parceria): FormAlianca {
 
 function Aliancas() {
   const user = useSessionUser();
-  const podeGerenciar = podeGerenciarParcerias(user);
+  const podeCriar = podeCriarAlianca(user);
+  const podeEditar = podeEditarAlianca(user);
+  const podeDeletar = podeDeletarAlianca(user);
+  const podeAmistoso = podeSolicitarAmistoso(user);
+  const podeGuerra = podeSolicitarGuerra(user);
   const { data, isPending, error } = useQuery(parceriasQuery);
   const [editando, setEditando] = useState<FormAlianca | null>(null);
   const [deletando, setDeletando] = useState<Parceria | null>(null);
@@ -162,7 +166,7 @@ function Aliancas() {
         title="Alianças"
         subtitle="Gangs aliadas e inimigas da Hakuryū."
         actions={
-          podeGerenciar && !data?.tabelaAusente ? (
+          podeCriar && !data?.tabelaAusente ? (
             <Button onClick={() => setEditando({ ...VAZIA })}>
               <Plus className="h-4 w-4" /> Adicionar gang
             </Button>
@@ -207,12 +211,10 @@ function Aliancas() {
                       key={`diplo-${g.id}`}
                       gang={g}
                       onDeletar={
-                        podeGerenciar ? () => removerRelacao.mutate({ gangId: g.id }) : undefined
+                        podeDeletar ? () => removerRelacao.mutate({ gangId: g.id }) : undefined
                       }
                       onSolicitar={
-                        podeGerenciar
-                          ? (tipo) => setSolicitando({ gang: { id: g.id, nome: g.nome }, tipo })
-                          : undefined
+                        (tipo) => ((tipo === "Guerra" ? podeGuerra : podeAmistoso) ? setSolicitando({ gang: { id: g.id, nome: g.nome }, tipo }) : undefined)
                       }
                     />
                   ))}
@@ -220,11 +222,12 @@ function Aliancas() {
                     <AliancaCard
                       key={p.id}
                       alianca={p}
-                      podeGerenciar={podeGerenciar}
+                      podeDeletar={podeDeletar}
+                      podeEditar={podeEditar}
+                      podeGuerra={podeGuerra}
+                      podeAmistoso={podeAmistoso}
                       registrada={porGuild.get(p.tag ?? "")}
-                      onSolicitar={(tipo, gangId) =>
-                        setSolicitando({ gang: { id: gangId, nome: p.nome }, tipo })
-                      }
+                      onSolicitar={(tipo, gangId) => setSolicitando({ gang: { id: gangId, nome: p.nome }, tipo })}
                       onEditar={() => setEditando(paraForm(p))}
                       onDeletar={() => setDeletando(p)}
                     />
@@ -271,14 +274,20 @@ function Aliancas() {
 
 function AliancaCard({
   alianca: p,
-  podeGerenciar,
+  podeDeletar,
+  podeEditar,
+  podeGuerra,
+  podeAmistoso,
   registrada,
   onSolicitar,
   onEditar,
   onDeletar,
 }: {
   alianca: Parceria;
-  podeGerenciar: boolean;
+  podeDeletar: boolean;
+  podeEditar: boolean;
+  podeGuerra: boolean;
+  podeAmistoso: boolean;
   registrada?: GangRegistrada | undefined;
   onSolicitar: (tipo: string, gangId: number) => void;
   onEditar: () => void;
@@ -288,7 +297,7 @@ function AliancaCard({
 
   return (
     <li className="card-gold relative flex flex-col gap-3 p-5">
-      {podeGerenciar ? (
+      {podeDeletar ? (
         <button
           type="button"
           aria-label={`Desfazer aliança com ${p.nome}`}
@@ -361,9 +370,9 @@ function AliancaCard({
             </a>
           </Button>
         ) : null}
-        {podeGerenciar && registrada ? (
+        {(podeGuerra || podeAmistoso) && registrada ? (
           <>
-            {registrada.relacao !== "Inimiga" ? (
+            {registrada.relacao !== "Inimiga" && podeGuerra ? (
               <Button
                 size="sm"
                 variant="destructive"
@@ -373,17 +382,17 @@ function AliancaCard({
                 <Swords className="h-4 w-4" /> Declarar guerra
               </Button>
             ) : null}
-            <Button
+            {podeAmistoso ? <Button
               size="sm"
               variant="outline"
               disabled={registrada.pendencias.some((x) => x.tipo === "Treino")}
               onClick={() => onSolicitar("Treino", registrada.id)}
             >
               <Dumbbell className="h-4 w-4" /> Solicitar treino
-            </Button>
+              </Button> : null}
           </>
         ) : null}
-        {podeGerenciar ? (
+        {podeEditar ? (
           <Button size="sm" variant="ghost" onClick={onEditar}>
             Editar
           </Button>

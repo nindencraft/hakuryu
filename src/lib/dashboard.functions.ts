@@ -4,7 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import * as svc from "./dashboard.server";
 import { exigirSessaoPublica } from "./acesso-publico";
 import { ConfigError, isConfigured } from "./config.server";
-import { currentUser } from "./db.server";
+import { currentUser, getDb } from "./db.server";
 import { acessoGangPermitido } from "./acesso-gang";
 import type { SessionUserView } from "./permissions";
 import type {
@@ -36,6 +36,7 @@ export type SessionPayload = {
   permitido: boolean;
   gangId: number | null;
   gangNome: string | null;
+  bloqueadoPorBan: boolean;
 };
 
 export type BannerGlobal = {
@@ -60,6 +61,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         permitido: false,
         gangId: null,
         gangNome: null,
+        bloqueadoPorBan: false,
       };
     }
 
@@ -73,6 +75,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         permitido: false,
         gangId: null,
         gangNome: null,
+        bloqueadoPorBan: false,
       };
 
     // O Super Owner não pode perder o painel por uma falha transitória na
@@ -117,8 +120,21 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       }
     }
 
-    const { permissoesDoUsuario } = await import("./cargos-painel.server");
+    const { permissoesDoUsuario, cargosAtribuiveisDoUsuario } = await import("./cargos-painel.server");
     user.permissoes = await permissoesDoUsuario(user.gangId, user.roleIds, user.isOwner);
+    user.cargosAtribuiveis = await cargosAtribuiveisDoUsuario(user.gangId, user.roleIds, user.isOwner);
+
+    let bloqueadoPorBan = false;
+    if (user.gangId != null) {
+      const { data: statusAtual, error: erroStatus } = await getDb()
+        .from("membros")
+        .select("status")
+        .eq("gang_id", user.gangId)
+        .eq("discord_id", user.id)
+        .maybeSingle();
+      if (erroStatus) throw new Error(erroStatus.message);
+      bloqueadoPorBan = (statusAtual as { status?: string | null } | null)?.status === "Banido";
+    }
 
     return {
       configurado: true,
@@ -127,7 +143,8 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       gangNome,
       // Sem gang escolhida, o painel envia para /selecionar-gang em vez de negar acesso.
       // Com gang ativa, somente Membro ou cargo superior configurado por ID libera a sessão.
-      permitido: acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado, liderRegistrado),
+      permitido: !bloqueadoPorBan && acessoGangPermitido(user.gangId, user.isSuperOwner, temCargoDeAcessoConfigurado || user.permissoes.includes("acessar_painel"), liderRegistrado),
+      bloqueadoPorBan,
       user: {
         id: user.id,
         username: user.username,
@@ -138,6 +155,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         isSuperOwner: user.isSuperOwner,
         nomeRp: user.nomeRp,
         permissoes: user.permissoes,
+      cargosAtribuiveis: user.cargosAtribuiveis,
       },
     };
   },
@@ -285,7 +303,7 @@ export const criarTreino = createServerFn({ method: "POST" })
       descricao: string;
       data_treino: string;
       horario: string;
-      tipo: string;
+      tipos: string[];
       local: string;
       link_servidor_privado: string;
       divisao_responsavel: string;
@@ -380,18 +398,21 @@ export const deletarParceria = createServerFn({ method: "POST" })
   .inputValidator((data: { id: number }) => data)
   .handler(async ({ data }) => svc.deletarParceria(await svc.requireUser(getRequest()), data));
 
-export const atualizarMeusDados = createServerFn({ method: "POST" })
+export const atualizarFichaMembro = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       membroId: string;
       nome_rp: string;
       nome_roblox: string;
       genero: string;
-      altura: string;
+      altura_jogo: string;
       estilo_luta_principal: string;
     }) => data,
   )
   .handler(async ({ data }) => svc.atualizarDadosMembro(await svc.requireUser(getRequest()), data));
+
+/** Alias de compatibilidade para consumidores antigos do projeto. */
+export const atualizarMeusDados = atualizarFichaMembro;
 
 export const fetchConfiguracoes = createServerFn({ method: "GET" }).handler(
   async (): Promise<ConfiguracoesPainel> =>
@@ -417,7 +438,7 @@ export const fetchCargosPainelPersonalizados = createServerFn({ method: "GET" })
 
 export const salvarCargoPainelPersonalizado = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[] }) => data,
+    (data: { id?: number | null; nome: string; discordRoleId: string; permissoes: string[]; cargosAtribuiveis?: string[] }) => data,
   )
   .handler(async ({ data }) =>
     svc.salvarCargoPainelPersonalizado(await svc.requireUser(getRequest()), data),

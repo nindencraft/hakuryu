@@ -8,6 +8,7 @@ import { EmptyState, MemberAvatar, PageTitle } from "@/components/hakuryu/ui-bit
 import { formatarData, formatarHorario, useAcao, useSessionUser } from "@/components/hakuryu/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,7 +51,7 @@ import {
   reabrirTreino,
   adiarTreino,
 } from "@/lib/dashboard.functions";
-import { podeGerenciarTreinos } from "@/lib/permissions";
+import { podeAgendarTreino, podeDeletarTreino, podeGerenciarTreino } from "@/lib/permissions";
 import { PRESENCA_OPCOES, TIPO_TREINO_OPCOES, type PresencaTreino, type Treino } from "@/lib/types";
 
 export const Route = createFileRoute("/treinos")({
@@ -80,7 +81,9 @@ function TreinosPage() {
 
 function Treinos() {
   const user = useSessionUser();
-  const podeGerenciar = podeGerenciarTreinos(user);
+  const podeAgendar = podeAgendarTreino(user);
+  const podeGerenciar = podeGerenciarTreino(user);
+  const podeDeletar = podeDeletarTreino(user);
   const { data, isPending, error } = useQuery(treinosQuery);
   const [criando, setCriando] = useState(false);
   const [presencaDe, setPresencaDe] = useState<Treino | null>(null);
@@ -108,7 +111,7 @@ function Treinos() {
   const abertos = treinos.filter((t) => !finalizado(t));
   const finalizados = treinos.filter(finalizado);
   const podeGerirTreino = (t: Treino) =>
-    podeGerenciar && (!!user?.isOwner || t.criado_por === user?.id);
+    podeGerenciar && t.criado_por === user?.id;
 
   return (
     <>
@@ -117,7 +120,7 @@ function Treinos() {
         title="Treinos"
         subtitle="Mural de treinos, inscrições e controle de presença."
         actions={
-          podeGerenciar ? (
+          podeAgendar ? (
             <Button onClick={() => setCriando(true)}>
               <Plus className="h-4 w-4" /> Novo treino
             </Button>
@@ -142,6 +145,7 @@ function Treinos() {
                 key={t.id_treino}
                 treino={t}
                 podeGerir={podeGerirTreino(t)}
+                podeDeletar={podeDeletar}
                 onPresenca={() => setPresencaDe(t)}
                 onDeletar={() => setDeletando(t)}
                 onAdiar={() => setAdiando(t)}
@@ -162,6 +166,7 @@ function Treinos() {
                     key={t.id_treino}
                     treino={t}
                     podeGerir={podeGerirTreino(t)}
+                    podeDeletar={podeDeletar}
                     onPresenca={() => setPresencaDe(t)}
                     onDeletar={() => setDeletando(t)}
                     onAdiar={() => setAdiando(t)}
@@ -211,9 +216,10 @@ function Treinos() {
 
 function TreinoCard({
   treino,
-  podeGerir,
-  onPresenca,
-  onDeletar,
+          podeGerir,
+          podeDeletar,
+          onPresenca,
+          onDeletar,
   onAdiar,
   onEncerrar,
   onJustificar,
@@ -222,6 +228,7 @@ function TreinoCard({
 }: {
   treino: Treino;
   podeGerir: boolean;
+  podeDeletar: boolean;
   onPresenca: () => void;
   onDeletar: () => void;
   onAdiar: () => void;
@@ -252,9 +259,11 @@ function TreinoCard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="border-primary/40">
-            {treino.tipo}
-          </Badge>
+          {(treino.tipos?.length ? treino.tipos : [treino.tipo]).map((tipo) => (
+            <Badge key={tipo} variant="outline" className="border-primary/40">
+              {tipo}
+            </Badge>
+          ))}
           {treino.aliado ? (
             <Badge variant="outline" className="border-primary/40 text-primary">
               vs {treino.aliado}
@@ -267,7 +276,7 @@ function TreinoCard({
               Adiado{treino.adiamento.antes ? ` (era ${formatarData(treino.adiamento.antes.slice(0, 10))})` : ""}
             </Badge>
           ) : null}
-          {podeGerir ? (
+          {podeDeletar ? (
             <button
               type="button"
               aria-label={`Deletar treino ${treino.titulo}`}
@@ -359,7 +368,7 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
     descricao: "",
     data_treino: new Date().toISOString().slice(0, 10),
     horario: "20:00",
-    tipo: "Interno" as string,
+    tipos: ["Gladiador"] as string[],
     local: "",
     link_servidor_privado: "",
     divisao_responsavel: "Todas",
@@ -417,19 +426,29 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPO_TREINO_OPCOES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Tipos de treino</Label>
+              <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 sm:grid-cols-2">
+                {TIPO_TREINO_OPCOES.map((tipo) => {
+                  const selecionado = form.tipos.includes(tipo);
+                  return (
+                    <label key={tipo} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={selecionado}
+                        onCheckedChange={(marcado) =>
+                          setForm({
+                            ...form,
+                            tipos: marcado
+                              ? Array.from(new Set([...form.tipos, tipo]))
+                              : form.tipos.filter((item) => item !== tipo),
+                          })
+                        }
+                      />
+                      {tipo}
+                    </label>
+                  );
+                })}
+              </div>
+              {!form.tipos.length ? <p className="text-xs text-destructive">Selecione ao menos um tipo.</p> : null}
             </div>
             <div className="space-y-2">
               <Label>Divisão responsável</Label>
@@ -476,7 +495,7 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
             Cancelar
           </Button>
           <Button
-            disabled={!form.titulo || acao.isPending}
+            disabled={!form.titulo || !form.tipos.length || acao.isPending}
             onClick={() => acao.mutate(form, { onSuccess: onClose })}
           >
             Criar treino

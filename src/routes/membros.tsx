@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, History, Search, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { ChevronDown, History, Pencil, Search, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/hakuryu/DashboardShell";
@@ -56,10 +56,15 @@ import {
   salvarAtributosMembro,
   removerMembro,
   revogarPunicao,
+  atualizarFichaMembro,
   trocarCargo,
 } from "@/lib/dashboard.functions";
 import {
   cargosAtribuiveis,
+  podeAdicionarMembro,
+  podeAlterarCargo,
+  podeAplicarBan,
+  podeAplicarWarn,
   podeAdvertir,
   podeGerenciarMembros,
   podeAvaliarAtributos,
@@ -69,6 +74,7 @@ import {
   rotuloCargo,
 } from "@/lib/permissions";
 import { ATRIBUTOS_MEMBRO, NIVEIS_ATRIBUTO, TIPO_PUNICAO_OPCOES, type AtributosMembroValores } from "@/lib/types";
+import { ESTILOS_LUTA_RPG, GENEROS_RPG, type FichaRPGInput } from "@/lib/perfil";
 import type { CargoPainelPersonalizado, HistoricoAtributosMembro, Membro, MembroAtributos, Punicao } from "@/lib/types";
 
 const TODOS = "__todos__";
@@ -102,14 +108,15 @@ function MembrosPage() {
 function Membros() {
   const user = useSessionUser();
   const podeGerenciar = podeGerenciarMembros(user);
-  const podePunir = podeAdvertir(user);
+  const podeAdicionar = podeAdicionarMembro(user);
+  const podePunir = podeAdvertir(user) && (podeAplicarWarn(user) || podeAplicarBan(user));
   const podeVerRegistro = podeVerRegistroPunicoes(user);
   const cargosPermitidos = cargosAtribuiveis(user);
   const { data: cargosPersonalizados = [] } = useQuery({
     ...cargosPainelPersonalizadosQuery,
-    enabled: podeGerenciar,
+    enabled: podeAlterarCargo(user) || podeGerenciar,
   });
-  const podeTrocarCargo = cargosPermitidos.length > 0 || (podeGerenciar && cargosPersonalizados.length > 0);
+  const podeTrocarCargo = podeAlterarCargo(user) && (cargosPermitidos.length > 0 || cargosPersonalizados.length > 0);
   const { data, isPending, error } = useQuery(membrosQuery);
 
   const [busca, setBusca] = useState("");
@@ -125,6 +132,7 @@ function Membros() {
   const [cadastroAberto, setCadastroAberto] = useState(false);
   const [avaliando, setAvaliando] = useState<Membro | null>(null);
   const [historicoAtributos, setHistoricoAtributos] = useState<Membro | null>(null);
+  const [editandoFicha, setEditandoFicha] = useState<Membro | null>(null);
 
   const membros = data ?? [];
   const minhaDivisaoId = membros.find((m) => m.discord_id === user?.id)?.divisao_id ?? null;
@@ -153,8 +161,9 @@ function Membros() {
 
   const estaEmAnalise = (m: Membro) =>
     m.status === "Em Analise" || parseCargos(m.cargo).includes("Em Analise");
-  const oficiais = filtrados.filter((m) => !estaEmAnalise(m));
-  const emAnalise = filtrados.filter(estaEmAnalise);
+  const banidos = filtrados.filter((m) => m.status === "Banido");
+  const oficiais = filtrados.filter((m) => m.status !== "Banido" && !estaEmAnalise(m));
+  const emAnalise = filtrados.filter((m) => m.status !== "Banido" && estaEmAnalise(m));
 
   const removerAcao = useAcao<{ membroId: string }>(removerMembro, {
     sucesso: "Membro removido.",
@@ -241,9 +250,15 @@ function Membros() {
                               Histórico de atributos
                             </Button>
                           ) : null}
+                          {user?.isSuperOwner ? (
+                            <Button size="sm" variant="outline" onClick={() => setEditandoFicha(m)}>
+                              <Pencil />
+                              Editar ficha RPG
+                            </Button>
+                          ) : null}
                           {podePunir ? (
                             <Button size="sm" variant="outline" onClick={() => setAdvertindo(m)}>
-                              Advertir
+                              Warn / Ban
                             </Button>
                           ) : null}
                           {podeTrocarCargo ? (
@@ -253,7 +268,7 @@ function Membros() {
                           ) : null}
                           {podeVerRegistro ? (
                             <Button size="sm" variant="ghost" onClick={() => setHistorico(m)}>
-                              Histórico de punições
+                              {m.status === "Banido" ? "Revogar banimento" : "Histórico de punições"}
                             </Button>
                           ) : null}
                           {podeGerenciar ? (
@@ -280,7 +295,7 @@ function Membros() {
         kanji="隊員"
         title="Membros"
         subtitle="Cargos, avisos e status dos integrantes."
-        actions={<div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{filtrados.length} exibidos</Badge>{podeGerenciar ? <Button size="sm" onClick={() => setCadastroAberto(true)}><UserPlus className="h-4 w-4" />Adicionar novo membro</Button> : null}</div>}
+        actions={<div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{filtrados.length} exibidos</Badge>{podeAdicionar ? <Button size="sm" onClick={() => setCadastroAberto(true)}><UserPlus className="h-4 w-4" />Adicionar novo membro</Button> : null}</div>}
       />
 
       <div className="card-gold mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -328,11 +343,19 @@ function Membros() {
               {renderLista(emAnalise)}
             </div>
           ) : null}
+          {banidos.length > 0 ? (
+            <div className="mt-8">
+              <h2 className="font-display text-xl text-destructive">Banidos</h2>
+              <p className="mb-3 text-sm text-muted-foreground">Membros banidos perdem o acesso ao painel até a revogação do Ban ({banidos.length}).</p>
+              {renderLista(banidos)}
+            </div>
+          ) : null}
         </>
       )}
 
       <CadastrarMembroDialog aberto={cadastroAberto} onClose={() => setCadastroAberto(false)} />
       <AtributosDialog membro={avaliando} onClose={() => setAvaliando(null)} />
+      <FichaAdministrativaDialog membro={editandoFicha} onClose={() => setEditandoFicha(null)} />
       <HistoricoAtributosDialog membro={historicoAtributos} onClose={() => setHistoricoAtributos(null)} />
       <AdvertirDialog membro={advertindo} onClose={() => setAdvertindo(null)} />
       <TrocarCargoDialog membro={trocando} cargosPersonalizados={cargosPersonalizados} onClose={() => setTrocando(null)} />
@@ -470,6 +493,48 @@ function CadastrarMembroDialog({ aberto, onClose }: { aberto: boolean; onClose: 
           {resultados.length ? <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">{resultados.map((membro) => <li key={membro.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3"><MemberAvatar discordId={membro.id} avatarHash={membro.avatarHash} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{membro.nick || membro.globalName || membro.username}</p><p className="truncate text-sm text-muted-foreground">@{membro.username} · {membro.id}</p></div><Button size="sm" disabled={membro.jaCadastrado || adicionandoId === membro.id} onClick={() => void cadastrar(membro.id)}>{membro.jaCadastrado ? "Já cadastrado" : adicionandoId === membro.id ? "Adicionando..." : "Adicionar"}</Button></li>)}</ul> : !buscando && busca.trim().length >= 2 ? <p className="text-sm text-muted-foreground">Nenhuma pessoa encontrada no servidor Discord.</p> : null}
         </div>
         <DialogFooter><Button variant="ghost" onClick={onClose}>Fechar</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FichaAdministrativaDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
+  const [dados, setDados] = useState<FichaRPGInput>({ nome_roblox: "", nome_rp: "", genero: "", altura_jogo: "", estilo_luta_principal: "" });
+  const acao = useAcao<{ membroId: string } & FichaRPGInput>(atualizarFichaMembro, {
+    sucesso: "Ficha RPG global atualizada em todas as gangs.",
+    invalidar: [["membros"], ["meu-perfil"], ["session"]],
+    aoConcluir: onClose,
+  });
+
+  useEffect(() => {
+    if (!membro) return;
+    setDados({
+      nome_roblox: membro.nome_roblox ?? "",
+      nome_rp: membro.nome_rp ?? "",
+      genero: membro.genero ?? "",
+      altura_jogo: membro.altura_jogo != null ? String(membro.altura_jogo) : "",
+      estilo_luta_principal: membro.estilo_luta_principal ?? "",
+    });
+  }, [membro]);
+
+  const atualizar = (campo: keyof FichaRPGInput, valor: string) => setDados((atual) => ({ ...atual, [campo]: valor }));
+  const semOpcao = "__sem_opcao__";
+
+  return (
+    <Dialog open={!!membro} onOpenChange={(aberto) => !aberto && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editar ficha RPG global</DialogTitle>
+          <DialogDescription>Alterações feitas aqui sincronizam o perfil do jogador e todos os painéis de gang em que ele aparece.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2"><Label>Nome no Roblox</Label><Input maxLength={80} value={dados.nome_roblox} onChange={(e) => atualizar("nome_roblox", e.target.value)} /></div>
+          <div className="space-y-2"><Label>Nome no jogo</Label><Input maxLength={80} value={dados.nome_rp} onChange={(e) => atualizar("nome_rp", e.target.value)} /></div>
+          <div className="space-y-2"><Label>Gênero</Label><Select value={dados.genero || semOpcao} onValueChange={(v) => atualizar("genero", v === semOpcao ? "" : v)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value={semOpcao}>Não informar</SelectItem>{GENEROS_RPG.map((genero) => <SelectItem key={genero} value={genero}>{genero}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-2"><Label>Altura no jogo</Label><Input inputMode="decimal" value={dados.altura_jogo} onChange={(e) => atualizar("altura_jogo", e.target.value)} placeholder="Ex.: 1,82" /></div>
+          <div className="space-y-2 sm:col-span-2"><Label>Estilo de luta principal</Label><Select value={dados.estilo_luta_principal || semOpcao} onValueChange={(v) => atualizar("estilo_luta_principal", v === semOpcao ? "" : v)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value={semOpcao}>Não informar</SelectItem>{ESTILOS_LUTA_RPG.map((estilo) => <SelectItem key={estilo.valor} value={estilo.valor}>{estilo.valor} · {estilo.raridade}</SelectItem>)}</SelectContent></Select></div>
+        </div>
+        <DialogFooter><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button disabled={acao.isPending || !membro} onClick={() => membro && acao.mutate({ membroId: membro.discord_id, ...dados })}>{acao.isPending ? "Salvando..." : "Salvar ficha global"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -626,8 +691,13 @@ function HistoricoAtributoItem({ item }: { item: HistoricoAtributosMembro }) {
 }
 
 function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: () => void }) {
-  const [tipo, setTipo] = useState<string>(TIPO_PUNICAO_OPCOES[0]);
+  const user = useSessionUser();
+  const opcoes: string[] = TIPO_PUNICAO_OPCOES.filter((tipo) => tipo === "Warn" ? podeAplicarWarn(user) : podeAplicarBan(user));
+  const [tipo, setTipo] = useState<string>(opcoes[0] ?? "Warn");
   const [motivo, setMotivo] = useState("");
+  useEffect(() => {
+    if (opcoes.length && !opcoes.includes(tipo)) setTipo(opcoes[0] ?? "Warn");
+  }, [tipo, opcoes.join(",")]);
   const acao = useAcao<{ membroId: string; tipo: string; motivo: string }>(advertirMembro, {
     sucesso: "Advertência registrada.",
     invalidar: [["membros"]],
@@ -650,7 +720,7 @@ function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: (
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIPO_PUNICAO_OPCOES.map((t) => (
+                {opcoes.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
                   </SelectItem>
@@ -672,10 +742,10 @@ function AdvertirDialog({ membro, onClose }: { membro: Membro | null; onClose: (
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            disabled={acao.isPending}
-            onClick={() => {
-              if (!membro) return;
+            <Button
+              disabled={acao.isPending || !opcoes.length}
+              onClick={() => {
+                if (!membro || !opcoes.length) return;
               acao.mutate(
                 { membroId: membro.discord_id, tipo, motivo },
                 { onSuccess: () => { setMotivo(""); onClose(); } },
@@ -799,7 +869,7 @@ function TrocarCargoDialog({ membro, cargosPersonalizados, onClose }: { membro: 
               </div>
             </div>
           ) : null}
-          <div className="space-y-2" hidden={!podeStatus}>
+          <div className="space-y-2" hidden={!podeStatus || membro?.status === "Banido"}>
             <Label>Status</Label>
             <Select value={status} onValueChange={setStatus} disabled={!podeStatus}>
               <SelectTrigger>

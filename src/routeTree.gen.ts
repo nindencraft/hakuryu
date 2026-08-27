@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AtividadeRouteImport } from './routes/atividade'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DivisoesRouteImport } from './routes/divisoes'
 import { Route as ExplorarRouteImport } from './routes/explorar'
@@ -34,6 +35,11 @@ import { Route as ApiPublicAuthDiscordLoginRouteImport } from './routes/api/publ
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AtividadeRoute = AtividadeRouteImport.update({
+  id: '/atividade',
+  path: '/atividade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
@@ -142,6 +148,7 @@ const ApiPublicAuthDiscordLoginRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/atividade': typeof AtividadeRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
   '/explorar': typeof ExplorarRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/atividade': typeof AtividadeRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
   '/explorar': typeof ExplorarRoute
@@ -189,6 +197,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/atividade': typeof AtividadeRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/divisoes': typeof DivisoesRoute
   '/explorar': typeof ExplorarRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/atividade'
     | '/configuracoes'
     | '/divisoes'
     | '/explorar'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/atividade'
     | '/configuracoes'
     | '/divisoes'
     | '/explorar'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/atividade'
     | '/configuracoes'
     | '/divisoes'
     | '/explorar'
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AtividadeRoute: typeof AtividadeRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DivisoesRoute: typeof DivisoesRoute
   ExplorarRoute: typeof ExplorarRoute
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/atividade': {
+      id: '/atividade'
+      path: '/atividade'
+      fullPath: '/atividade'
+      preLoaderRoute: typeof AtividadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracoes': {
@@ -460,6 +480,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AtividadeRoute: AtividadeRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DivisoesRoute: DivisoesRoute,
   ExplorarRoute: ExplorarRoute,
