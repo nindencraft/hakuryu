@@ -33,3 +33,13 @@ Os avatares agora suportam hashes estáticos e animados do Discord, tentam prime
 A página Atividade agora usa a data do próprio evento (`treinos.data_treino`), normalizada para `YYYY-MM-DD`, como fonte da data exibida, filtrada e ordenada. A data de avaliação ou criação do registro de presença não é usada como data do evento.
 
 Validação final: TypeScript aprovado, 20 arquivos de teste aprovados com 59 testes e build de produção concluído.
+
+## Correções mobile e sincronização de avatares
+
+O tema claro do dashboard mobile agora usa a arte clara do projeto e uma camada de leitura baseada em `--background`, sem herdar a arte escura. O bootstrap de tema também remove explicitamente a classe `dark` quando o tema claro está salvo.
+
+O drawer mobile recebeu uma superfície própria, opaca e isolada, continua acima do overlay do Radix e agora renderiza os links usando a sessão já carregada pelo shell, evitando que uma segunda consulta deixe o menu vazio.
+
+O Discord continua sendo a fonte dinâmica dos avatares. O sistema busca o avatar global atual durante o carregamento dos membros, salva somente o novo `avatar_hash` na tabela `membros` quando ele mudou e usa a CDN do Discord para renderizar a imagem. Hashes antigos específicos da guild são migrados pelo endpoint global quando possível, inclusive para membros que já saíram do servidor. Nenhuma imagem é armazenada.
+
+As consultas de membros, divisões e Atividade são atualizadas periodicamente, permitindo refletir uma troca de foto automaticamente sem excluir e recadastrar o membro.

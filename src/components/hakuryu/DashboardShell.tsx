@@ -22,7 +22,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import bgAsset from "@/assets/hakuryu-bg.png.asset.json";
 import logo from "@/assets/hakuryu-logo.png";
 import sidebarBgAsset from "@/assets/hakuryu-sidebar-bg.png.asset.json";
-import mainBgAsset from "@/assets/hakuryu-main-bg.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,10 +83,8 @@ function Brand() {
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
+function NavLinks({ user, onNavigate }: { user: SessionUserView; onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { data } = useQuery(sessionQuery);
-  const user = data?.user ?? null;
   const nav = NAV.filter((item) => item.to !== "/solicitacoes" || podeVerSolicitacoes(user));
   const base = podeConfigurarCanais(user) || podeConfigurarCargos(user) || podeConfigurarInatividade(user)
     ? [...nav, ...NAV_ADMIN]
@@ -246,7 +243,7 @@ function SidebarBody({
       ) : null}
       <GangsRail gangAtivaId={gangId} onNavigate={onNavigate} />
       <div className="rule-gold" aria-hidden />
-      <NavLinks onNavigate={onNavigate} />
+      <NavLinks user={user} onNavigate={onNavigate} />
       <div className="mt-auto flex flex-col gap-2 pb-2">
         <Button
           variant="outline"
@@ -440,10 +437,10 @@ export function DashboardShell({
         </aside>
 
         <div
-          className="hakuryu-page-backdrop relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
-          style={{ backgroundImage: `url(${mainBgAsset.url})` }}
+          className="hakuryu-page-backdrop hakuryu-dashboard-main relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
+          style={{ backgroundImage: `url(${bgAsset.url})` }}
         >
-          <div className="absolute inset-0 bg-background/55 pointer-events-none" />
+          <div className="pointer-events-none absolute inset-0 z-0 bg-background/75" />
           <div className="relative z-10">
             <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur lg:hidden">
               <Sheet open={open} onOpenChange={setOpen}>
@@ -454,7 +451,8 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop hakuryu-mobile-drawer z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
                 >
                   <div className="relative z-10 flex min-h-full flex-col">
                     <SheetTitle className="sr-only">Navegação</SheetTitle>

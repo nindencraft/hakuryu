@@ -21,6 +21,23 @@
   isolation: isolate;
   background-color: var(--color-sidebar) !important;
   background-clip: padding-box;
+  opacity: 1 !important;
+}
+
+.hakuryu-mobile-drawer {
+  isolation: isolate;
+  background-color: var(--color-sidebar) !important;
+  background-clip: padding-box;
+  opacity: 1 !important;
+}
+
+.hakuryu-dashboard-main {
+  background-color: var(--color-background);
+}
+
+/* No claro, o componente fornece a URL da arte marfim; no dark mode o CSS troca pela arte escura. */
+:not(.dark) .hakuryu-dashboard-main {
+  background-color: var(--color-background);
 }
 
 .dark .hakuryu-page-backdrop {
@@ -38,6 +55,14 @@
 .hakuryu-sidebar-surface > * {
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 1023px) {
+  .hakuryu-dashboard-main {
+    background-position: center top;
+    background-size: cover;
+    background-attachment: scroll;
+  }
 }
 
 @media (max-width: 767px) {

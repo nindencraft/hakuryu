@@ -99,7 +99,7 @@ export async function fetchRolesAtuais(
 /** Cargos (IDs + nomes) de todos os membros do servidor, em uma chamada. */
 export async function fetchRolesDeTodos(
   guildIdSessao?: string | null,
-): Promise<Map<string, { ids: string[]; nomes: string[] }> | null> {
+): Promise<Map<string, { ids: string[]; nomes: string[]; avatarHash: string | null }> | null> {
   let config;
   try {
     config = getConfig();
@@ -115,16 +115,18 @@ export async function fetchRolesDeTodos(
       fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, { headers }),
     ]);
     if (!membersRes.ok || !rolesRes.ok) return null;
-    const members = (await membersRes.json()) as { user?: { id: string }; roles: string[] }[];
+    const members = (await membersRes.json()) as { user?: { id: string; avatar?: string | null; bot?: boolean }; roles: string[] }[];
     const allRoles = (await rolesRes.json()) as GuildRole[];
     const nomePorId = new Map(allRoles.map((r) => [r.id, r.name]));
 
-    const mapa = new Map<string, { ids: string[]; nomes: string[] }>();
+    const mapa = new Map<string, { ids: string[]; nomes: string[]; avatarHash: string | null }>();
     for (const m of members) {
       if (!m.user?.id) continue;
       mapa.set(m.user.id, {
         ids: m.roles,
         nomes: m.roles.map((id) => nomePorId.get(id)).filter((n): n is string => !!n),
+        // O banco deve guardar o hash global: ele continua válido mesmo se a pessoa sair da guild.
+        avatarHash: m.user.avatar ?? null,
       });
     }
     return mapa;
@@ -260,6 +262,34 @@ export async function enviarMensagemCanal(chaveCanal: string, ctx: CtxDiscord, m
  * Cargos de todos os membros do servidor (1 chamada), para usar o Discord
  * como fonte da verdade na listagem de membros.
  */
+/** Busca os hashes globais atuais dos membros da guild sem baixar nem armazenar imagens. */
+export async function fetchAvataresDeTodos(
+  guildIdSessao?: string | null,
+): Promise<Map<string, string | null> | null> {
+  let config;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+  try {
+    const guildId = await resolverGuild(guildIdSessao);
+    if (!guildId) return null;
+    const resposta = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
+      headers: { Authorization: `Bot ${config.discordBotToken}` },
+    });
+    if (!resposta.ok) return null;
+    const membros = (await resposta.json()) as GuildMemberDiscordApi[];
+    const mapa = new Map<string, string | null>();
+    for (const membro of membros) {
+      if (membro.user?.id && !membro.user.bot) mapa.set(membro.user.id, membro.user.avatar ?? null);
+    }
+    return mapa;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchCargosDeTodos(guildIdSessao?: string | null): Promise<Map<string, string[]> | null> {
   let config;
   try {
@@ -276,7 +306,7 @@ export async function fetchCargosDeTodos(guildIdSessao?: string | null): Promise
       fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, { headers }),
     ]);
     if (!membersRes.ok || !rolesRes.ok) return null;
-    const members = (await membersRes.json()) as { user?: { id: string }; roles: string[] }[];
+    const members = (await membersRes.json()) as { user?: { id: string; avatar?: string | null; bot?: boolean }; roles: string[] }[];
     const allRoles = (await rolesRes.json()) as GuildRole[];
     const nomePorId = new Map(allRoles.map((r) => [r.id, r.name]));
 
@@ -352,7 +382,8 @@ function mapearMembroDiscordServidor(membro: GuildMemberDiscordApi): MembroDisco
     id: usuario.id,
     username: usuario.username,
     globalName: usuario.global_name ?? null,
-    avatarHash: membro.avatar ?? usuario.avatar ?? null,
+    // Persistimos o hash global, não o hash específico da guild, para a URL continuar válida fora dela.
+    avatarHash: usuario.avatar ?? null,
     nick: membro.nick ?? null,
   };
 }

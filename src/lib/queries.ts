@@ -86,6 +86,7 @@ export const membrosQuery = queryOptions({
   queryKey: ["membros"],
   queryFn: () => fetchMembros(),
   staleTime: 30_000,
+  refetchInterval: 60_000,
 });
 
 export const treinosQuery = queryOptions({
@@ -105,6 +106,7 @@ export function atividadeQuery(input: { membroId?: string | null; inicio?: strin
     queryKey: ["atividade", input.membroId ?? null, input.inicio ?? null, input.fim ?? null, input.tipoEvento ?? null],
     queryFn: () => fetchAtividade({ data: input }),
     staleTime: 10_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -112,6 +114,7 @@ export const divisoesQuery = queryOptions({
   queryKey: ["divisoes"],
   queryFn: () => fetchDivisoes(),
   staleTime: 30_000,
+  refetchInterval: 60_000,
 });
 
 export const parceriasQuery = queryOptions({

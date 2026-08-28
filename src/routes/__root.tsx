@@ -17,12 +17,12 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 const THEME_BOOTSTRAP = `(() => {
   try {
     const salvo = window.localStorage.getItem("hakuryu-theme");
-    if (salvo === "dark") {
-      document.documentElement.classList.add("dark");
-      document.documentElement.style.colorScheme = "dark";
-    }
+    const escuro = salvo === "dark";
+    document.documentElement.classList.toggle("dark", escuro);
+    document.documentElement.style.colorScheme = escuro ? "dark" : "light";
   } catch {
-    // O tema padrão claro continua disponível quando o storage está bloqueado.
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.colorScheme = "light";
   }
 })();`;
 

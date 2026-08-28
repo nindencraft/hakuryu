@@ -160,6 +160,78 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return (res.data ?? []) as T;
 }
 
+type LinhaAvatar = { discord_id: string; avatar_hash: string | null };
+
+/**
+ * Sincroniza somente o hash do avatar; a imagem nunca é baixada nem armazenada.
+ * Se o Discord estiver indisponível, a listagem continua usando o hash salvo.
+ */
+async function sincronizarAvatarHashes(
+  user: SessionUser,
+  membros: LinhaAvatar[],
+  avataresDiscord?: Map<string, string | null> | null,
+): Promise<Map<string, string | null>> {
+  const { fetchAvataresDeTodos, fetchUsuarioDiscord } = await import("./discord.server");
+  const atuais = avataresDiscord ?? (await fetchAvataresDeTodos(user.guildId));
+  const resultado = new Map(membros.map((membro) => [membro.discord_id, membro.avatar_hash]));
+  if (!atuais) return resultado;
+
+  const db = getDb();
+  await Promise.all(
+    membros
+      .filter((membro) => atuais.has(membro.discord_id))
+      .filter((membro) => membro.avatar_hash !== atuais.get(membro.discord_id))
+      .map(async (membro) => {
+        const avatarHash = atuais.get(membro.discord_id) ?? null;
+        const { error } = await db
+          .from("membros")
+          .update({ avatar_hash: avatarHash })
+          .eq("gang_id", gid(user))
+          .eq("discord_id", membro.discord_id);
+        if (!error) resultado.set(membro.discord_id, avatarHash);
+      }),
+  );
+
+  // Para quem já saiu, consulta o usuário global uma vez para migrar hashes antigos
+  // que eventualmente tenham sido salvos como avatar específico da guild.
+  const foraDaGuild = membros.filter((membro) => !atuais.has(membro.discord_id));
+  for (let inicio = 0; inicio < foraDaGuild.length; inicio += 8) {
+    const lote = foraDaGuild.slice(inicio, inicio + 8);
+    const respostas = await Promise.all(
+      lote.map(async (membro) => ({ membro, perfil: await fetchUsuarioDiscord(membro.discord_id) })),
+    );
+    await Promise.all(
+      respostas
+        .filter((resposta): resposta is { membro: LinhaAvatar; perfil: NonNullable<typeof resposta.perfil> } => resposta.perfil !== null)
+        .filter((resposta) => resposta.membro.avatar_hash !== resposta.perfil.avatarHash)
+        .map(async ({ membro, perfil }) => {
+          const { error } = await db
+            .from("membros")
+            .update({ avatar_hash: perfil.avatarHash })
+            .eq("gang_id", gid(user))
+            .eq("discord_id", membro.discord_id);
+          if (!error) resultado.set(membro.discord_id, perfil.avatarHash);
+        }),
+    );
+    for (const { membro, perfil } of respostas) {
+      if (perfil !== null) resultado.set(membro.discord_id, perfil.avatarHash);
+    }
+  }
+
+  for (const membro of membros) {
+    if (atuais.has(membro.discord_id)) resultado.set(membro.discord_id, atuais.get(membro.discord_id) ?? null);
+  }
+  return resultado;
+}
+
+function avatarHashAtual(
+  mapa: Map<string, string | null>,
+  discordId: string,
+  salvo: string | null,
+): string | null {
+  return mapa.has(discordId) ? (mapa.get(discordId) ?? null) : salvo;
+}
+
 /* ========== Leitura ========== */
 
 export async function loadMembros(user: SessionUser): Promise<Membro[]> {
@@ -276,9 +348,14 @@ export async function loadMembros(user: SessionUser): Promise<Membro[]> {
     mapaCargos(g),
     listarCargosPainel(g),
   ]);
+  const avataresDiscord = rolesDiscord
+    ? new Map([...rolesDiscord.entries()].map(([id, dados]) => [id, dados.avatarHash]))
+    : null;
+  const avatarHashes = await sincronizarAvatarHashes(user, membros, avataresDiscord);
 
   return membros.map((m) => ({
     ...m,
+    avatar_hash: avatarHashAtual(avatarHashes, m.discord_id, m.avatar_hash),
       cargo: (() => {
         const doDiscord = rolesDiscord?.get(m.discord_id);
         const lista = doDiscord ? canonizarCargos(mapa, doDiscord.ids, doDiscord.nomes) : [];
@@ -394,6 +471,7 @@ export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
   }[];
 
   const porId = new Map(membros.map((m) => [m.discord_id, m]));
+  const avatarHashes = await sincronizarAvatarHashes(user, membros);
 
   return divisoes.map((d) => {
     const lider = d.lider_id ? porId.get(d.lider_id) : undefined;
@@ -402,19 +480,19 @@ export async function loadDivisoes(user: SessionUser): Promise<Divisao[]> {
       ...d,
       lider_nome: lider?.nome_rp ?? null,
       lider_discord: lider?.discord_username ?? null,
-      lider_avatar: lider?.avatar_hash ?? null,
+      lider_avatar: lider ? avatarHashAtual(avatarHashes, lider.discord_id, lider.avatar_hash) : null,
       vice_nome: vice?.nome_rp ?? null,
       vice_discord: vice?.discord_username ?? null,
-      vice_avatar: vice?.avatar_hash ?? null,
+      vice_avatar: vice ? avatarHashAtual(avatarHashes, vice.discord_id, vice.avatar_hash) : null,
 
       membros: membros
         .filter((m) => m.divisao_id === d.id)
         .sort((a, b) => (a.nome_rp ?? "").localeCompare(b.nome_rp ?? ""))
-        .map(({ discord_id, discord_username, nome_rp, avatar_hash }) => ({
-          discord_id,
-          discord_username,
-          nome_rp,
-          avatar_hash,
+        .map((m) => ({
+          discord_id: m.discord_id,
+          discord_username: m.discord_username,
+          nome_rp: m.nome_rp,
+          avatar_hash: avatarHashAtual(avatarHashes, m.discord_id, m.avatar_hash),
         })),
     };
   });
@@ -459,6 +537,7 @@ export async function loadPresencas(
   }[];
 
   const porId = new Map(membros.map((membro) => [membro.discord_id, membro]));
+  const avatarHashes = await sincronizarAvatarHashes(user, membros);
   return presencas.flatMap((p) => {
       const m = porId.get(p.membro_id);
       if (!m) return [];
@@ -466,7 +545,7 @@ export async function loadPresencas(
         membro_id: p.membro_id,
         discord_username: m.discord_username,
         nome_rp: m.nome_rp,
-        avatar_hash: m.avatar_hash,
+        avatar_hash: avatarHashAtual(avatarHashes, m.discord_id, m.avatar_hash),
         inscricao: p.inscricao,
         presenca: p.presenca ?? "Pendente",
         justificativa: p.justificativa,
@@ -1536,6 +1615,7 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
     status: string | null;
   }[];
   const porMembro = new Map(membros.map((m) => [m.discord_id, m]));
+  const avatarHashes = await sincronizarAvatarHashes(user, membros);
 
   const registros = ((data ?? []) as {
     treino_id: number;
@@ -1570,7 +1650,7 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
         avaliado_em: linha.avaliado_em,
         discord_username: membro?.discord_username ?? null,
         nome_rp: membro?.nome_rp ?? null,
-        avatar_hash: membro?.avatar_hash ?? null,
+        avatar_hash: membro ? avatarHashAtual(avatarHashes, membro.discord_id, membro.avatar_hash) : null,
         encerrado: evento?.status === "Encerrado",
       };
     })
@@ -1609,7 +1689,7 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
         membro_id: membro.discord_id,
         discord_username: membro.discord_username,
         nome_rp: membro.nome_rp,
-        avatar_hash: membro.avatar_hash,
+        avatar_hash: avatarHashAtual(avatarHashes, membro.discord_id, membro.avatar_hash),
         presente,
         ausente,
         justificado,
