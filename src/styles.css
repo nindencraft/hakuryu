@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* O painel é sempre claro: evita o "modo escuro forçado" de navegadores mobile. */
+/* O tema claro é o padrão; a classe .dark ativa a paleta escura de forma global. */
 :root {
   color-scheme: light;
 }
@@ -130,6 +130,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.19 0.006 90);
   --foreground: oklch(0.955 0.012 95);
   --card: oklch(0.235 0.008 90);

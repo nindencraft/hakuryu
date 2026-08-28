@@ -341,6 +341,16 @@ export function podeConfigurarCanais(user: SessionUser | null): boolean {
   return temPermissao(user, "configuracoes_canais") || !!user?.isOwner || temCargo(user, "Lider") || temCargo(user, "Vice-Lider");
 }
 
+export function podeEditarFichaRPG(user: SessionUser | null): boolean {
+  return !!user && (
+    user.isSuperOwner ||
+    temPermissao(user, "editar_ficha_rpg") ||
+    temCargo(user, "Lider") ||
+    temCargo(user, "Vice-Lider") ||
+    temCargo(user, "Líder de Divisão")
+  );
+}
+
 export function podeAvaliarAtributos(user: SessionUser | null, alvoDivisaoId: number | null, minhaDivisaoId: number | null): boolean {
   if (!user) return false;
   if (temPermissao(user, "avaliar_estatisticas", "avaliar_atributos") || temCargo(user, "Lider") || temCargo(user, "Vice-Lider")) return true;

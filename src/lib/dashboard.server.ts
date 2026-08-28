@@ -19,6 +19,7 @@ import {
   podeConfigurarCanais,
   podeConfigurarCargos,
   podeConfigurarInatividade,
+  podeEditarFichaRPG,
   temCargo,
   temPermissao,
   CARGOS_PERMITIDOS,
@@ -2219,7 +2220,7 @@ export async function atualizarDadosMembro(
   user: SessionUser,
   input: { membroId: string } & FichaRPGInput,
 ) {
-  assert(user.isSuperOwner, "Somente o Super Owner pode editar a ficha RPG pelo painel.");
+  assert(podeEditarFichaRPG(user), "Você não possui a permissão para editar a ficha RPG pelo painel.");
   const alvo = (input.membroId ?? "").trim().replace(/\D/g, "");
   assert(/^\d{17,20}$/.test(alvo), "Membro inválido.");
 

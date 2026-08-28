@@ -1,6 +1,7 @@
 export const PERMISSOES_PAINEL = [
   { chave: "acessar_painel", rotulo: "Acessar Painel", descricao: "Permite entrar e permanecer no painel mesmo sem um cargo-base configurado como Membro ou superior." },
   { chave: "avaliar_estatisticas", rotulo: "Avaliar Estatísticas", descricao: "Permite avaliar e atualizar os atributos de combate dos membros autorizados." },
+  { chave: "editar_ficha_rpg", rotulo: "Editar ficha RPG", descricao: "Permite editar a ficha RPG global de qualquer membro e sincronizá-la nos perfis e painéis." },
   { chave: "advertencia_dar", rotulo: "Advertência: dar", descricao: "Habilita a abertura do fluxo de punição; marque também Warn ou Ban para definir os tipos permitidos." },
   { chave: "advertencia_warn", rotulo: "Advertência: aplicar Warn", descricao: "Permite registrar uma advertência do tipo Warn." },
   { chave: "advertencia_ban", rotulo: "Advertência: aplicar Ban", descricao: "Permite banir membros respeitando a hierarquia de cargos." },

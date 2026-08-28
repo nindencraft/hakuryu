@@ -41,7 +41,7 @@ export function TelaHubLogin({ erro }: { erro?: string }) {
       className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
-      <section className="card-gold w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm sm:p-10">
+      <section className="card-gold w-full max-w-lg bg-card/95 p-8 text-center backdrop-blur-sm sm:p-10">
         <img
           src={logo}
           alt="Emblema do dragão branco Hakuryū"
@@ -126,7 +126,7 @@ export function CabecalhoHub({
     abaAtiva === aba ? "bg-primary/12 text-primary hover:bg-primary/16" : "text-muted-foreground";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-border bg-card/88 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-3">
           <img src={logo} alt="Hakuryū" className="h-10 w-10 shrink-0 object-contain" />

@@ -19,7 +19,7 @@ function formatarData(valor: string | null) {
 
 function CardGang({ gang, antiga = false }: { gang: GangNoPerfil; antiga?: boolean }) {
   return (
-    <Card className="border-primary/20 bg-white/85 shadow-sm">
+    <Card className="border-primary/20 bg-card/85 shadow-sm">
       <CardContent className="space-y-3 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -84,7 +84,7 @@ function FichaRPGForm({
           <p className="text-sm text-muted-foreground">Esses dados são seus e aparecem automaticamente em todas as gangs do painel.</p>
         </div>
       </div>
-      <Card className="border-primary/25 bg-white/85 shadow-sm">
+      <Card className="border-primary/25 bg-card/85 shadow-sm">
         <CardContent className="p-5 sm:p-6">
           <form className="space-y-5" onSubmit={(evento) => { evento.preventDefault(); aoSalvar(dados); }}>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -145,7 +145,7 @@ export function PerfilJogador({ perfil, aoSalvarFicha, salvandoFicha = false }: 
 
   return (
     <div className="space-y-9">
-      <section className="card-gold flex flex-col gap-6 bg-white/88 p-6 sm:flex-row sm:items-center sm:p-8">
+      <section className="card-gold flex flex-col gap-6 bg-card/88 p-6 sm:flex-row sm:items-center sm:p-8">
         <img src={perfil.jogador.avatarUrl} alt="" className="h-24 w-24 rounded-full border-2 border-primary/35 object-cover" />
         <div className="min-w-0 flex-1">
           <p className="font-jp text-xs tracking-[0.2em] text-primary">白竜 · PERFIL DO JOGADOR</p>
@@ -159,17 +159,17 @@ export function PerfilJogador({ perfil, aoSalvarFicha, salvandoFicha = false }: 
 
       <section>
         <div className="mb-4 flex items-center gap-2"><Dumbbell className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Atividade</p><p className="text-sm text-muted-foreground">Participações confirmadas no painel Hakuryū.</p></div></div>
-        <div className="grid gap-4 sm:grid-cols-3">{atividade.map(({ rotulo, valor, icone: Icone }) => <Card key={rotulo} className="border-primary/20 bg-white/85"><CardContent className="flex items-center gap-4 p-5"><span className="rounded-full bg-primary/12 p-3 text-primary"><Icone className="h-5 w-5" /></span><div><p className="font-display text-3xl text-foreground">{valor}</p><p className="text-sm text-muted-foreground">{rotulo} participados</p></div></CardContent></Card>)}</div>
+        <div className="grid gap-4 sm:grid-cols-3">{atividade.map(({ rotulo, valor, icone: Icone }) => <Card key={rotulo} className="border-primary/20 bg-card/85"><CardContent className="flex items-center gap-4 p-5"><span className="rounded-full bg-primary/12 p-3 text-primary"><Icone className="h-5 w-5" /></span><div><p className="font-display text-3xl text-foreground">{valor}</p><p className="text-sm text-muted-foreground">{rotulo} participados</p></div></CardContent></Card>)}</div>
       </section>
 
       <section>
         <div className="mb-4 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Gang atual</p><p className="text-sm text-muted-foreground">Gangs às quais você ainda está vinculado no painel.</p></div></div>
-        {perfil.gangsAtuais.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAtuais.map((gang) => <CardGang key={gang.gangId} gang={gang} />)}</div> : <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">Você não está vinculado a nenhuma gang ativa no painel neste momento.</CardContent></Card>}
+        {perfil.gangsAtuais.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAtuais.map((gang) => <CardGang key={gang.gangId} gang={gang} />)}</div> : <Card className="border-dashed border-primary/30 bg-card/70"><CardContent className="p-6 text-sm text-muted-foreground">Você não está vinculado a nenhuma gang ativa no painel neste momento.</CardContent></Card>}
       </section>
 
       <section>
         <div className="mb-4 flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary" /><div><p className="font-display text-2xl text-foreground">Histórico de gangs</p><p className="text-sm text-muted-foreground">Registros de gangs das quais você já saiu no painel.</p></div></div>
-        {!perfil.historicoDisponivel ? <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">O histórico será ativado quando a migração do Perfil do Jogador for aplicada.</CardContent></Card> : perfil.gangsAnteriores.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAnteriores.map((gang) => <CardGang key={`${gang.gangId}-${gang.saiuEm}`} gang={gang} antiga />)}</div> : <Card className="border-dashed border-primary/30 bg-white/70"><CardContent className="p-6 text-sm text-muted-foreground">Nenhuma gang anterior registrada no painel.</CardContent></Card>}
+        {!perfil.historicoDisponivel ? <Card className="border-dashed border-primary/30 bg-card/70"><CardContent className="p-6 text-sm text-muted-foreground">O histórico será ativado quando a migração do Perfil do Jogador for aplicada.</CardContent></Card> : perfil.gangsAnteriores.length ? <div className="grid gap-4 md:grid-cols-2">{perfil.gangsAnteriores.map((gang) => <CardGang key={`${gang.gangId}-${gang.saiuEm}`} gang={gang} antiga />)}</div> : <Card className="border-dashed border-primary/30 bg-card/70"><CardContent className="p-6 text-sm text-muted-foreground">Nenhuma gang anterior registrada no painel.</CardContent></Card>}
       </section>
     </div>
   );

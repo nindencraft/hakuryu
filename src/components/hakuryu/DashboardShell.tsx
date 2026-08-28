@@ -275,7 +275,7 @@ function CenteredCard({ children }: { children: ReactNode }) {
       className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed px-4 py-10"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
-      <div className="card-gold relative z-10 w-full max-w-lg bg-white/95 p-8 text-center backdrop-blur-sm">
+      <div className="card-gold relative z-10 w-full max-w-lg bg-card/95 p-8 text-center backdrop-blur-sm">
         {children}
       </div>
     </div>
@@ -342,7 +342,7 @@ function BlockedScreen({ user, banido = false }: { user: SessionUserView; banido
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 sm:gap-7">
-        <header className="card-gold flex flex-col gap-5 bg-white/94 p-5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-7">
+        <header className="card-gold flex flex-col gap-5 bg-card/94 p-5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-7">
           <div className="flex min-w-0 items-center gap-4">
             <img
               src={user.avatarUrl}
@@ -363,7 +363,7 @@ function BlockedScreen({ user, banido = false }: { user: SessionUserView; banido
           </div>
         </header>
 
-        <section className="card-gold bg-white/94 p-5 text-left backdrop-blur-sm sm:p-7 lg:p-9">
+        <section className="card-gold bg-card/94 p-5 text-left backdrop-blur-sm sm:p-7 lg:p-9">
           <NoticiasRecentes permitirCriar />
         </section>
       </div>

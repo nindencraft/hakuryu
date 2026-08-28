@@ -75,7 +75,7 @@ export function VitrineExplorador({ servidores }: { servidores: ServidorExplorad
 
   return (
     <>
-      <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
         <div className="flex flex-wrap gap-2">
           {categorias.map((item) => (
             <Button key={item.valor} size="sm" variant={categoria === item.valor ? "default" : "outline"} onClick={() => setCategoria(item.valor)}>
@@ -90,7 +90,7 @@ export function VitrineExplorador({ servidores }: { servidores: ServidorExplorad
       </div>
 
       {visiveis.length === 0 ? (
-        <div className="card-gold border-dashed bg-white/70 p-9 text-center">
+        <div className="card-gold border-dashed bg-card/70 p-9 text-center">
           <Search className="mx-auto h-8 w-8 text-primary" />
           <h2 className="font-display mt-3 text-xl">Nenhum servidor encontrado</h2>
           <p className="mt-2 text-sm text-muted-foreground">Tente outra categoria, etiqueta ou palavra-chave.</p>
@@ -98,7 +98,7 @@ export function VitrineExplorador({ servidores }: { servidores: ServidorExplorad
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {visiveis.map((servidor) => (
-            <article key={servidor.id} className="card-gold relative flex overflow-hidden bg-white/95 p-0">
+            <article key={servidor.id} className="card-gold relative flex overflow-hidden bg-card/95 p-0">
               {podeExcluirServidorExploradorPublico({ discordId: sessao.data?.user?.id, isSuperOwner: sessao.data?.user?.isSuperOwner }, servidor.responsavelDiscordId) ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild><Button type="button" size="icon" variant="destructive" className="absolute right-3 top-3 z-10 h-8 w-8 rounded-full shadow-md" aria-label={`Excluir ${servidor.titulo}`}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
@@ -159,7 +159,7 @@ export function GestorMeuServidorExplorador() {
 
   return (
     <>
-      <section className="card-gold flex flex-col gap-4 bg-white/88 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <section className="card-gold flex flex-col gap-4 bg-card/88 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><FilePlus2 className="h-5 w-5 text-primary" /><h2 className="font-display text-xl">Seu servidor no Explorador</h2>{servidor ? <Badge variant={servidor.status === "aprovado" ? "default" : "outline"}>{statusLabel(servidor.status)}</Badge> : null}</div>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{servidor ? "Edite os dados, pause a publicação ou reenvie seu servidor para análise." : "Envie um Roleplay ou uma Comunidade para análise da administração Hakuryū."}</p>
@@ -202,5 +202,5 @@ export function ModeracaoExplorador() {
   const excluir = useAcao<{ id: number }>(excluirServidorExploradorAdmin, { sucesso: "Servidor removido do Explorador.", invalidar: [["servidores-explorador-admin"], ["servidores-explorador-publicos"]] });
   if (!sessao.data?.user?.isSuperOwner) return null;
   const pendentes = (fila.data ?? []).filter((servidor) => servidor.status === "pendente");
-  return <section className="space-y-4 border-t border-primary/20 pt-8"><div><p className="font-jp text-xs tracking-[0.2em] text-primary">ADMINISTRAÇÃO</p><h2 className="font-display mt-1 text-2xl">Fila do Explorador</h2><p className="mt-1 text-sm text-muted-foreground">Aprove, pause, recuse ou remova publicações enviadas pela comunidade.</p></div>{fila.isPending ? <Skeleton className="h-40 w-full" /> : null}{!fila.isPending && pendentes.length === 0 ? <p className="rounded-xl border border-dashed border-primary/25 bg-white/65 p-5 text-sm text-muted-foreground">Nenhum servidor aguardando análise.</p> : null}<div className="grid gap-4 lg:grid-cols-2">{pendentes.map((servidor) => <article key={servidor.id} className="card-gold bg-white/90 p-5"><div className="flex gap-3"><img src={servidor.responsavelAvatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" /><div className="min-w-0"><h3 className="font-display text-xl">{servidor.titulo}</h3><p className="text-xs text-muted-foreground">Enviado por {servidor.responsavelNome} em {formatarData(servidor.atualizadoEm)}</p></div></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{servidor.descricao}</p><Input className="mt-4" value={motivos[servidor.id] ?? ""} onChange={(event) => setMotivos({ ...motivos, [servidor.id]: event.target.value })} placeholder="Motivo para recusar (obrigatório apenas na recusa)" /><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => moderar.mutate({ id: servidor.id, status: "aprovado" })}><Check className="h-4 w-4" />Aprovar</Button><Button size="sm" variant="outline" onClick={() => moderar.mutate({ id: servidor.id, status: "pausado" })}><Pause className="h-4 w-4" />Pausar</Button><Button size="sm" variant="destructive" disabled={(motivos[servidor.id] ?? "").trim().length < 3} onClick={() => moderar.mutate({ id: servidor.id, status: "recusado", motivo: (motivos[servidor.id] ?? "").trim() })}><X className="h-4 w-4" />Recusar</Button><Button size="sm" variant="ghost" className="text-destructive" onClick={() => excluir.mutate({ id: servidor.id })}>Remover</Button></div></article>)}</div></section>;
+  return <section className="space-y-4 border-t border-primary/20 pt-8"><div><p className="font-jp text-xs tracking-[0.2em] text-primary">ADMINISTRAÇÃO</p><h2 className="font-display mt-1 text-2xl">Fila do Explorador</h2><p className="mt-1 text-sm text-muted-foreground">Aprove, pause, recuse ou remova publicações enviadas pela comunidade.</p></div>{fila.isPending ? <Skeleton className="h-40 w-full" /> : null}{!fila.isPending && pendentes.length === 0 ? <p className="rounded-xl border border-dashed border-primary/25 bg-card/65 p-5 text-sm text-muted-foreground">Nenhum servidor aguardando análise.</p> : null}<div className="grid gap-4 lg:grid-cols-2">{pendentes.map((servidor) => <article key={servidor.id} className="card-gold bg-card/90 p-5"><div className="flex gap-3"><img src={servidor.responsavelAvatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" /><div className="min-w-0"><h3 className="font-display text-xl">{servidor.titulo}</h3><p className="text-xs text-muted-foreground">Enviado por {servidor.responsavelNome} em {formatarData(servidor.atualizadoEm)}</p></div></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{servidor.descricao}</p><Input className="mt-4" value={motivos[servidor.id] ?? ""} onChange={(event) => setMotivos({ ...motivos, [servidor.id]: event.target.value })} placeholder="Motivo para recusar (obrigatório apenas na recusa)" /><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => moderar.mutate({ id: servidor.id, status: "aprovado" })}><Check className="h-4 w-4" />Aprovar</Button><Button size="sm" variant="outline" onClick={() => moderar.mutate({ id: servidor.id, status: "pausado" })}><Pause className="h-4 w-4" />Pausar</Button><Button size="sm" variant="destructive" disabled={(motivos[servidor.id] ?? "").trim().length < 3} onClick={() => moderar.mutate({ id: servidor.id, status: "recusado", motivo: (motivos[servidor.id] ?? "").trim() })}><X className="h-4 w-4" />Recusar</Button><Button size="sm" variant="ghost" className="text-destructive" onClick={() => excluir.mutate({ id: servidor.id })}>Remover</Button></div></article>)}</div></section>;
 }

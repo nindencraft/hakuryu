@@ -68,6 +68,7 @@ import {
   podeAdvertir,
   podeGerenciarMembros,
   podeAvaliarAtributos,
+  podeEditarFichaRPG,
   podeRevogarPunicao,
   podeVerRegistroPunicoes,
   parseCargos,
@@ -111,6 +112,7 @@ function Membros() {
   const podeAdicionar = podeAdicionarMembro(user);
   const podePunir = podeAdvertir(user) && (podeAplicarWarn(user) || podeAplicarBan(user));
   const podeVerRegistro = podeVerRegistroPunicoes(user);
+  const podeEditarFicha = podeEditarFichaRPG(user);
   const cargosPermitidos = cargosAtribuiveis(user);
   const { data: cargosPersonalizados = [] } = useQuery({
     ...cargosPainelPersonalizadosQuery,
@@ -250,7 +252,7 @@ function Membros() {
                               Histórico de atributos
                             </Button>
                           ) : null}
-                          {user?.isSuperOwner ? (
+                          {podeEditarFicha ? (
                             <Button size="sm" variant="outline" onClick={() => setEditandoFicha(m)}>
                               <Pencil />
                               Editar ficha RPG

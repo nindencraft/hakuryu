@@ -40,7 +40,7 @@ export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: Recrutam
   });
   if (recrutamentos.length === 0) {
     return (
-      <div className="card-gold border-dashed bg-white/70 p-8 text-center">
+      <div className="card-gold border-dashed bg-card/70 p-8 text-center">
         <UsersRound className="mx-auto h-8 w-8 text-primary" />
         <p className="font-display mt-3 text-xl text-foreground">Nenhuma gang recrutando por enquanto</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -53,7 +53,7 @@ export function VitrineRecrutamento({ recrutamentos }: { recrutamentos: Recrutam
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {recrutamentos.map((recrutamento) => (
-        <article key={recrutamento.gangId} className="card-gold relative overflow-hidden bg-white/95 p-0">
+        <article key={recrutamento.gangId} className="card-gold relative overflow-hidden bg-card/95 p-0">
           {podeExcluirRecrutamentoPublico({
             gangId: sessao.data?.gangId,
             isSuperOwner: sessao.data?.user?.isSuperOwner,
@@ -128,7 +128,7 @@ export function GestorMeuRecrutamento() {
 
   return (
     <>
-      <section className="card-gold flex flex-col gap-4 bg-white/88 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <section className="card-gold flex flex-col gap-4 bg-card/88 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Megaphone className="h-5 w-5 text-primary" />

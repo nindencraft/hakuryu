@@ -11,7 +11,20 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
+import { ThemeToggle } from "../components/hakuryu/ThemeToggle";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
+const THEME_BOOTSTRAP = `(() => {
+  try {
+    const salvo = window.localStorage.getItem("hakuryu-theme");
+    if (salvo === "dark") {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+  } catch {
+    // O tema padrão claro continua disponível quando o storage está bloqueado.
+  }
+})();`;
 
 function NotFoundComponent() {
   return (
@@ -78,8 +91,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "color-scheme", content: "light" },
-      { name: "supported-color-schemes", content: "light" },
+      { name: "color-scheme", content: "light dark" },
+      { name: "supported-color-schemes", content: "light dark" },
       { name: "author", content: "Hakuryū" },
     ],
     links: [
@@ -106,6 +119,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <HeadContent />
       </head>
       <body>
@@ -123,6 +137,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster richColors position="top-right" />
+      <ThemeToggle />
     </QueryClientProvider>
   );
 }

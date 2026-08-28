@@ -81,7 +81,7 @@ function CardAnuncio({
   aoExcluir: (anuncio: AnuncioComunidade) => void;
 }) {
   return (
-    <article className="card-gold group relative isolate h-full overflow-hidden bg-white/95 p-0">
+    <article className="card-gold group relative isolate h-full overflow-hidden bg-card/95 p-0">
       <img
         src={anuncio.imagemUrl}
         alt={`Divulgação: ${anuncio.titulo}`}
@@ -164,7 +164,7 @@ function FaixaAnuncios({
       </div>
 
       {anuncios.length === 0 ? (
-        <div className="card-gold border-dashed bg-white/70 p-6 text-center">
+        <div className="card-gold border-dashed bg-card/70 p-6 text-center">
           <p className="font-display text-lg text-foreground">
             Nenhuma divulgação ativa por enquanto
           </p>
@@ -267,7 +267,7 @@ function GestorAnuncios({
 
       {isSuperOwner && (admin.data ?? []).some((anuncio) => !anuncio.ativo) ? (
         <section
-          className="card-gold mt-12 bg-white/90 p-5 sm:p-6"
+          className="card-gold mt-12 bg-card/90 p-5 sm:p-6"
           aria-labelledby="anuncios-ocultos"
         >
           <div className="flex items-center gap-3">
