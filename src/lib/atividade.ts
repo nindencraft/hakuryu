@@ -1,5 +1,14 @@
 import type { StatusAtividade } from "./types";
 
+export function normalizarDataEvento(valor: string | null | undefined): string {
+  const texto = (valor ?? "").trim();
+  if (!texto) return "";
+  const iso = texto.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (iso) return iso;
+  const brasileiro = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return brasileiro ? `${brasileiro[3]}-${brasileiro[2]}-${brasileiro[1]}` : "";
+}
+
 export const ESTADO_ATIVIDADE: Record<StatusAtividade, { icone: string; classe: string }> = {
   Presente: { icone: "🟢", classe: "emerald" },
   Ausente: { icone: "🔴", classe: "red" },

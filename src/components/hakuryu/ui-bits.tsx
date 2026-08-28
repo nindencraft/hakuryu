@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { discordAvatarUrl } from "@/lib/permissions";
+import {
+  discordAvatarUrl,
+  discordDefaultAvatarUrl,
+  discordGuildAvatarUrl,
+} from "@/lib/permissions";
 
 export function GoldRule({ className }: { className?: string }) {
   return <div className={cn("rule-gold my-6", className)} aria-hidden />;
@@ -71,23 +75,43 @@ export function StatCard({
 export function MemberAvatar({
   discordId,
   avatarHash,
+  guildId,
   size = 48,
   alt,
 }: {
   discordId: string;
   avatarHash: string | null | undefined;
+  guildId?: string | null | undefined;
   size?: number;
   alt: string;
 }) {
+  const avatarGlobal = discordAvatarUrl(discordId, avatarHash, 128);
+  const avatarGuild = discordGuildAvatarUrl(guildId, discordId, avatarHash, 128);
+  const avatarFallback = discordDefaultAvatarUrl(discordId);
+
   return (
     <img
-      src={discordAvatarUrl(discordId, avatarHash, 128)}
+      key={`${discordId}:${avatarHash ?? ""}:${guildId ?? ""}`}
+      src={avatarGlobal}
       alt={alt}
       width={size}
       height={size}
       loading="lazy"
       className="ring-gold shrink-0 rounded-full object-cover"
       style={{ width: size, height: size }}
+      onError={(evento) => {
+        const imagem = evento.currentTarget;
+        const atual = imagem.dataset["fallbackStage"] ?? "global";
+        if (atual === "global" && avatarGuild && avatarGuild !== avatarGlobal) {
+          imagem.dataset["fallbackStage"] = "guild";
+          imagem.src = avatarGuild;
+          return;
+        }
+        if (atual !== "default") {
+          imagem.dataset["fallbackStage"] = "default";
+          imagem.src = avatarFallback;
+        }
+      }}
     />
   );
 }

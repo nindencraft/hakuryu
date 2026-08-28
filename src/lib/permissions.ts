@@ -9,6 +9,8 @@ export type SessionUserView = {
   nomeRp: string | null;
   permissoes: string[];
   cargosAtribuiveis: string[];
+  /** Guild ativa da sessão, usada para resolver avatares específicos do servidor. */
+  guildId?: string | null;
 };
 
 export const CARGOS_PERMITIDOS = [
@@ -217,8 +219,37 @@ export function nomeExibicao(user: SessionUserView): string {
   return user.nomeRp || user.globalName || user.username;
 }
 
+function extensaoAvatarDiscord(avatarHash: string): "gif" | "png" {
+  return avatarHash.startsWith("a_") ? "gif" : "png";
+}
+
+export function discordDefaultAvatarUrl(discordId: string): string {
+  let indice = 0;
+  try {
+    indice = Number(BigInt(discordId) % 5n);
+  } catch {
+    indice = 0;
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${indice}.png`;
+}
+
 export function discordAvatarUrl(discordId: string, avatarHash: string | null | undefined, size = 128): string {
-  return avatarHash ? `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.png?size=${size}` : "https://cdn.discordapp.com/embed/avatars/0.png";
+  if (!avatarHash) return discordDefaultAvatarUrl(discordId);
+  if (avatarHash.startsWith("http://") || avatarHash.startsWith("https://")) return avatarHash;
+  const extensao = extensaoAvatarDiscord(avatarHash);
+  return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.${extensao}?size=${size}`;
+}
+
+/** URL de avatar personalizado no servidor quando o hash veio de Guild Member.avatar. */
+export function discordGuildAvatarUrl(
+  guildId: string | null | undefined,
+  discordId: string,
+  avatarHash: string | null | undefined,
+  size = 128,
+): string | null {
+  if (!guildId || !avatarHash || avatarHash.startsWith("http://") || avatarHash.startsWith("https://")) return null;
+  const extensao = extensaoAvatarDiscord(avatarHash);
+  return `https://cdn.discordapp.com/guilds/${guildId}/users/${discordId}/avatars/${avatarHash}.${extensao}?size=${size}`;
 }
 
 export function cargoPrincipal(user: SessionUserView | null): string | null {

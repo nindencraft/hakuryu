@@ -227,6 +227,7 @@ function Aliancas() {
                       podeGuerra={podeGuerra}
                       podeAmistoso={podeAmistoso}
                       registrada={porGuild.get(p.tag ?? "")}
+                      guildId={user?.guildId}
                       onSolicitar={(tipo, gangId) => setSolicitando({ gang: { id: gangId, nome: p.nome }, tipo })}
                       onEditar={() => setEditando(paraForm(p))}
                       onDeletar={() => setDeletando(p)}
@@ -279,6 +280,7 @@ function AliancaCard({
   podeGuerra,
   podeAmistoso,
   registrada,
+  guildId,
   onSolicitar,
   onEditar,
   onDeletar,
@@ -289,6 +291,7 @@ function AliancaCard({
   podeGuerra: boolean;
   podeAmistoso: boolean;
   registrada?: GangRegistrada | undefined;
+  guildId?: string | null | undefined;
   onSolicitar: (tipo: string, gangId: number) => void;
   onEditar: () => void;
   onDeletar: () => void;
@@ -345,6 +348,7 @@ function AliancaCard({
               <MemberAvatar
                 discordId={p.representante_id}
                 avatarHash={p.representante_avatar}
+                guildId={guildId}
                 size={28}
                 alt={`Avatar de ${p.representante_nome ?? p.representante_id}`}
               />

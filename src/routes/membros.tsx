@@ -182,6 +182,7 @@ function Membros() {
                   <MemberAvatar
                     discordId={m.discord_id}
                     avatarHash={m.avatar_hash}
+                    guildId={user?.guildId}
                     alt={`Avatar de ${m.discord_username ?? m.discord_id}`}
                   />
                   <div className="min-w-0 flex-1">
@@ -438,6 +439,7 @@ type ResultadoBuscaDiscord = {
 };
 
 function CadastrarMembroDialog({ aberto, onClose }: { aberto: boolean; onClose: () => void }) {
+  const user = useSessionUser();
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState("");
   const [resultados, setResultados] = useState<ResultadoBuscaDiscord[]>([]);
@@ -492,7 +494,7 @@ function CadastrarMembroDialog({ aberto, onClose }: { aberto: boolean; onClose: 
             <Button type="button" variant="outline" disabled={buscando} onClick={() => void pesquisar()}>{buscando ? "Buscando..." : "Buscar"}</Button>
           </div>
           {erro ? <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{erro}</p> : null}
-          {resultados.length ? <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">{resultados.map((membro) => <li key={membro.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3"><MemberAvatar discordId={membro.id} avatarHash={membro.avatarHash} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{membro.nick || membro.globalName || membro.username}</p><p className="truncate text-sm text-muted-foreground">@{membro.username} · {membro.id}</p></div><Button size="sm" disabled={membro.jaCadastrado || adicionandoId === membro.id} onClick={() => void cadastrar(membro.id)}>{membro.jaCadastrado ? "Já cadastrado" : adicionandoId === membro.id ? "Adicionando..." : "Adicionar"}</Button></li>)}</ul> : !buscando && busca.trim().length >= 2 ? <p className="text-sm text-muted-foreground">Nenhuma pessoa encontrada no servidor Discord.</p> : null}
+          {resultados.length ? <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">{resultados.map((membro) => <li key={membro.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3"><MemberAvatar discordId={membro.id} avatarHash={membro.avatarHash} guildId={user?.guildId} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{membro.nick || membro.globalName || membro.username}</p><p className="truncate text-sm text-muted-foreground">@{membro.username} · {membro.id}</p></div><Button size="sm" disabled={membro.jaCadastrado || adicionandoId === membro.id} onClick={() => void cadastrar(membro.id)}>{membro.jaCadastrado ? "Já cadastrado" : adicionandoId === membro.id ? "Adicionando..." : "Adicionar"}</Button></li>)}</ul> : !buscando && busca.trim().length >= 2 ? <p className="text-sm text-muted-foreground">Nenhuma pessoa encontrada no servidor Discord.</p> : null}
         </div>
         <DialogFooter><Button variant="ghost" onClick={onClose}>Fechar</Button></DialogFooter>
       </DialogContent>

@@ -164,12 +164,14 @@ function Divisoes() {
                   id={d.lider_id}
                   nome={d.lider_nome ?? d.lider_discord}
                   avatarHash={d.lider_avatar}
+                  guildId={user?.guildId}
                 />
                 <LiderancaLinha
                   rotulo="Vice-Capitão"
                   id={d.vice_lider_id}
                   nome={d.vice_nome ?? d.vice_discord}
                   avatarHash={d.vice_avatar}
+                  guildId={user?.guildId}
                 />
               </div>
 
@@ -192,6 +194,7 @@ function Divisoes() {
                           <MemberAvatar
                             discordId={m.discord_id}
                             avatarHash={m.avatar_hash}
+                            guildId={user?.guildId}
                             size={24}
                             alt=""
                           />
@@ -269,18 +272,20 @@ function LiderancaLinha({
   id,
   nome,
   avatarHash,
+  guildId,
 }: {
   rotulo: string;
   id: string | null;
   nome: string | null;
   avatarHash: string | null;
+  guildId?: string | null | undefined;
 }) {
   return (
     <div>
       <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">{rotulo}</p>
       <div className="mt-1 flex items-center gap-2">
         {id ? (
-          <MemberAvatar discordId={id} avatarHash={avatarHash} size={32} alt="" />
+          <MemberAvatar discordId={id} avatarHash={avatarHash} guildId={guildId} size={32} alt="" />
         ) : null}
         <span className="truncate text-sm">{nome ?? "—"}</span>
       </div>

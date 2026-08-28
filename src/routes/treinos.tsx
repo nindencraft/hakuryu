@@ -507,6 +507,7 @@ function CriarTreinoDialog({ open, onClose }: { open: boolean; onClose: () => vo
 }
 
 function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: () => void }) {
+  const user = useSessionUser();
   const { data, isPending } = useQuery({
     queryKey: ["presencas", treino?.id_treino],
     queryFn: () => fetchPresencas({ data: { treinoId: treino!.id_treino } }),
@@ -549,6 +550,7 @@ function PresencaDialog({ treino, onClose }: { treino: Treino | null; onClose: (
                 <MemberAvatar
                   discordId={p.membro_id}
                   avatarHash={p.avatar_hash}
+                  guildId={user?.guildId}
                   size={36}
                   alt={`Avatar de ${p.discord_username ?? p.membro_id}`}
                 />

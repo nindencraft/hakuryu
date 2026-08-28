@@ -145,7 +145,7 @@ function Atividade() {
               <EmptyState title="Nenhum registro no período" description="Os registros aparecem depois que os eventos são encerrados." />
             ) : (
               <ul className="grid gap-3 lg:grid-cols-2">
-                {resumos.map((resumo) => <ResumoCard key={resumo.membro_id} resumo={resumo} />)}
+                {resumos.map((resumo) => <ResumoCard key={resumo.membro_id} resumo={resumo} guildId={user?.guildId} />)}
               </ul>
             )}
           </section>
@@ -156,7 +156,7 @@ function Atividade() {
               <EmptyState title="Sem eventos encerrados" description="Encerre um treino para consolidar as presenças e ausências na atividade." />
             ) : (
               <ul className="grid gap-3 lg:grid-cols-2">
-                {registros.map((registro) => <RegistroCard key={`${registro.treino_id}-${registro.membro_id}`} registro={registro} />)}
+                {registros.map((registro) => <RegistroCard key={`${registro.treino_id}-${registro.membro_id}`} registro={registro} guildId={user?.guildId} />)}
               </ul>
             )}
           </section>
@@ -170,11 +170,11 @@ function Atividade() {
   );
 }
 
-function ResumoCard({ resumo }: { resumo: ResumoAtividade }) {
+function ResumoCard({ resumo, guildId }: { resumo: ResumoAtividade; guildId?: string | null | undefined }) {
   return (
     <li className={`rounded-lg border p-4 ${resumo.inativo ? "border-red-500/50 bg-red-500/10" : "border-border bg-card"}`}>
       <div className="flex items-center gap-3">
-        <MemberAvatar discordId={resumo.membro_id} avatarHash={resumo.avatar_hash} size={42} alt={`Avatar de ${resumo.discord_username ?? resumo.membro_id}`} />
+        <MemberAvatar discordId={resumo.membro_id} avatarHash={resumo.avatar_hash} guildId={guildId} size={42} alt={`Avatar de ${resumo.discord_username ?? resumo.membro_id}`} />
         <div className="min-w-0 flex-1"><p className="truncate font-semibold">{resumo.nome_rp || resumo.discord_username || resumo.membro_id}</p><p className="text-xs text-muted-foreground">{resumo.percentual_presenca}% de participação no período</p></div>
         {resumo.inativo ? <Badge variant="destructive">Inativo</Badge> : <Badge variant="secondary">Regular</Badge>}
       </div>
@@ -187,12 +187,12 @@ function ResumoCard({ resumo }: { resumo: ResumoAtividade }) {
   );
 }
 
-function RegistroCard({ registro }: { registro: RegistroAtividade }) {
+function RegistroCard({ registro, guildId }: { registro: RegistroAtividade; guildId?: string | null | undefined }) {
   const estilo = registro.status === "Presente" ? "border-emerald-500/60 bg-emerald-500/10" : registro.status === "Justificado" ? "border-amber-500/60 bg-amber-500/10" : "border-red-500/60 bg-red-500/10";
   const icone = ESTADO_ATIVIDADE[registro.status].icone;
   return (
     <li className={`rounded-lg border p-4 ${estilo}`}>
-      <div className="flex items-center gap-3"><MemberAvatar discordId={registro.membro_id} avatarHash={registro.avatar_hash} size={40} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{registro.nome_rp || registro.discord_username || registro.membro_id}</p><p className="text-xs text-muted-foreground">{registro.titulo_evento} · {formatarData(registro.data_evento)}</p></div><span className="text-xl" aria-label={registro.status}>{icone}</span></div>
+      <div className="flex items-center gap-3"><MemberAvatar discordId={registro.membro_id} avatarHash={registro.avatar_hash} guildId={guildId} size={40} alt="" /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{registro.nome_rp || registro.discord_username || registro.membro_id}</p><p className="text-xs text-muted-foreground">{registro.titulo_evento} · {formatarData(registro.data_evento)}</p></div><span className="text-xl" aria-label={registro.status}>{icone}</span></div>
       <div className="mt-3 flex items-center justify-between gap-2"><Badge variant="outline">{registro.tipo_evento}</Badge><span className="text-sm font-medium">{registro.status}</span></div>
       {registro.justificativa ? <p className="mt-3 text-sm text-muted-foreground"><strong>Motivo:</strong> {registro.justificativa} ({registro.justificativa_status})</p> : null}
     </li>

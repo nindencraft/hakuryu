@@ -155,8 +155,10 @@ export const getSession = createServerFn({ method: "GET" }).handler(
         isSuperOwner: user.isSuperOwner,
         nomeRp: user.nomeRp,
         permissoes: user.permissoes,
-      cargosAtribuiveis: user.cargosAtribuiveis,
+              cargosAtribuiveis: user.cargosAtribuiveis,
+        guildId: user.guildId,
       },
+
     };
   },
 );

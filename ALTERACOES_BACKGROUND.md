@@ -25,3 +25,11 @@ A correção vale para o tema claro e para o escuro, em desktop e mobile. TypeSc
 ## Correção da rolagem do dashboard
 
 O shell autenticado agora ocupa a altura dinâmica da viewport (`h-dvh`) e bloqueia a rolagem do wrapper externo. A sidebar desktop permanece em uma coluna fixa com rolagem própria, enquanto a área principal recebe `overflow-y-auto` e `overscroll-contain`. Dessa forma, ao descer a página, a lateral não acompanha o conteúdo nem termina no meio da viewport. No mobile, o conteúdo continua rolando normalmente e o drawer permanece controlado pelo Sheet.
+
+## Correções de avatares e datas em Atividade
+
+Os avatares agora suportam hashes estáticos e animados do Discord, tentam primeiro a URL global, depois a URL de avatar específico da guild ativa e finalmente exibem o avatar padrão correspondente ao ID. Isso evita imagens quebradas quando o hash armazenado veio de `Guild Member.avatar` ou quando o membro não possui avatar personalizado.
+
+A página Atividade agora usa a data do próprio evento (`treinos.data_treino`), normalizada para `YYYY-MM-DD`, como fonte da data exibida, filtrada e ordenada. A data de avaliação ou criação do registro de presença não é usada como data do evento.
+
+Validação final: TypeScript aprovado, 20 arquivos de teste aprovados com 59 testes e build de produção concluído.

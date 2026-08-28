@@ -33,6 +33,7 @@ import { buscarFichaRPG, encerrarHistoricoDeMembro } from "./perfil.server";
 import { normalizarFichaRPG, type FichaRPGInput } from "./perfil";
 import { encontrarParceriaDuplicada } from "./parcerias";
 import { contarInscricoesConfirmadas } from "./presenca";
+import { normalizarDataEvento } from "./atividade";
 import {
   TIPO_TREINO_OPCOES,
   normalizarTiposTreino,
@@ -1560,7 +1561,8 @@ export async function loadAtividade(user: SessionUser, filtro: FiltroAtividade) 
         membro_id: linha.membro_id,
         titulo_evento: evento?.titulo ?? "Evento removido",
         tipo_evento: evento?.tipo === "Amistoso" || evento?.tipo === "Guerra" ? evento.tipo : "Treino",
-        data_evento: evento?.data_treino ?? "",
+        // A atividade deve refletir quando o evento ocorreu, não quando a presença foi avaliada ou registrada.
+        data_evento: normalizarDataEvento(evento?.data_treino),
         status: (linha.presenca ?? "Pendente") as RegistroAtividade["status"],
         justificativa: linha.justificativa,
         justificativa_status: linha.justificativa_status ?? "Nenhuma",
