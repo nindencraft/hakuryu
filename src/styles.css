@@ -17,15 +17,13 @@
 
 /* A sidebar precisa ser uma superfície própria: a arte nunca pode vazar para o conteúdo. */
 .hakuryu-sidebar-surface {
-  position: relative;
-  isolation: isolate;
   background-color: var(--color-sidebar) !important;
   background-clip: padding-box;
   opacity: 1 !important;
 }
 
 .hakuryu-mobile-drawer {
-  isolation: isolate;
+  position: fixed !important;
   background-color: var(--color-sidebar) !important;
   background-clip: padding-box;
   opacity: 1 !important;
