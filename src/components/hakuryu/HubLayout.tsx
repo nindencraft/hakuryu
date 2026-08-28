@@ -14,7 +14,7 @@ type AbaHub = "inicio" | "noticias" | "recrutamento" | "explorar" | "perfil";
 export function FundoHub({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
+      className="hakuryu-page-backdrop min-h-screen bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
       style={{ backgroundImage: `url(${mainBgAsset.url})` }}
     >
       <div className="min-h-screen bg-background/62">{children}</div>
@@ -38,7 +38,7 @@ export function TelaHubCarregando() {
 export function TelaHubLogin({ erro }: { erro?: string }) {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
+      className="hakuryu-page-backdrop flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <section className="card-gold w-full max-w-lg bg-card/95 p-8 text-center backdrop-blur-sm sm:p-10">

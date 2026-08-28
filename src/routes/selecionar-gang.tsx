@@ -61,7 +61,7 @@ function SelecionarGangPage() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
+      className="hakuryu-page-backdrop flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll px-4 py-10 lg:bg-fixed"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <div className="card-gold relative z-10 w-full max-w-xl bg-card/95 p-8 backdrop-blur-sm">

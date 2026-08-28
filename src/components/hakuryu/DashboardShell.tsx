@@ -272,7 +272,7 @@ function SidebarBody({
 function CenteredCard({ children }: { children: ReactNode }) {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed px-4 py-10"
+      className="hakuryu-page-backdrop flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed px-4 py-10"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <div className="card-gold relative z-10 w-full max-w-lg bg-card/95 p-8 text-center backdrop-blur-sm">
@@ -338,7 +338,7 @@ function SetupScreen({ faltando }: { faltando: string[] }) {
 function BlockedScreen({ user, banido = false }: { user: SessionUserView; banido?: boolean }) {
   return (
     <div
-      className="flex min-h-screen bg-cover bg-center bg-no-repeat bg-scroll px-4 py-6 sm:px-8 sm:py-10 lg:bg-fixed"
+      className="hakuryu-page-backdrop flex min-h-screen bg-cover bg-center bg-no-repeat bg-scroll px-4 py-6 sm:px-8 sm:py-10 lg:bg-fixed"
       style={{ backgroundImage: `url(${bgAsset.url})` }}
     >
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 sm:gap-7">
@@ -430,7 +430,7 @@ export function DashboardShell({
     <div className="washi min-h-screen">
       <div className="relative z-10 flex w-full">
         <aside
-          className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
+          className="hakuryu-sidebar-backdrop sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
           style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
         >
           <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
@@ -440,7 +440,7 @@ export function DashboardShell({
         </aside>
 
         <div
-          className="relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
+          className="hakuryu-page-backdrop relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
           style={{ backgroundImage: `url(${mainBgAsset.url})` }}
         >
           <div className="absolute inset-0 bg-background/55 pointer-events-none" />
@@ -454,7 +454,7 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="hakuryu-sidebar-backdrop z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                 >
                   <img
                     src={sidebarBgAsset.url}

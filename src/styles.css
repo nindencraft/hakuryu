@@ -9,6 +9,33 @@
   color-scheme: light;
 }
 
+/* Fundos escuros dedicados: o CSS troca a arte sem sobrescrever o tema claro. */
+.hakuryu-page-backdrop {
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+.dark .hakuryu-page-backdrop {
+  background-image: url("./assets/hakuryu-dark-bg-desktop.png") !important;
+  background-position: center top;
+  background-size: cover;
+}
+
+.dark .hakuryu-sidebar-backdrop {
+  background-image: url("./assets/hakuryu-dark-bg-sidebar.png") !important;
+  background-position: center top;
+  background-size: cover;
+}
+
+@media (max-width: 767px) {
+  .dark .hakuryu-page-backdrop {
+    background-image: url("./assets/hakuryu-dark-bg-mobile.png") !important;
+    background-position: center top;
+    background-size: cover;
+    background-attachment: scroll;
+  }
+}
+
 /*
  * Hakuryū (白竜) design system — dragão branco com detalhes dourados.
  * Paleta: marfim, dourado, cinzas. Sem vermelho.
