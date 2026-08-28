@@ -451,7 +451,7 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop hakuryu-mobile-drawer z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop hakuryu-mobile-drawer fixed z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                   style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
                 >
                   <div className="relative z-10 flex min-h-full flex-col">
