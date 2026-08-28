@@ -427,10 +427,10 @@ export function DashboardShell({
   const user = data.user;
 
   return (
-    <div className="washi min-h-screen">
-      <div className="relative z-10 flex w-full">
+    <div className="washi h-dvh overflow-hidden">
+      <div className="relative z-10 flex h-full min-h-0 w-full">
         <aside
-          className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
+          className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop hidden h-full w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
           style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
         >
           <div className="absolute inset-0 z-0 bg-sidebar/30 pointer-events-none" />
@@ -440,7 +440,7 @@ export function DashboardShell({
         </aside>
 
         <div
-          className="hakuryu-page-backdrop relative min-w-0 flex-1 bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
+          className="hakuryu-page-backdrop relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-cover bg-center bg-no-repeat bg-scroll lg:bg-fixed"
           style={{ backgroundImage: `url(${mainBgAsset.url})` }}
         >
           <div className="absolute inset-0 bg-background/55 pointer-events-none" />
