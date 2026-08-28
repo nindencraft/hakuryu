@@ -15,6 +15,14 @@
   background-repeat: no-repeat;
 }
 
+/* A sidebar precisa ser uma superfície própria: a arte nunca pode vazar para o conteúdo. */
+.hakuryu-sidebar-surface {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-sidebar) !important;
+  background-clip: padding-box;
+}
+
 .dark .hakuryu-page-backdrop {
   background-image: url("./assets/hakuryu-dark-bg-desktop.png") !important;
   background-position: center top;
@@ -25,6 +33,11 @@
   background-image: url("./assets/hakuryu-dark-bg-sidebar.png") !important;
   background-position: center top;
   background-size: cover;
+}
+
+.hakuryu-sidebar-surface > * {
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 767px) {

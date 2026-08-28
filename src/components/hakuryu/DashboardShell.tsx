@@ -430,10 +430,10 @@ export function DashboardShell({
     <div className="washi min-h-screen">
       <div className="relative z-10 flex w-full">
         <aside
-          className="hakuryu-sidebar-backdrop sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
+          className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar bg-cover bg-center bg-no-repeat px-4 py-2 lg:flex relative"
           style={{ backgroundImage: `url(${sidebarBgAsset.url})` }}
         >
-          <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" />
+          <div className="absolute inset-0 z-0 bg-sidebar/30 pointer-events-none" />
           <div className="relative z-10 flex h-full flex-col">
             <SidebarBody user={user} gangNome={data.gangNome} gangId={data.gangId} />
           </div>
@@ -454,14 +454,8 @@ export function DashboardShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="hakuryu-sidebar-backdrop z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
+                  className="hakuryu-sidebar-surface hakuryu-sidebar-backdrop z-50 w-[88vw] max-w-sm overflow-y-auto bg-sidebar px-4 py-2 text-sidebar-foreground"
                 >
-                  <img
-                    src={sidebarBgAsset.url}
-                    alt=""
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
-                  />
                   <div className="relative z-10 flex min-h-full flex-col">
                     <SheetTitle className="sr-only">Navegação</SheetTitle>
                     <SidebarBody
