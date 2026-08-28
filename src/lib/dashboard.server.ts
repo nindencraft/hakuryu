@@ -1151,6 +1151,32 @@ export async function removerMembro(user: SessionUser, input: { membroId: string
 
 /* ========== Escrita: treinos ========== */
 
+export type CargoMencionavel = { discordRoleId: string; nome: string };
+
+/** Cargos configurados no painel (padrão + personalizados) que podem ser marcados no aviso do treino. */
+export async function loadCargosMencionaveis(user: SessionUser): Promise<CargoMencionavel[]> {
+  const gangId = gid(user);
+  const { mapaCargos } = await import("./cargos.server");
+  const { listarCargosPainel } = await import("./cargos-painel.server");
+  const [mapa, personalizados] = await Promise.all([
+    mapaCargos(gangId),
+    listarCargosPainel(gangId),
+  ]);
+  const lista: CargoMencionavel[] = [];
+  const vistos = new Set<string>();
+  for (const [nome, discordRoleId] of mapa.porCargo.entries()) {
+    if (!discordRoleId || vistos.has(discordRoleId)) continue;
+    vistos.add(discordRoleId);
+    lista.push({ discordRoleId, nome });
+  }
+  for (const cargo of personalizados) {
+    if (!cargo.discordRoleId || vistos.has(cargo.discordRoleId)) continue;
+    vistos.add(cargo.discordRoleId);
+    lista.push({ discordRoleId: cargo.discordRoleId, nome: cargo.nome });
+  }
+  return lista;
+}
+
 export async function criarTreino(
   user: SessionUser,
   input: {
@@ -1163,16 +1189,25 @@ export async function criarTreino(
     link_servidor_privado?: string;
     divisao_responsavel: string;
     aliado?: string;
+    mencionar_cargo?: boolean;
+    mencao_role_id?: string | null;
   },
 ) {
   assert(podeAgendarTreino(user), "Você não possui a permissão Treino: agendar.");
   const tipos = normalizarTiposTreino(input.tipos);
   assert(tipos.length > 0, "Selecione ao menos um tipo de treino.");
   const db = getDb();
-  const { mapaCargos } = await import("./cargos.server");
-  const roleIdMembro = (await mapaCargos(gid(user))).porCargo.get("Membro");
-  if (!roleIdMembro) {
-    throw new Error("Configure o ID Discord do cargo Membro antes de criar um treino.");
+  const mencionar = input.mencionar_cargo !== false;
+  let roleIdMencao: string | null = null;
+  if (mencionar) {
+    const idPedido = (input.mencao_role_id ?? "").replace(/\D/g, "");
+    const disponiveis = await loadCargosMencionaveis(user);
+    roleIdMencao =
+      disponiveis.find((c) => c.discordRoleId === idPedido)?.discordRoleId ?? null;
+    assert(
+      Boolean(roleIdMencao),
+      "Selecione um cargo válido do painel para marcar, ou desative a marcação.",
+    );
   }
   const linkServidorPrivado = normalizarLinkEvento(
     input.link_servidor_privado,
